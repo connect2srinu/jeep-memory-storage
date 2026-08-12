@@ -1,0 +1,6 @@
+google-adk[gcp]>=2.0.0,<3.0.0
+google-cloud-aiplatform[agent_engines,adk]>=1.112.0,<3.0.0
+python-dotenv>=1.0.1,<2.0.0
+pytest>=8.3,<10
+pytest-asyncio>=0.25,<2
+

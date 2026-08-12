@@ -1,0 +1,133 @@
+<mxfile host="app.diagrams.net" modified="2026-08-12T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" pages="4">
+  <diagram id="read-resolve" name="1. Read and Resolve">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Agent Memory — Read and Resolve Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#17365D;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="720" height="40" as="geometry"/></mxCell>
+        <mxCell id="u" value="User request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="105" width="150" height="60" as="geometry"/></mxCell>
+        <mxCell id="agent" value="ADK Grocery Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="240" y="105" width="180" height="60" as="geometry"/></mxCell>
+        <mxCell id="tool" value="get_effective_preferences" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="470" y="105" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="identity" value="Native ToolContext identity&#xa;user_id + session_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1"><mxGeometry x="740" y="105" width="200" height="60" as="geometry"/></mxCell>
+        <mxCell id="context" value="PreferenceContextService&#xa;parallel source loading" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1000" y="105" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="session" value="Managed Session State&#xa;SESSION_OVERRIDE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1"><mxGeometry x="820" y="255" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="profile" value="Explicit Profile Service&#xa;EXPLICIT_PROFILE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="1"><mxGeometry x="1080" y="255" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="memory" value="Agent Platform Memory Bank&#xa;LONG_TERM_MEMORY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1"><mxGeometry x="1340" y="255" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="defaults" value="Application Defaults&#xa;DEFAULT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="560" y="255" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="normalize" value="Normalize to Preference records&#xa;domain • confidence • timestamps • provenance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;" vertex="1" parent="1"><mxGeometry x="740" y="415" width="420" height="75" as="geometry"/></mxCell>
+        <mxCell id="resolver" value="Pure PreferenceResolver&#xa;SESSION &gt; PROFILE &gt; MEMORY &gt; DEFAULT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="740" y="555" width="420" height="80" as="geometry"/></mxCell>
+        <mxCell id="effective" value="EffectivePreferenceContext&#xa;resolved values + sources + warnings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="520" y="715" width="300" height="75" as="geometry"/></mxCell>
+        <mxCell id="gemini" value="Gemini formats response&#xa;does not choose precedence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="900" y="715" width="300" height="75" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="u" target="agent"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="agent" target="tool"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="tool" target="identity"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="identity" target="context"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="session"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="async" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="profile"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="async, exact scope" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="memory"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="defaults" target="normalize"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="session" target="normalize"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="profile" target="normalize"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="memory" target="normalize"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="normalize" target="resolver"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="resolver" target="effective"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="effective" target="gemini"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="session-override" name="2. Session Override">
+    <mxGraphModel dx="1500" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Temporary Preference — Session Override Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=24;fontStyle=1;fontColor=#17365D;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="760" height="40" as="geometry"/></mxCell>
+        <mxCell id="u" value="User: For today's order,&#xa;substitutions are okay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="50" y="125" width="220" height="75" as="geometry"/></mxCell>
+        <mxCell id="agent" value="ADK agent calls&#xa;process_preference_statement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="1"><mxGeometry x="330" y="125" width="230" height="75" as="geometry"/></mxCell>
+        <mxCell id="extract" value="Controlled extractor&#xa;temporal phrase → SESSION" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="620" y="125" width="230" height="75" as="geometry"/></mxCell>
+        <mxCell id="allow" value="Allowlisted key?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="920" y="115" width="160" height="95" as="geometry"/></mxCell>
+        <mxCell id="reject" value="Reject unsupported key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;" vertex="1" parent="1"><mxGeometry x="1160" y="65" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="set" value="set_session_preference&#xa;assign preferences:&lt;domain&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1150" y="180" width="230" height="75" as="geometry"/></mxCell>
+        <mxCell id="delta" value="ADK event state_delta&#xa;managed Sessions persists update" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1"><mxGeometry x="900" y="340" width="260" height="75" as="geometry"/></mxCell>
+        <mxCell id="nomem" value="Memory Bank is NOT written" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;dashed=1;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1210" y="350" width="230" height="55" as="geometry"/></mxCell>
+        <mxCell id="reload" value="Reload effective preferences&#xa;in the same session" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="610" y="340" width="230" height="75" as="geometry"/></mxCell>
+        <mxCell id="resolve" value="Resolver selects SESSION_OVERRIDE&#xa;for this key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="320" y="340" width="240" height="75" as="geometry"/></mxCell>
+        <mxCell id="answer" value="Response labels value&#xa;Current Session" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1"><mxGeometry x="50" y="340" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="new" value="New session" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="460" y="585" width="170" height="55" as="geometry"/></mxCell>
+        <mxCell id="gone" value="Override absent&#xa;profile/memory/default applies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;" vertex="1" parent="1"><mxGeometry x="750" y="575" width="250" height="75" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="u" target="agent"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="agent" target="extract"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="extract" target="allow"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="No" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="allow" target="reject"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="Yes" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="allow" target="set"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="set" target="delta"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="no write" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=open;endFill=0;" edge="1" parent="1" source="set" target="nomem"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="delta" target="reload"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="reload" target="resolve"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="resolve" target="answer"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="session ends" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="answer" target="new"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="new" target="gone"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="long-term" name="3. Long-Term Memory">
+    <mxGraphModel dx="1550" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1550" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Durable Preference — Memory Bank Promotion and Recall" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=24;fontStyle=1;fontColor=#17365D;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="830" height="40" as="geometry"/></mxCell>
+        <mxCell id="u" value="User: I always prefer&#xa;organic produce" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="210" height="75" as="geometry"/></mxCell>
+        <mxCell id="extract" value="Candidate extractor&#xa;durable phrase → USER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="310" y="120" width="220" height="75" as="geometry"/></mxCell>
+        <mxCell id="policy" value="Allowlist + scope +&#xa;confidence checks" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="600" y="110" width="190" height="95" as="geometry"/></mxCell>
+        <mxCell id="encode" value="Memory adapter encodes&#xa;shared-preference/v1 JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1"><mxGeometry x="860" y="120" width="240" height="75" as="geometry"/></mxCell>
+        <mxCell id="scope" value="Exact scope&#xa;user_id + app_name + domain" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1170" y="120" width="250" height="75" as="geometry"/></mxCell>
+        <mxCell id="bank" value="Agent Platform Memory Bank&#xa;create durable fact" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1130" y="310" width="290" height="100" as="geometry"/></mxCell>
+        <mxCell id="newsession" value="Later: new managed session&#xa;same user + app + domain" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1"><mxGeometry x="760" y="325" width="270" height="75" as="geometry"/></mxCell>
+        <mxCell id="retrieve" value="Retrieve and normalize&#xa;LONG_TERM_MEMORY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;" vertex="1" parent="1"><mxGeometry x="430" y="325" width="240" height="75" as="geometry"/></mxCell>
+        <mxCell id="profile" value="Explicit profile may supply&#xa;the same key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="1"><mxGeometry x="70" y="325" width="260" height="75" as="geometry"/></mxCell>
+        <mxCell id="resolver" value="Deterministic resolver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="500" y="550" width="250" height="65" as="geometry"/></mxCell>
+        <mxCell id="memorywins" value="No higher source for key&#xa;→ Long-term Memory wins" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1"><mxGeometry x="260" y="710" width="250" height="75" as="geometry"/></mxCell>
+        <mxCell id="profilewins" value="Profile has same key&#xa;→ Explicit Profile wins" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="750" y="710" width="250" height="75" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="u" target="extract"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="extract" target="policy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="accepted" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="policy" target="encode"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="encode" target="scope"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="scope" target="bank"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="future request" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="bank" target="newsession"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="newsession" target="retrieve"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="retrieve" target="resolver"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="profile" target="resolver"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="no profile override" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="resolver" target="memorywins"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="same key in profile" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="resolver" target="profilewins"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="failure-isolation" name="4. Failure and Isolation">
+    <mxGraphModel dx="1550" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1550" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Failure Degradation and Memory Isolation" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=24;fontStyle=1;fontColor=#17365D;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="760" height="40" as="geometry"/></mxCell>
+        <mxCell id="context" value="PreferenceContextService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="620" y="95" width="260" height="65" as="geometry"/></mxCell>
+        <mxCell id="profile" value="Profile service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;" vertex="1" parent="1"><mxGeometry x="170" y="245" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="memory" value="Memory Bank" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;" vertex="1" parent="1"><mxGeometry x="645" y="245" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="session" value="Managed session" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;" vertex="1" parent="1"><mxGeometry x="1120" y="245" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="pfail" value="Error → []&#xa;warning: explicit_profile unavailable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;" vertex="1" parent="1"><mxGeometry x="130" y="390" width="290" height="75" as="geometry"/></mxCell>
+        <mxCell id="mfail" value="Error/not configured → []&#xa;warning: long_term_memory unavailable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;" vertex="1" parent="1"><mxGeometry x="600" y="390" width="300" height="75" as="geometry"/></mxCell>
+        <mxCell id="sfail" value="Error → []&#xa;warning: session unavailable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;" vertex="1" parent="1"><mxGeometry x="1080" y="390" width="290" height="75" as="geometry"/></mxCell>
+        <mxCell id="resolve" value="Resolve remaining eligible values + defaults&#xa;wrong domain • expired • low confidence are ignored" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="500" y="555" width="500" height="85" as="geometry"/></mxCell>
+        <mxCell id="safe" value="Effective context with warnings&#xa;agent continues safely" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="590" y="725" width="320" height="75" as="geometry"/></mxCell>
+        <mxCell id="boundary" value="Memory authorization boundary&#xa;(user_id, app_name, domain) must all match" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;dashed=1;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1050" y="690" width="360" height="90" as="geometry"/></mxCell>
+        <mxCell id="logging" value="Observability&#xa;IDs + counts + durations + error type&#xa;No raw preference values" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;dashed=1;" vertex="1" parent="1"><mxGeometry x="90" y="690" width="330" height="90" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="profile"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="memory"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="context" target="session"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;strokeColor=#B85450;" edge="1" parent="1" source="profile" target="pfail"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;strokeColor=#B85450;" edge="1" parent="1" source="memory" target="mfail"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;strokeColor=#B85450;" edge="1" parent="1" source="session" target="sfail"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="pfail" target="resolve"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="mfail" target="resolve"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="sfail" target="resolve"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="resolve" target="safe"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="structured logs" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=open;endFill=0;" edge="1" parent="1" source="context" target="logging"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="scope enforcement" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=open;endFill=0;" edge="1" parent="1" source="memory" target="boundary"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

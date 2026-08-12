@@ -1,0 +1,6 @@
+name: grocery-shared-preferences
+agent_directory: app
+create_params:
+  deployment_target: agent_runtime
+  session_type: agent_platform_sessions
+
