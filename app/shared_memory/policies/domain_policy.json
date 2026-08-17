@@ -1,0 +1,57 @@
+{
+  "domains": {
+    "customer": {
+      "isolation": "standard",
+      "read": [
+        "customer"
+      ],
+      "write": [
+        "customer"
+      ]
+    },
+    "delivery": {
+      "isolation": "standard",
+      "read": [
+        "delivery",
+        "customer",
+        "grocery"
+      ],
+      "write": [
+        "delivery"
+      ]
+    },
+    "grocery": {
+      "isolation": "standard",
+      "read": [
+        "grocery",
+        "customer",
+        "store",
+        "delivery"
+      ],
+      "write": [
+        "grocery"
+      ]
+    },
+    "pharmacy": {
+      "isolation": "strict",
+      "read": [
+        "pharmacy"
+      ],
+      "write": [
+        "pharmacy"
+      ]
+    },
+    "store": {
+      "isolation": "standard",
+      "read": [
+        "store",
+        "customer",
+        "grocery"
+      ],
+      "write": [
+        "store"
+      ]
+    }
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,16 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryProfiles
+metadata:
+  domain: delivery
+  version: "1.0"
+profiles:
+  - id: delivery-preferences-v1
+    ownerDomain: delivery
+    scopeKeys: [user_id, app_name, domain]
+    fields:
+      - preference: delivery.preferred_window
+        profileField: preferred_window
+    generation:
+      enabled: true
+      sources: [CONFIRMED_PREFERENCE_CANDIDATE, SESSION_EVENTS]
+      inferredFieldsAllowed: false

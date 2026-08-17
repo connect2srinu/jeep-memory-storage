@@ -3,117 +3,120 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from app.preferences.models import Preference, PreferenceSource
-from app.preferences.resolver import PreferenceResolver
+from app.shared_memory.catalog import PreferenceCatalog
+from app.shared_memory.models import Preference, PreferenceScope, PreferenceSource
+from app.shared_memory.policies import PreferencePolicyRegistry
+from app.shared_memory.resolver import PreferenceResolver
 
-DOMAIN = "customer.grocery"
 
-
-def pref(key: str, value: object, source: PreferenceSource, **kwargs: object) -> Preference:
-    return Preference(key, value, source, domain=DOMAIN, **kwargs)
+def pref(
+    key: str,
+    value: object,
+    source: PreferenceSource,
+    domain: str = "grocery",
+    **kwargs: object,
+) -> Preference:
+    return Preference(
+        key=key,
+        value=value,
+        source=source,
+        owner_domain=domain,
+        scope=(
+            PreferenceScope.SESSION
+            if source is PreferenceSource.SESSION_OVERRIDE
+            else PreferenceScope.LONG_TERM
+        ),
+        updated_at=datetime.now(UTC),
+        **kwargs,
+    )
 
 
 class PreferenceResolverTests(unittest.TestCase):
-    def resolve(self, *, threshold: float = 0.0, **sources: object):
-        return PreferenceResolver(threshold).resolve(
-            user_id="user-123",
-            session_id="session-456",
-            agent_id="grocery",
-            domain=DOMAIN,
-            **sources,
+    def resolve(self, values: list[Preference], threshold: float = 0.0):
+        catalog = PreferenceCatalog.default()
+        policies = PreferencePolicyRegistry.default(threshold)
+        return PreferenceResolver(catalog, policies).resolve(
+            user_id="U123",
+            session_id="S456",
+            consumer_domain="grocery",
+            agent_id="grocery-agent",
+            preferences=values,
+            readable_domains=policies.domain_policy("grocery").read,
         )
 
     def test_session_overrides_explicit_profile(self) -> None:
         context = self.resolve(
-            session_preferences=[
-                pref("allow_substitutions", True, PreferenceSource.SESSION_OVERRIDE)
-            ],
-            explicit_profile_preferences=[
-                pref("allow_substitutions", False, PreferenceSource.EXPLICIT_PROFILE)
-            ],
+            [
+                pref("grocery.allow_substitutions", False, PreferenceSource.EXPLICIT_PROFILE),
+                pref("grocery.allow_substitutions", True, PreferenceSource.SESSION_OVERRIDE),
+            ]
         )
-        self.assertTrue(context.preferences["allow_substitutions"].value)
-        self.assertIs(
-            context.preferences["allow_substitutions"].source, PreferenceSource.SESSION_OVERRIDE
-        )
+        self.assertTrue(context.preferences["allow_substitutions"].preference.value)
 
     def test_explicit_profile_overrides_long_term(self) -> None:
         context = self.resolve(
-            explicit_profile_preferences=[
-                pref("preferred_milk", "whole milk", PreferenceSource.EXPLICIT_PROFILE)
-            ],
-            long_term_preferences=[
-                pref("preferred_milk", "oat milk", PreferenceSource.LONG_TERM_MEMORY)
-            ],
+            [
+                pref("grocery.preferred_milk", "oat", PreferenceSource.DYNAMIC_MEMORY),
+                pref("grocery.preferred_milk", "whole", PreferenceSource.EXPLICIT_PROFILE),
+            ]
         )
-        self.assertEqual(context.preferences["preferred_milk"].value, "whole milk")
+        self.assertEqual(context.preferences["preferred_milk"].preference.value, "whole")
 
     def test_long_term_overrides_default(self) -> None:
         context = self.resolve(
-            long_term_preferences=[pref("organic", True, PreferenceSource.LONG_TERM_MEMORY)],
-            defaults=[pref("organic", False, PreferenceSource.DEFAULT)],
+            [
+                pref("grocery.organic_preference", False, PreferenceSource.DEFAULT),
+                pref("grocery.organic_preference", True, PreferenceSource.DOMAIN_MEMORY),
+            ]
         )
-        self.assertTrue(context.preferences["organic"].value)
-
-    def test_session_only_applies_when_present(self) -> None:
-        context = self.resolve(
-            session_preferences=[],
-            explicit_profile_preferences=[
-                pref("diet", "vegetarian", PreferenceSource.EXPLICIT_PROFILE)
-            ],
-        )
-        self.assertEqual(context.preferences["diet"].source, PreferenceSource.EXPLICIT_PROFILE)
+        self.assertTrue(context.preferences["organic_preference"].preference.value)
 
     def test_unrelated_preferences_merge(self) -> None:
         context = self.resolve(
-            session_preferences=[pref("budget", 100, PreferenceSource.SESSION_OVERRIDE)],
-            explicit_profile_preferences=[
-                pref("diet", "vegetarian", PreferenceSource.EXPLICIT_PROFILE)
-            ],
-            long_term_preferences=[pref("organic", True, PreferenceSource.LONG_TERM_MEMORY)],
-            defaults=[pref("allow_substitutions", False, PreferenceSource.DEFAULT)],
+            [
+                pref("grocery.budget", 100, PreferenceSource.SESSION_OVERRIDE),
+                pref("customer.diet", "vegetarian", PreferenceSource.EXPLICIT_PROFILE, "customer"),
+                pref("grocery.organic_preference", True, PreferenceSource.DOMAIN_MEMORY),
+            ]
         )
-        self.assertEqual(
-            set(context.preferences), {"budget", "diet", "organic", "allow_substitutions"}
-        )
+        self.assertEqual(set(context.preferences), {"budget", "diet", "organic_preference"})
 
     def test_expired_preferences_are_ignored(self) -> None:
-        expired = datetime.now(UTC) - timedelta(seconds=1)
         context = self.resolve(
-            session_preferences=[
-                pref("diet", "vegan", PreferenceSource.SESSION_OVERRIDE, expires_at=expired)
-            ],
-            explicit_profile_preferences=[
-                pref("diet", "vegetarian", PreferenceSource.EXPLICIT_PROFILE)
-            ],
+            [
+                pref(
+                    "grocery.diet_override",
+                    "none",
+                    PreferenceSource.SESSION_OVERRIDE,
+                    expires_at=datetime.now(UTC) - timedelta(seconds=1),
+                ),
+                pref("customer.diet", "vegetarian", PreferenceSource.EXPLICIT_PROFILE, "customer"),
+            ]
         )
-        self.assertEqual(context.preferences["diet"].value, "vegetarian")
+        self.assertNotIn("diet_override", context.preferences)
+        self.assertEqual(context.preferences["diet"].preference.value, "vegetarian")
 
-    def test_low_confidence_memory_is_optionally_filtered(self) -> None:
+    def test_low_confidence_memory_is_filtered(self) -> None:
         context = self.resolve(
+            [pref("grocery.banana_ripeness", "green", PreferenceSource.DYNAMIC_MEMORY, confidence=0.5)],
             threshold=0.8,
-            long_term_preferences=[
-                pref("organic", True, PreferenceSource.LONG_TERM_MEMORY, confidence=0.5)
-            ],
-            defaults=[pref("organic", False, PreferenceSource.DEFAULT)],
         )
-        self.assertFalse(context.preferences["organic"].value)
+        self.assertNotIn("banana_ripeness", context.preferences)
 
     def test_provenance_survives_resolution(self) -> None:
         provenance = {"service": "memory-bank", "memory_name": "memories/42"}
         context = self.resolve(
-            long_term_preferences=[
-                pref("organic", True, PreferenceSource.LONG_TERM_MEMORY, provenance=provenance)
-            ]
+            [pref("grocery.banana_ripeness", "green", PreferenceSource.DYNAMIC_MEMORY, provenance=provenance)]
         )
-        self.assertEqual(context.preferences["organic"].provenance, provenance)
+        self.assertEqual(
+            context.preferences["banana_ripeness"].preference.provenance, provenance
+        )
 
-    def test_other_domain_is_never_used(self) -> None:
-        pharmacy = Preference(
-            "diet", "anything", PreferenceSource.SESSION_OVERRIDE, domain="customer.pharmacy"
+    def test_pharmacy_domain_is_never_used_by_grocery(self) -> None:
+        context = self.resolve(
+            [pref("pharmacy.medication", "anything", PreferenceSource.SESSION_OVERRIDE, "pharmacy")]
         )
-        context = self.resolve(session_preferences=[pharmacy])
-        self.assertNotIn("diet", context.preferences)
+        self.assertNotIn("medication", context.preferences)
 
 
 if __name__ == "__main__":

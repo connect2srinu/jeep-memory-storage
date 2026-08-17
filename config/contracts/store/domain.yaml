@@ -1,0 +1,20 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryDomain
+metadata:
+  name: store
+  displayName: Store
+  version: "1.0"
+  owner:
+    team: store-platform
+spec:
+  isolation: standard
+  scopes:
+    profileScopeKeys: [user_id, app_name, domain]
+  permissions:
+    read: [store, customer, grocery]
+    write: [store]
+  dynamicMemory:
+    enabled: true
+    keyPattern: "^store\\.[a-z][a-z0-9_]*$"
+    minimumConfidence: 0.70
+    requireExplicitStatement: true

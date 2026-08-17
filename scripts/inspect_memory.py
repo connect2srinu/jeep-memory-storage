@@ -1,19 +1,35 @@
 from __future__ import annotations
 
-from app.config import settings
+import argparse
+import asyncio
+import json
+
+from app.shared_memory.bootstrap import platform_dependencies
 
 
-def main() -> None:
-    import agentplatform
-
-    if not settings.project or not settings.memory_resource_id:
-        raise SystemExit("Configure project and Memory Bank ID")
-    client = agentplatform.Client(project=settings.project, location=settings.location)
-    name = f"projects/{settings.project}/locations/{settings.location}/reasoningEngines/{settings.memory_resource_id}"
-    scope = {"user_id": "user-123", "app_name": settings.app_name, "domain": settings.domain}
-    for item in client.agent_engines.memories.retrieve(name=name, scope=scope):
-        print(item)
+async def main() -> None:
+    parser = argparse.ArgumentParser(description="Inspect normalized domain-scoped memory.")
+    parser.add_argument("--user-id", default="user-123")
+    parser.add_argument("--domains", default="grocery")
+    args = parser.parse_args()
+    domains = tuple(value.strip() for value in args.domains.split(",") if value.strip())
+    dynamic = await platform_dependencies.long_term_service.get_dynamic_preferences(
+        args.user_id, platform_dependencies.app_name, domains
+    )
+    profiles = await platform_dependencies.long_term_service.get_memory_profile_preferences(
+        args.user_id, platform_dependencies.app_name, domains
+    )
+    print(
+        json.dumps(
+            {
+                "dynamic_memories": [item.public_dict() for item in dynamic],
+                "memory_profiles": [item.public_dict() for item in profiles],
+            },
+            indent=2,
+            default=str,
+        )
+    )
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

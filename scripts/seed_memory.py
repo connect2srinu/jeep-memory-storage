@@ -3,37 +3,43 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.config import settings
-from app.preferences.memory_service import VertexAiMemoryBankPreferenceService
-from app.preferences.models import PreferenceCandidate, PreferenceScope
+from app.shared_memory.adapters import InMemorySessionAdapter
+from app.shared_memory.bootstrap import platform_dependencies
+from app.shared_memory.models import PreferenceCandidate, PreferenceScope
 
 
 async def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Seed a real Agent Platform Memory Bank preference."
+        description="Submit a validated long-term preference to Agent Platform Memory Bank."
     )
     parser.add_argument("--user-id", default="user-123")
+    parser.add_argument("--session-id", default="seed-session")
+    parser.add_argument("--consumer-domain", default="grocery")
+    parser.add_argument("--domain", default="grocery")
     parser.add_argument("--key", default="organic")
     parser.add_argument("--value", default="true")
     args = parser.parse_args()
-    if not settings.project or not settings.memory_resource_id:
-        raise SystemExit("Set GOOGLE_CLOUD_PROJECT and AGENT_PLATFORM_MEMORY_BANK_ID")
     value = {"true": True, "false": False}.get(args.value.lower(), args.value)
-    service = VertexAiMemoryBankPreferenceService(
-        project=settings.project,
-        location=settings.location,
-        agent_engine_id=settings.memory_resource_id,
-    )
+    platform = platform_dependencies.build_service(InMemorySessionAdapter())
     candidate = PreferenceCandidate(
         key=args.key,
         value=value,
-        requested_scope=PreferenceScope.USER,
+        proposed_domain=args.domain,
+        requested_scope=PreferenceScope.LONG_TERM,
         confidence=0.93,
-        evidence="POC seed script",
+        source="SEED_SCRIPT",
         source_message=f"seed {args.key}",
-        domain=settings.domain,
+        user_id=args.user_id,
+        session_id=args.session_id,
+        explicit=True,
+        evidence="intentional POC seed",
     )
-    print(await service.promote_candidate(args.user_id, settings.app_name, candidate))
+    result = await platform.submit_preference(
+        candidate=candidate,
+        consumer_domain=args.consumer_domain,
+        agent_id=f"{args.consumer_domain}-agent",
+    )
+    print(result.to_dict())
 
 
 if __name__ == "__main__":

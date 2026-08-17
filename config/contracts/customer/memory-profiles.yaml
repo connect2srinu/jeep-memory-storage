@@ -1,0 +1,19 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryProfiles
+metadata:
+  domain: customer
+  version: "1.0"
+profiles:
+  - id: customer-preferences-v1
+    ownerDomain: customer
+    scopeKeys: [user_id, app_name, domain]
+    fields:
+      - preference: customer.preferred_store
+        profileField: preferred_store
+      - preference: customer.diet
+        profileField: diet
+    generation:
+      enabled: true
+      sources: [CONFIRMED_PREFERENCE_CANDIDATE, EXPLICIT_PROFILE_SYNC]
+      inferredFieldsAllowed: false
+      requireUserConfirmation: [diet]

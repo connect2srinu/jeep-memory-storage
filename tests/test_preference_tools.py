@@ -3,22 +3,17 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from app.preferences.memory_service import (
-    LongTermPreferenceService,
-    MemoryBankNotConfiguredError,
-)
-from app.preferences.models import PreferenceCandidate
+from app.shared_memory.adapters import MemoryBankNotConfiguredError
+from app.shared_memory.bootstrap import platform_dependencies
 from app.tools import preference_tools
-from app.tools.preference_tools import ToolRuntime, _identity
+from app.tools.preference_tools import _identity
 
 
-class UnconfiguredMemoryService(LongTermPreferenceService):
-    async def retrieve_preferences(self, user_id: str, agent_id: str, domain: str):
+class UnconfiguredMemoryBackend:
+    async def get_dynamic_preferences(self, user_id: str, app_name: str, domains: tuple[str, ...]):
         raise MemoryBankNotConfiguredError("Memory Bank is not configured")
 
-    async def promote_candidate(
-        self, user_id: str, agent_id: str, candidate: PreferenceCandidate
-    ) -> str:
+    async def store_dynamic_preference(self, user_id: str, app_name: str, preference: object) -> str:
         raise MemoryBankNotConfiguredError("Memory Bank is not configured")
 
 
@@ -57,15 +52,8 @@ class PreferenceToolIdentityTests(unittest.TestCase):
 
 class PreferencePromotionTests(unittest.IsolatedAsyncioTestCase):
     async def test_unconfigured_memory_returns_controlled_result(self) -> None:
-        previous_runtime = preference_tools._runtime
-        preference_tools.configure_runtime(
-            ToolRuntime(
-                context_service=SimpleNamespace(),
-                memory_service=UnconfiguredMemoryService(),
-                agent_id="grocery_shared_preferences",
-                domain="customer.grocery",
-            )
-        )
+        previous_backend = platform_dependencies.long_term_service.dynamic_backend
+        platform_dependencies.long_term_service.dynamic_backend = UnconfiguredMemoryBackend()
         context = SimpleNamespace(
             user_id="user",
             session=SimpleNamespace(id="session-1", user_id="user"),
@@ -76,11 +64,10 @@ class PreferencePromotionTests(unittest.IsolatedAsyncioTestCase):
                 "I always prefer organic produce.", context
             )
         finally:
-            preference_tools._runtime = previous_runtime
+            platform_dependencies.long_term_service.dynamic_backend = previous_backend
 
-        self.assertEqual(result["status"], "not_persisted")
-        self.assertEqual(result["reason"], "memory_bank_not_configured")
-        self.assertFalse(result["memory_bank_written"])
+        self.assertEqual(result["status"], "NOT_PERSISTED")
+        self.assertIn("not persisted", result["message"])
 
 
 if __name__ == "__main__":

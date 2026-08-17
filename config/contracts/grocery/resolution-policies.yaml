@@ -1,0 +1,44 @@
+apiVersion: memory.platform/v1alpha1
+kind: PreferenceResolutionPolicies
+metadata:
+  domain: grocery
+  version: "1.0"
+defaults:
+  sourcePriority:
+    - SESSION_OVERRIDE
+    - EXPLICIT_PROFILE
+    - MEMORY_PROFILE
+    - DOMAIN_MEMORY
+    - DYNAMIC_MEMORY
+    - INFERRED_MEMORY
+    - DEFAULT
+  domainPriority: []
+  strategies:
+    - SOURCE_PRIORITY
+    - DOMAIN_PRIORITY
+    - EXPLICIT_OVER_INFERRED
+    - MOST_RECENT
+    - HIGHEST_CONFIDENCE
+  minimumConfidence: 0.70
+policies:
+  - id: allow_substitutions
+    appliesTo: [grocery.allow_substitutions]
+    domainPriority: [grocery, customer, store]
+
+  - id: organic_preference
+    appliesTo: [grocery.organic_preference]
+    domainPriority: [grocery, customer, store]
+
+  - id: preferred_brand
+    appliesTo: [grocery.preferred_brand]
+    domainPriority: [grocery, store]
+
+  - id: preferred_milk
+    appliesTo: [grocery.preferred_milk]
+    domainPriority: [grocery, customer]
+
+  - id: preferred_product_type
+    appliesTo:
+      - grocery.preferred_product_type
+      - store.preferred_product_type
+    domainPriority: [grocery, customer, store, delivery]

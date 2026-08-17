@@ -1,0 +1,215 @@
+{
+  "preferences": {
+    "customer.diet": {
+      "aliases": [
+        "diet"
+      ],
+      "allowed_readers": [
+        "customer",
+        "grocery"
+      ],
+      "allowed_writers": [
+        "customer"
+      ],
+      "canonical": true,
+      "description": "User-confirmed dietary preference",
+      "owner_domain": "customer",
+      "resolution_policy": "diet",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "sensitive",
+      "type": "string"
+    },
+    "customer.preferred_store": {
+      "aliases": [
+        "preferred_store"
+      ],
+      "allowed_readers": [
+        "customer",
+        "grocery",
+        "store",
+        "delivery"
+      ],
+      "allowed_writers": [
+        "customer"
+      ],
+      "canonical": true,
+      "description": "User-confirmed preferred store identifier",
+      "owner_domain": "customer",
+      "resolution_policy": "preferred_store",
+      "schema_version": "1",
+      "scopes": [
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "delivery.preferred_window": {
+      "aliases": [
+        "preferred_window"
+      ],
+      "allowed_readers": [
+        "delivery",
+        "grocery"
+      ],
+      "allowed_writers": [
+        "delivery"
+      ],
+      "canonical": true,
+      "description": "Preferred delivery time window",
+      "owner_domain": "delivery",
+      "resolution_policy": "preferred_window",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "grocery.allow_substitutions": {
+      "aliases": [
+        "allow_substitutions"
+      ],
+      "allowed_readers": [
+        "grocery",
+        "store",
+        "delivery"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Whether grocery substitutions are permitted",
+      "owner_domain": "grocery",
+      "resolution_policy": "allow_substitutions",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "ttl_seconds": 86400,
+      "type": "boolean"
+    },
+    "grocery.organic_preference": {
+      "aliases": [
+        "organic"
+      ],
+      "allowed_readers": [
+        "grocery",
+        "store"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Preference for organic grocery products",
+      "owner_domain": "grocery",
+      "resolution_policy": "organic_preference",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "boolean"
+    },
+    "grocery.preferred_brand": {
+      "aliases": [
+        "preferred_brand"
+      ],
+      "allowed_readers": [
+        "grocery",
+        "store",
+        "delivery"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Preferred grocery brand",
+      "owner_domain": "grocery",
+      "resolution_policy": "preferred_brand",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "grocery.preferred_milk": {
+      "aliases": [
+        "preferred_milk"
+      ],
+      "allowed_readers": [
+        "grocery",
+        "store"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Preferred milk type",
+      "owner_domain": "grocery",
+      "resolution_policy": "preferred_milk",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "grocery.preferred_product_type": {
+      "aliases": [
+        "preferred_product",
+        "preferred_product_type"
+      ],
+      "allowed_readers": [
+        "grocery",
+        "store",
+        "delivery"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Grocery-owned product type preference",
+      "owner_domain": "grocery",
+      "resolution_policy": "preferred_product_type",
+      "schema_version": "1",
+      "scopes": [
+        "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "store.preferred_product_type": {
+      "aliases": [],
+      "allowed_readers": [
+        "store",
+        "grocery"
+      ],
+      "allowed_writers": [
+        "store"
+      ],
+      "canonical": true,
+      "description": "Store-level preferred product type",
+      "owner_domain": "store",
+      "resolution_policy": "preferred_product_type",
+      "schema_version": "1",
+      "scopes": [
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    }
+  },
+  "version": "1.0"
+}

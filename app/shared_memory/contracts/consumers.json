@@ -1,0 +1,70 @@
+{
+  "consumers": {
+    "delivery-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": true,
+        "resolve_context": true,
+        "submit_candidates": true
+      },
+      "consumer_domain": "delivery",
+      "required_preferences": [
+        "delivery.preferred_window",
+        "customer.preferred_store",
+        "grocery.allow_substitutions"
+      ],
+      "service_account": null
+    },
+    "grocery-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": true,
+        "resolve_context": true,
+        "submit_candidates": true
+      },
+      "consumer_domain": "grocery",
+      "required_preferences": [
+        "customer.preferred_store",
+        "customer.diet",
+        "grocery.allow_substitutions",
+        "grocery.organic_preference",
+        "grocery.preferred_brand",
+        "grocery.preferred_milk",
+        "grocery.preferred_product_type",
+        "store.preferred_product_type",
+        "delivery.preferred_window"
+      ],
+      "service_account": null
+    },
+    "grocery-readonly-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": false,
+        "resolve_context": true,
+        "submit_candidates": false
+      },
+      "consumer_domain": "grocery",
+      "required_preferences": [
+        "customer.preferred_store",
+        "grocery.allow_substitutions"
+      ],
+      "service_account": null
+    },
+    "store-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": true,
+        "resolve_context": true,
+        "submit_candidates": true
+      },
+      "consumer_domain": "store",
+      "required_preferences": [
+        "store.preferred_product_type",
+        "customer.preferred_store",
+        "grocery.preferred_product_type"
+      ],
+      "service_account": null
+    }
+  },
+  "version": "1.0"
+}

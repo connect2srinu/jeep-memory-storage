@@ -1,0 +1,77 @@
+{
+  "profiles": {
+    "customer-preferences-v1": {
+      "generation": {
+        "enabled": true,
+        "inferred_fields_allowed": false,
+        "require_user_confirmation": [
+          "diet"
+        ],
+        "sources": [
+          "CONFIRMED_PREFERENCE_CANDIDATE",
+          "EXPLICIT_PROFILE_SYNC"
+        ]
+      },
+      "owner_domain": "customer",
+      "scope_keys": [
+        "user_id",
+        "app_name",
+        "domain"
+      ]
+    },
+    "delivery-preferences-v1": {
+      "generation": {
+        "enabled": true,
+        "inferred_fields_allowed": false,
+        "require_user_confirmation": [],
+        "sources": [
+          "CONFIRMED_PREFERENCE_CANDIDATE",
+          "SESSION_EVENTS"
+        ]
+      },
+      "owner_domain": "delivery",
+      "scope_keys": [
+        "user_id",
+        "app_name",
+        "domain"
+      ]
+    },
+    "grocery-preferences-v1": {
+      "generation": {
+        "enabled": true,
+        "inferred_fields_allowed": false,
+        "require_user_confirmation": [
+          "allow_substitutions",
+          "preferred_milk"
+        ],
+        "sources": [
+          "CONFIRMED_PREFERENCE_CANDIDATE",
+          "SESSION_EVENTS"
+        ]
+      },
+      "owner_domain": "grocery",
+      "scope_keys": [
+        "user_id",
+        "app_name",
+        "domain"
+      ]
+    },
+    "store-preferences-v1": {
+      "generation": {
+        "enabled": true,
+        "inferred_fields_allowed": false,
+        "require_user_confirmation": [],
+        "sources": [
+          "CONFIRMED_PREFERENCE_CANDIDATE"
+        ]
+      },
+      "owner_domain": "store",
+      "scope_keys": [
+        "user_id",
+        "app_name",
+        "domain"
+      ]
+    }
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,12 @@
+apiVersion: memory.platform/v1alpha1
+kind: PreferenceResolutionPolicies
+metadata:
+  domain: replace_me
+  version: "1.0"
+policies:
+  - id: example_preference
+    appliesTo: [replace_me.example_preference]
+    strategies: [SOURCE_PRIORITY, DOMAIN_PRIORITY, EXPLICIT_OVER_INFERRED, MOST_RECENT, HIGHEST_CONFIDENCE]
+    sourcePriority: [SESSION_OVERRIDE, EXPLICIT_PROFILE, MEMORY_PROFILE, DOMAIN_MEMORY, DYNAMIC_MEMORY, INFERRED_MEMORY, DEFAULT]
+    domainPriority: [replace_me]
+    minimumConfidence: 0.70

@@ -1,0 +1,16 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryProfiles
+metadata:
+  domain: store
+  version: "1.0"
+profiles:
+  - id: store-preferences-v1
+    ownerDomain: store
+    scopeKeys: [user_id, app_name, domain]
+    fields:
+      - preference: store.preferred_product_type
+        profileField: preferred_product_type
+    generation:
+      enabled: true
+      sources: [CONFIRMED_PREFERENCE_CANDIDATE]
+      inferredFieldsAllowed: false

@@ -1,0 +1,17 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryConsumers
+metadata:
+  domain: store
+  version: "1.0"
+consumers:
+  - agentId: store-agent
+    consumerDomain: store
+    requiredPreferences:
+      - store.preferred_product_type
+      - customer.preferred_store
+      - grocery.preferred_product_type
+    capabilities:
+      resolveContext: true
+      submitCandidates: true
+      inspectProvenance: true
+      administerMemory: false

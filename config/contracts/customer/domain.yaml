@@ -1,0 +1,17 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryDomain
+metadata:
+  name: customer
+  displayName: Customer
+  version: "1.0"
+  owner:
+    team: customer-platform
+spec:
+  isolation: standard
+  scopes:
+    profileScopeKeys: [user_id, app_name, domain]
+  permissions:
+    read: [customer]
+    write: [customer]
+  dynamicMemory:
+    enabled: false

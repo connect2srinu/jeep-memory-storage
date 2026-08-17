@@ -1,0 +1,24 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryDomain
+metadata:
+  name: grocery
+  displayName: Grocery
+  version: "1.0"
+  owner:
+    team: grocery-platform
+    email: grocery-platform@example.com
+spec:
+  isolation: standard
+  scopes:
+    profileScopeKeys: [user_id, app_name, domain]
+  permissions:
+    read: [grocery, customer, store, delivery]
+    write: [grocery]
+  dynamicMemory:
+    enabled: true
+    keyPattern: "^grocery\\.[a-z][a-z0-9_]*$"
+    minimumConfidence: 0.70
+    requireExplicitStatement: true
+  defaults:
+    retentionDays: 365
+    inferredPreferenceTtlDays: 90

@@ -1,0 +1,90 @@
+{
+  "structured_memory_configs": [
+    {
+      "schema_configs": [
+        {
+          "id": "customer-preferences-v1",
+          "memory_schema": {
+            "additionalProperties": false,
+            "description": "Canonical preferences owned by customer.",
+            "properties": {
+              "diet": {
+                "description": "User-confirmed dietary preference",
+                "type": "string"
+              },
+              "preferred_store": {
+                "description": "User-confirmed preferred store identifier",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "id": "delivery-preferences-v1",
+          "memory_schema": {
+            "additionalProperties": false,
+            "description": "Canonical preferences owned by delivery.",
+            "properties": {
+              "preferred_window": {
+                "description": "Preferred delivery time window",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "id": "grocery-preferences-v1",
+          "memory_schema": {
+            "additionalProperties": false,
+            "description": "Canonical preferences owned by grocery.",
+            "properties": {
+              "allow_substitutions": {
+                "description": "Whether grocery substitutions are permitted",
+                "type": "boolean"
+              },
+              "organic_preference": {
+                "description": "Preference for organic grocery products",
+                "type": "boolean"
+              },
+              "preferred_brand": {
+                "description": "Preferred grocery brand",
+                "type": "string"
+              },
+              "preferred_milk": {
+                "description": "Preferred milk type",
+                "type": "string"
+              },
+              "preferred_product_type": {
+                "description": "Grocery-owned product type preference",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "id": "store-preferences-v1",
+          "memory_schema": {
+            "additionalProperties": false,
+            "description": "Canonical preferences owned by store.",
+            "properties": {
+              "preferred_product_type": {
+                "description": "Store-level preferred product type",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ],
+      "scope_keys": [
+        "user_id",
+        "app_name",
+        "domain"
+      ]
+    }
+  ],
+  "version": "1.0"
+}

@@ -1,4 +1,4 @@
-name: grocery-shared-preferences
+name: shared-memory-platform
 agent_directory: app
 create_params:
   deployment_target: agent_runtime

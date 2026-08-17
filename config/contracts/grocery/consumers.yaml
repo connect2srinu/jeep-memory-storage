@@ -1,0 +1,34 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryConsumers
+metadata:
+  domain: grocery
+  version: "1.0"
+consumers:
+  - agentId: grocery-agent
+    consumerDomain: grocery
+    requiredPreferences:
+      - customer.preferred_store
+      - customer.diet
+      - grocery.allow_substitutions
+      - grocery.organic_preference
+      - grocery.preferred_brand
+      - grocery.preferred_milk
+      - grocery.preferred_product_type
+      - store.preferred_product_type
+      - delivery.preferred_window
+    capabilities:
+      resolveContext: true
+      submitCandidates: true
+      inspectProvenance: true
+      administerMemory: false
+
+  - agentId: grocery-readonly-agent
+    consumerDomain: grocery
+    requiredPreferences:
+      - customer.preferred_store
+      - grocery.allow_substitutions
+    capabilities:
+      resolveContext: true
+      submitCandidates: false
+      inspectProvenance: false
+      administerMemory: false

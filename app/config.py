@@ -27,8 +27,9 @@ class Settings:
     staging_bucket: str | None = os.getenv("AGENT_PLATFORM_STAGING_BUCKET")
     model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     app_name: str = os.getenv("ADK_APP_NAME", "grocery_shared_preferences")
-    domain: str = os.getenv("PREFERENCE_DOMAIN", "customer.grocery")
+    domain: str = os.getenv("PREFERENCE_DOMAIN", "grocery")
     minimum_memory_confidence: float = float(os.getenv("MINIMUM_MEMORY_CONFIDENCE", "0.70"))
+    enable_memory_profiles: bool = _bool("ENABLE_MEMORY_PROFILES", True)
 
     @property
     def session_resource_id(self) -> str | None:

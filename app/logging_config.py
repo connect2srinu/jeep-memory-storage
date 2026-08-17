@@ -7,9 +7,22 @@ from datetime import UTC, datetime
 
 class JsonFormatter(logging.Formatter):
     _FIELDS = (
-        "user_id",
+        "user_id_hash",
         "session_id",
         "agent_id",
+        "consumer_domain",
+        "owner_domain",
+        "action",
+        "allowed",
+        "reason",
+        "source_systems",
+        "retrieved_count",
+        "filtered_count",
+        "result_count",
+        "resolver_policy_version",
+        "latency_ms",
+        "cache",
+        "authorization",
         "preference_source",
         "preference_count",
         "preference_sources",

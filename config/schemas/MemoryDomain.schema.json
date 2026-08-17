@@ -1,0 +1,255 @@
+{
+  "$defs": {
+    "ContractMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Displayname"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractOwner"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "version": {
+          "default": "1.0",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "title": "ContractMetadata",
+      "type": "object"
+    },
+    "ContractOwner": {
+      "additionalProperties": false,
+      "properties": {
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "team": {
+          "title": "Team",
+          "type": "string"
+        }
+      },
+      "required": [
+        "team"
+      ],
+      "title": "ContractOwner",
+      "type": "object"
+    },
+    "DomainDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "inferredPreferenceTtlDays": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inferredpreferencettldays"
+        },
+        "retentionDays": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retentiondays"
+        }
+      },
+      "title": "DomainDefaults",
+      "type": "object"
+    },
+    "DomainPermissions": {
+      "additionalProperties": false,
+      "properties": {
+        "read": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Read",
+          "type": "array"
+        },
+        "write": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Write",
+          "type": "array"
+        }
+      },
+      "required": [
+        "read",
+        "write"
+      ],
+      "title": "DomainPermissions",
+      "type": "object"
+    },
+    "DomainSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "defaults": {
+          "$ref": "#/$defs/DomainDefaults"
+        },
+        "dynamicMemory": {
+          "$ref": "#/$defs/DynamicMemoryPolicy"
+        },
+        "isolation": {
+          "default": "standard",
+          "enum": [
+            "standard",
+            "strict"
+          ],
+          "title": "Isolation",
+          "type": "string"
+        },
+        "permissions": {
+          "$ref": "#/$defs/DomainPermissions"
+        },
+        "scopes": {
+          "$ref": "#/$defs/ScopeConfiguration"
+        }
+      },
+      "required": [
+        "permissions"
+      ],
+      "title": "DomainSpec",
+      "type": "object"
+    },
+    "DynamicMemoryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "keyPattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Keypattern"
+        },
+        "minimumConfidence": {
+          "default": 0.7,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Minimumconfidence",
+          "type": "number"
+        },
+        "requireExplicitStatement": {
+          "default": true,
+          "title": "Requireexplicitstatement",
+          "type": "boolean"
+        }
+      },
+      "title": "DynamicMemoryPolicy",
+      "type": "object"
+    },
+    "ScopeConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "profileScopeKeys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Profilescopekeys",
+          "type": "array"
+        }
+      },
+      "title": "ScopeConfiguration",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "memory.platform/v1alpha1",
+      "default": "memory.platform/v1alpha1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "MemoryDomain",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/ContractMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/DomainSpec"
+    }
+  },
+  "required": [
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "DomainContract",
+  "type": "object"
+}

@@ -1,79 +1,327 @@
-# Agent Memory Setup and Preference Flows
+# Agent Memory Setup
 
 | Document field | Value |
 |---|---|
-| System | Grocery shared-preference agent |
-| Platform | Google ADK, Gemini on Vertex AI, Gemini Enterprise Agent Platform |
-| Persistence | Agent Platform Sessions and Memory Bank |
-| Audience | Application engineers, platform engineers, security reviewers, support teams |
-| Status | Implemented proof of concept |
-
-> **Confluence attachment:** Upload `agent-memory-flows.drawio` to this page and insert it with the draw.io/diagrams.net Confluence macro. The file contains four pages: **Read and Resolve**, **Session Override**, **Long-Term Memory**, and **Failure and Isolation**.
+| Platform | Google ADK and Gemini Enterprise Agent Platform |
+| Capability | Multi-domain preference memory and deterministic resolution |
+| Reference consumer | Grocery agent |
+| Configuration model | Reviewed YAML contracts compiled into runtime artifacts |
+| Status | Production-structured proof of concept |
 
 ## 1. Purpose
 
-This design gives the grocery agent a deterministic view of user preferences while keeping temporary instructions, explicit profile data, learned long-term preferences, and defaults separate. Gemini does not decide which source wins. A pure Python resolver applies the precedence policy and sends only the effective context to the model.
+The Shared Memory Platform allows registered domain agents to use Session state, authoritative
+profiles, structured Memory Profiles, and dynamic Memory Bank facts through one authorized,
+deterministic facade.
 
-The central precedence rule is:
+Agents do not query those backends directly and do not decide which conflicting value wins. The
+platform authenticates the consumer, enforces domain ownership, normalizes source records, applies
+resolution policy, and returns one `EffectivePreferenceContext`.
+
+This document is the central setup and flow guide. Detailed audience-specific material is available
+in:
+
+- [Platform developer architecture](confluence-platform-developer-architecture.md)
+- [DevOps resources and lifecycle](confluence-devops-resource-lifecycle.md)
+- [New-domain onboarding demo](confluence-domain-onboarding-demo.md)
+- [Interactive ADK Web demo](adk-web-demo.md)
+- [Domain onboarding reference](domain-onboarding.md)
+
+The accompanying [draw.io flow diagrams](agent-memory-flows.drawio) contain seven pages covering
+contracts, reads, writes, profile generation, contextual overrides, deployment, and production
+controls.
+
+## 2. Architecture summary
 
 ```text
-SESSION_OVERRIDE > EXPLICIT_PROFILE > LONG_TERM_MEMORY > DEFAULT
+Configuration plane
+
+Domain YAML contracts
+  -> Pydantic and cross-reference validation
+  -> deterministic compiler
+  -> runtime JSON + JSON Schemas + profile manifest
+  -> pull request / CI / approvals
+  -> Agent Runtime deployment
+
+Runtime plane
+
+ADK domain agent
+  -> thin platform tool/API
+  -> consumer capability check
+  -> domain and preference authorization
+  -> Session + profile + Memory Profile + dynamic-memory retrieval
+  -> normalization and schema-owner admission guard
+  -> deterministic resolution
+  -> EffectivePreferenceContext
 ```
 
-Resolution is performed independently for every preference key. For example, a session-level substitution choice can coexist with a profile-level vegetarian diet and a Memory Bank preference for organic products.
+The platform owns storage integration, authorization, resolution, provenance, and lifecycle.
+Domain teams own preference meaning, valid values, ownership, readers/writers, profile fields, and
+attribute-level resolution intent.
 
-## 2. Design goals
+## 3. Repository structure
 
-- Produce the same result for the same normalized inputs.
-- Keep session-only data out of long-term memory unless the user expresses durable intent.
-- Preserve explicit profile authority over inferred or learned memory.
-- Isolate memories by user, application, and business domain.
-- Continue with safe fallbacks when an external preference source is unavailable.
-- Expose source and provenance in preference diagnostics without exposing credentials or internal prompts.
-
-## 3. Component model
-
-| Component | Responsibility | Implementation |
-|---|---|---|
-| ADK agent | Orchestrates tool calls and generates the final answer | `app/agent.py` |
-| Preference tools | Retrieve effective preferences and route new statements by scope | `app/tools/preference_tools.py` |
-| Context service | Loads profile, memory, and session sources concurrently | `app/services/preference_context_service.py` |
-| Session adapter | Normalizes structured ADK session state | `app/preferences/session_preferences.py` |
-| Profile service | Supplies user-confirmed preferences | `app/preferences/profile_service.py` |
-| Memory Bank service | Retrieves and creates durable facts using `agentplatform.Client` | `app/preferences/memory_service.py` |
-| Memory adapter | Converts Memory Bank facts to normalized preferences | `app/preferences/memory_adapter.py` |
-| Candidate extractor | Classifies explicit temporary or durable language | `app/preferences/candidate_extractor.py` |
-| Resolver | Applies domain, expiration, confidence, recency, and precedence rules | `app/preferences/resolver.py` |
-| Effective context | Safe, source-labelled preference map supplied to Gemini | `app/preferences/models.py` |
-
-## 4. Cloud and application setup
-
-### 4.1 Required configuration
-
-Create `.env` from `.env.example` and set the following values. Do not commit `.env`.
-
-| Variable | Purpose |
+| Path | Use |
 |---|---|
-| `GOOGLE_CLOUD_PROJECT` | Google Cloud project containing Agent Runtime |
-| `GOOGLE_CLOUD_LOCATION` | Co-located Agent Runtime, Sessions, and Memory Bank region |
-| `GOOGLE_GENAI_USE_VERTEXAI=true` | Routes Gemini calls through Vertex AI |
-| `GOOGLE_GENAI_USE_ENTERPRISE=true` | Enables Gemini Enterprise Agent Platform behavior |
-| `GEMINI_MODEL` | Gemini model used by the ADK agent |
-| `GOOGLE_CLOUD_AGENT_ENGINE_ID` | Agent Runtime resource ID and fallback state-service ID |
-| `AGENT_PLATFORM_SESSIONS_ID` | Optional explicit managed Sessions resource ID |
-| `AGENT_PLATFORM_MEMORY_BANK_ID` | Optional explicit Memory Bank resource ID |
-| `AGENT_PLATFORM_STAGING_BUCKET` | Cloud Storage bucket used for deployment artifacts |
-| `ADK_APP_NAME` | Application scope; defaults to `grocery_shared_preferences` |
-| `PREFERENCE_DOMAIN` | Business-domain scope; defaults to `customer.grocery` |
-| `MINIMUM_MEMORY_CONFIDENCE` | Minimum accepted long-term-memory confidence |
+| `config/contracts/<domain>/` | Source-of-truth YAML for domain onboarding |
+| `config/templates/domain-onboarding/` | Five-file starter bundle |
+| `app/shared_memory/contracts/` | Contract models, validation, and compiler |
+| `app/shared_memory/catalog/` | Canonical preference keys and metadata |
+| `app/shared_memory/policies/` | Domain permissions and resolution policies |
+| `app/shared_memory/auth/` | Consumer capabilities and read/write authorization |
+| `app/shared_memory/adapters/` | Session, explicit-profile, Memory Profile, and Memory Bank adapters |
+| `app/shared_memory/services/` | Context assembly and update routing |
+| `app/shared_memory/resolver/` | Pure deterministic conflict selection |
+| `app/tools/preference_tools.py` | ADK-facing platform tools |
+| `scripts/validate_memory_contract.py` | Read-only YAML validation |
+| `scripts/compile_memory_contract.py` | Runtime artifact generation and drift check |
+| `scripts/deploy.py` | Agent Runtime and Memory Profile configuration deployment |
+| `scripts/generate_profile.py` | Explicit profile-generation event submission |
+| `scripts/inspect_state.py` | Managed Session inspection |
+| `scripts/inspect_memory.py` | Normalized Memory Profile and dynamic-memory inspection |
 
-`AGENT_PLATFORM_SESSIONS_ID` and `AGENT_PLATFORM_MEMORY_BANK_ID` fall back to `GOOGLE_CLOUD_AGENT_ENGINE_ID`, allowing one Agent Runtime resource to own the agent, sessions, and memories.
+## 4. Domain contracts
 
-### 4.2 Local installation
+Each domain supplies five YAML documents.
 
-Run from the repository root:
+| File | Defines |
+|---|---|
+| `domain.yaml` | Owner, scope keys, isolation, read/write domains, and dynamic-memory policy |
+| `preferences.yaml` | Canonical keys, types, values, owner, sensitivity, scope, lifecycle, and access |
+| `resolution-policies.yaml` | Strategy order, source priority, domain priority, and confidence |
+| `memory-profiles.yaml` | Canonical structured profile fields and generation intent |
+| `consumers.yaml` | Agent identity, required preferences, and platform capabilities |
+
+Validate and compile them with:
 
 ```bash
+python scripts/validate_memory_contract.py
+python scripts/compile_memory_contract.py
+python scripts/compile_memory_contract.py --check
+```
+
+The compiler generates:
+
+```text
+app/shared_memory/catalog/catalog.json
+app/shared_memory/policies/domain_policy.json
+app/shared_memory/policies/resolution_policy.json
+app/shared_memory/profiles/memory_profiles.json
+app/shared_memory/contracts/consumers.json
+config/generated/profile_manifest.json
+config/schemas/*.schema.json
+```
+
+Generated files are reviewed in pull requests but must not be edited directly.
+
+## 5. Authorization model
+
+Authorization is intentionally layered.
+
+### 5.1 Consumer capabilities
+
+| Capability | Meaning |
+|---|---|
+| `resolveContext` | Request an authorized resolved preference context |
+| `submitCandidates` | Propose a value for validation and routing; not a direct write permission |
+| `inspectProvenance` | Receive safe source, owner, policy, and resolution details |
+| `administerMemory` | Reserved for governed lifecycle operations; not implemented in this POC |
+
+### 5.2 Data authorization
+
+A read requires both:
+
+```text
+preference owner is in consumer-domain permissions.read
+AND
+consumer domain is in preference allowedReaders
+```
+
+A write requires both:
+
+```text
+preference owner is in consumer-domain permissions.write
+AND
+consumer domain is in preference allowedWriters
+```
+
+For example, Grocery may read `customer.diet` because Customer explicitly allows Grocery to read it.
+Grocery cannot update that key because Customer is the owner and only Customer is an allowed writer.
+
+Production must bind `agentId` to a verified Agent Identity or workload identity. Request content is
+not an identity boundary.
+
+## 6. Read and resolve flow
+
+1. The agent calls `get_effective_preferences` or the resolve-context API.
+2. Native ADK context supplies `user_id` and `session_id`.
+3. The platform authenticates the consumer and checks `resolveContext`.
+4. Domain policy returns the consumer's readable domains.
+5. The platform concurrently retrieves:
+   - structured Session overrides;
+   - explicit authoritative profiles;
+   - structured Memory Profiles;
+   - domain-scoped dynamic Memory Bank facts;
+   - application defaults.
+6. Source adapters normalize values into `Preference` records.
+7. The platform rejects invalid, expired, unauthorized, low-confidence, or schema-owner-mismatched
+   candidates.
+8. Candidates are grouped by logical resolution policy.
+9. The pure resolver ranks them using the configured strategy order.
+10. The agent receives an `EffectivePreferenceContext` with selected values and safe explanations.
+
+Gemini formats or applies the already-resolved context. It does not choose source or domain
+precedence.
+
+## 7. Resolution policy
+
+The default source order is:
+
+```text
+SESSION_OVERRIDE
+> EXPLICIT_PROFILE
+> MEMORY_PROFILE
+> DOMAIN_MEMORY
+> DYNAMIC_MEMORY
+> INFERRED_MEMORY
+> DEFAULT
+```
+
+Supported strategies are applied lexicographically in the declared order:
+
+1. `SOURCE_PRIORITY`
+2. `DOMAIN_PRIORITY`
+3. `EXPLICIT_OVER_INFERRED`
+4. `MOST_RECENT`
+5. `HIGHEST_CONFIDENCE`
+
+Later strategies break ties created by earlier strategies. Domain priority is attribute-specific:
+Customer can be authoritative for diet while Grocery is authoritative for substitutions and
+Delivery is authoritative for delivery windows.
+
+Every winner includes `policy_id` and `resolution_reason` so the decision can be tested and
+explained.
+
+## 8. Update routing
+
+The agent submits a `PreferenceCandidate`; it never selects the storage destination.
+
+```text
+Candidate
+  -> capability check
+  -> canonical key and owner lookup
+  -> type, value, and scope validation
+  -> write authorization
+  -> disposition
+```
+
+| Situation | Disposition | Result |
+|---|---|---|
+| Authorized Session preference | `STORED_IN_SESSION` | Structured Session state only |
+| Authorized long-term preference | `STORED_IN_DYNAMIC_MEMORY` | Domain-scoped Memory Bank fact |
+| Foreign owner domain | `CROSS_DOMAIN_CANDIDATE` | Queued for owner validation; no preference write |
+| Invalid value or scope | `REJECTED` | No write |
+| Storage failure | `NOT_PERSISTED` | No success claim |
+
+Grocery attempting to update `customer.diet` becomes a Customer-owned candidate. The current POC
+stores candidates only in process memory. Production requires a durable, idempotent queue, an
+owner/user approval flow, an authoritative profile writer, and a complete audit record.
+
+## 9. Temporary contextual directives
+
+A domain-specific task instruction must not overwrite another domain's authoritative profile.
+
+Example:
+
+```text
+customer.diet = vegetarian                  owner: customer, long term
+grocery.diet_override = none                owner: grocery, current session
+```
+
+The current resolver keeps these as separate logical keys. The Grocery consumer must interpret the
+contextual directive, or a future policy must explicitly model how it suppresses diet application.
+Creating a new session removes the Grocery override but retains the Customer profile.
+
+## 10. Memory Profiles and dynamic memory
+
+| Memory type | Purpose |
+|---|---|
+| Memory Profile | Structured, schema-backed canonical preferences |
+| Dynamic memory | Open-ended domain facts stored in a versioned envelope |
+
+The current dynamic-memory envelope is `shared-memory-preference/v2`. New writes use exact domain
+scope:
+
+```json
+{
+  "user_id": "USER_ID",
+  "app_name": "APPLICATION_NAME",
+  "domain": "OWNER_DOMAIN"
+}
+```
+
+The same scope must be used for generation and retrieval.
+
+### 10.1 Profile schema deployment
+
+The contract compiler generates per-profile schemas and a profile manifest. When
+`ENABLE_MEMORY_PROFILES=true`, `scripts/deploy.py` attaches them under:
+
+```text
+context_spec.memory_bank_config.structured_memory_configs
+```
+
+Deploying a schema does not create profile values. An authorized generation or profile-sync process
+must submit confirmed events afterward.
+
+### 10.2 Schema-owner admission guard
+
+Structured-memory configurations are selected by the presence of scope keys. The provider does not
+choose a schema using a predicate such as `domain == grocery`. Because the current compiler groups
+schemas with identical scope-key signatures, one Grocery event can be evaluated against Customer,
+Store, and Delivery schemas.
+
+This can produce invalid cross-schema values such as:
+
+```text
+customer.diet = Organic
+```
+
+That value must not be trusted merely because it was returned by a profile API.
+
+The production implementation must:
+
+1. map `schema_id` to its owner using `config/generated/profile_manifest.json`;
+2. accept a schema only when its owner matches the requested scope domain;
+3. resolve fields through the schema manifest before consulting aliases;
+4. require schema owner, scope domain, canonical namespace, and catalog owner to agree;
+5. reject and monitor every mismatch;
+6. use narrow enumerations and unambiguous descriptions for sensitive attributes;
+7. use separate Memory Bank resources or independently selectable scope signatures for strict
+   isolation where appropriate.
+
+Prompt wording is not an authorization or data-quality control.
+
+## 11. Cloud resources and creation timing
+
+| Resource | How it is created |
+|---|---|
+| Google Cloud project, APIs, IAM, and organization controls | Provisioned before this repository's deployment |
+| Staging bucket | Created by `scripts/deploy.py` if absent |
+| Agent Runtime | Created when no runtime ID is configured; updated when an ID is supplied |
+| Agent Identity | Requested by Agent Runtime deployment configuration |
+| Sessions and Memory Bank | Accessed through configured Agent Platform resource IDs |
+| Memory Profile schemas | Compiled locally and applied during Agent Runtime deployment |
+| Profile values | Created later by generation or profile synchronization |
+| Candidate approval store and managed snapshot cache | Not implemented in the POC |
+
+Contract validation, compilation, and CI tests make no cloud changes. `scripts/deploy.py` is the
+first standard cloud-mutating deployment step.
+
+## 12. Local setup
+
+```bash
+cd geap-memory
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -82,245 +330,135 @@ cp -n .env.example .env
 gcloud auth application-default login
 ```
 
-### 4.3 Deploy or update Agent Runtime
+Configure `.env` with the Google Cloud project, region, staging bucket, model, and Agent Platform
+resource IDs. Keep Runtime, Sessions, Memory Bank, and model access in compatible supported regions.
+
+## 13. Deploy or update
+
+Before deployment:
 
 ```bash
-source .venv/bin/activate
+python scripts/validate_memory_contract.py
+python scripts/compile_memory_contract.py --check
+python -m pytest -q
+```
+
+Deploy:
+
+```bash
 set -a
 source .env
 set +a
 python scripts/deploy.py
 ```
 
-The deployment script:
+If `GOOGLE_CLOUD_AGENT_ENGINE_ID` is empty, the script creates a new runtime. Preserve the printed
+resource ID in managed environment configuration before the next deployment. With an existing ID,
+the script updates that runtime.
 
-1. Validates or creates the staging bucket.
-2. Wraps the ADK application in `AdkApp`.
-3. Deploys with agent identity.
-4. Uploads the local `app` package with the serialized agent.
-5. Updates the configured runtime or creates a new one.
-6. Prints the resource IDs that must be recorded in `.env`.
+## 14. Generate and inspect a demo profile
 
-### 4.4 Run ADK Web with managed state
+Profile generation is cloud-mutating. Use a synthetic user:
+
+```bash
+python scripts/generate_profile.py \
+  --user-id demo-user-123 \
+  --domain grocery \
+  --text "I prefer organic groceries and usually allow substitutions."
+```
+
+Inspect normalized output:
+
+```bash
+python scripts/inspect_memory.py \
+  --user-id demo-user-123 \
+  --domains grocery
+```
+
+Validate that every Memory Profile entry has a consistent scope domain, owner domain, canonical key,
+and schema ID. Treat any mismatch as rejected data, not as a resolver winner.
+
+## 15. Run ADK Web
 
 ```bash
 source .venv/bin/activate
-set -a
-source .env
-set +a
-adk web \
-  --session_service_uri="agentengine://${AGENT_PLATFORM_SESSIONS_ID:-$GOOGLE_CLOUD_AGENT_ENGINE_ID}" \
-  --memory_service_uri="agentengine://${AGENT_PLATFORM_MEMORY_BANK_ID:-$GOOGLE_CLOUD_AGENT_ENGINE_ID}"
+./scripts/start_adk_web.sh
 ```
 
-Use `?userId=user-123` in the ADK Web URL when validating the supplied demo profile.
+Open `http://localhost:8000`, select `app`, supply a user ID, and create a new session. The complete
+interactive script is in [ADK Web Shared Memory demo](adk-web-demo.md).
 
-## 5. Preference data model
-
-Every normalized preference contains:
-
-| Field | Meaning |
-|---|---|
-| `key`, `value` | Typed preference name and value |
-| `source` | Session override, explicit profile, long-term memory, or default |
-| `scope` | Current session or user |
-| `domain` | Business boundary such as `customer.grocery` |
-| `confidence` | Confidence score where applicable |
-| `updated_at`, `expires_at` | Recency and expiration controls |
-| `provenance` | Source service and record/memory identifier |
-
-Memory Bank facts use a versioned JSON envelope:
-
-```json
-{
-  "schema": "shared-preference/v1",
-  "domain": "customer.grocery",
-  "key": "organic",
-  "value": true,
-  "confidence": 0.93
-}
-```
-
-The exact Memory Bank scope is:
-
-```json
-{
-  "user_id": "user-123",
-  "app_name": "grocery_shared_preferences",
-  "domain": "customer.grocery"
-}
-```
-
-All three scope fields must match. A memory written for one user, application, or domain is not eligible for another.
-
-## 6. Flow A — Read and resolve effective preferences
-
-1. The user asks for a recommendation or asks which preferences are active.
-2. The ADK agent calls `get_effective_preferences` before answering.
-3. The tool reads the native `user_id` and managed session ID from `ToolContext`. Older callers may supply the identity through state as a compatibility fallback.
-4. The context service normalizes current ADK session state and concurrently retrieves:
-   - explicit profile preferences;
-   - exact-scope Memory Bank preferences.
-5. Defaults are added locally.
-6. The resolver rejects wrong-domain and expired values and filters low-confidence long-term memories.
-7. For duplicate keys, newer values win within a source, followed by source precedence.
-8. The tool returns an `EffectivePreferenceContext` with source labels and warnings.
-9. Gemini formats the answer but does not re-resolve or override source precedence.
-
-Example outcome:
-
-| Key | Effective value | Source | Why |
-|---|---|---|---|
-| `diet` | `vegetarian` | Explicit Profile | Profile supplies a confirmed value |
-| `organic` | `true` | Long-term Memory | No profile or session value overrides it |
-| `allow_substitutions` | `true` | Current Session | Temporary session value has highest priority |
-
-## 7. Flow B — Temporary session override
-
-Example user statement: `For today's order, substitutions are okay.`
-
-1. The agent calls `process_preference_statement` with the exact user message.
-2. The controlled extractor recognizes the temporal phrase and creates a `SESSION` candidate.
-3. The key must be in the closed allowlist.
-4. `set_session_preference` writes the value under `preferences:<domain>` in `tool_context.state`.
-5. Assignment creates an ADK event `state_delta`, allowing managed Sessions to persist the update.
-6. No Memory Bank write occurs.
-7. The agent reloads effective preferences; `SESSION_OVERRIDE` wins for that key.
-8. A different or new session does not inherit the override.
-
-Session-state shape:
-
-```json
-{
-  "preferences:customer.grocery": {
-    "allow_substitutions": {
-      "value": true,
-      "updated_at": "<ISO-8601 timestamp>"
-    }
-  }
-}
-```
-
-## 8. Flow C — Durable Memory Bank promotion and recall
-
-Example user statement: `I always prefer organic produce.`
-
-1. The agent calls `process_preference_statement`.
-2. The extractor recognizes durable language and creates a `USER` candidate.
-3. The tool checks the key allowlist and candidate scope.
-4. The memory adapter encodes the candidate in the `shared-preference/v1` envelope.
-5. `agentplatform.Client` creates a Memory Bank fact with the exact user/application/domain scope.
-6. The current request reloads effective preferences.
-7. A new managed session for the same user retrieves the fact from Memory Bank.
-8. The resolver labels it `LONG_TERM_MEMORY` unless an explicit profile or current-session value supersedes it.
-
-Important: explicit profile data remains authoritative. If Memory Bank contains `preferred_milk=oat milk` but the profile contains `preferred_milk=whole milk`, the effective value remains `whole milk (Explicit Profile)`.
-
-For deterministic test seeding:
+Useful inspection commands are:
 
 ```bash
-python scripts/seed_memory.py --user-id user-123 --key organic --value true
-python scripts/inspect_memory.py
+python scripts/inspect_state.py --user-id USER_ID --session-id SESSION_ID
+python scripts/inspect_memory.py --user-id USER_ID --domains grocery,customer,delivery
 ```
 
-## 9. Flow D — Source failure and safe degradation
+Creating a new session removes Session overrides. It does not delete Memory Bank memories or Memory
+Profiles.
 
-Profile and Memory Bank calls cross remote boundaries. The context service times each call and handles a source failure as follows:
-
-1. Log source name, user/session/agent identifiers, duration, and exception type.
-2. Do not log raw preference values.
-3. Add `<source> unavailable` to context warnings.
-4. Replace only that source with an empty list.
-5. Continue resolution with the remaining sources and defaults.
-
-If Memory Bank is not configured during durable promotion, the tool returns `not_persisted` with `memory_bank_written=false`; it does not claim that the preference was saved. Resolver validation errors are not silently degraded.
-
-## 10. Resolution rules
-
-| Priority | Source | Intended authority | Lifetime |
-|---:|---|---|---|
-| 1 | Session Override | Explicit instruction for this trip/order/session | Current session |
-| 2 | Explicit Profile | User-confirmed system-of-record preference | Until profile changes |
-| 3 | Long-term Memory | Durable learned or explicitly promoted preference | Cross-session |
-| 4 | Default | Application fallback | Configuration lifetime |
-
-Additional eligibility rules:
-
-- Domain must equal the requested domain.
-- Expired preferences are ignored.
-- Long-term memory below `MINIMUM_MEMORY_CONFIDENCE` is ignored.
-- Within one source, the most recently updated record wins.
-- Precedence is evaluated per key, not per source collection.
-
-## 11. Identity, isolation, and security
-
-- Native ADK `ToolContext` identity is authoritative; callers do not need to duplicate identity in session state.
-- Memory lookup and creation use the exact tuple `(user_id, app_name, domain)`.
-- Agent identity is selected during deployment.
-- Treat retrieved memories as untrusted input and validate them before model use.
-- Use opaque tenant-scoped user IDs in production.
-- Add consent, retention, deletion/right-to-forget, audit, and promotion approval workflows before production use.
-- Keep raw preference values out of standard logs and traces.
-- Enforce authorization independently of prompt instructions.
-
-## 12. Operations and validation
-
-### Inspect managed sessions
+## 16. Onboard another domain
 
 ```bash
-python scripts/inspect_state.py --user-id user-123 --list
-python scripts/inspect_state.py --user-id user-123 --session-id SESSION_ID
+cp -R config/templates/domain-onboarding config/contracts/loyalty
 ```
 
-An existing session may legitimately contain an empty state. Identity is stored in managed-session metadata, profile preferences remain in the profile system, and durable preferences remain in Memory Bank.
-
-### Inspect Memory Bank
-
-```bash
-python scripts/inspect_memory.py
-```
-
-### Run automated checks
+Fill all five YAML files, validate, compile, review generated changes, implement/register the domain
+agent and extractor, add authorization/resolver tests, and then deploy the updated runtime.
 
 ```bash
-python -m ruff check app scripts tests
+python scripts/validate_memory_contract.py
+python scripts/demo_memory_contract.py --domain loyalty
+python scripts/compile_memory_contract.py
+python scripts/compile_memory_contract.py --check
 python -m pytest -q
 ```
 
-Run the opt-in cloud integration test only with valid application-default credentials and configured cloud variables:
+YAML registration does not automatically create an ADK agent. The domain developer must add an agent
+entry point and thin tools that use the Shared Memory Platform facade.
+
+See [New Domain Onboarding and Demo Runbook](confluence-domain-onboarding-demo.md) for a complete
+Loyalty example.
+
+## 17. Failure behavior
+
+Read sources degrade independently. A failed source contributes no values and adds a warning; the
+resolver continues with remaining authorized sources and defaults.
+
+Writes are fail-closed:
+
+- authorization failure becomes a routed candidate or denial;
+- validation failure becomes `REJECTED`;
+- storage failure becomes `NOT_PERSISTED`;
+- the agent must never convert either status into a success claim.
+
+## 18. Production gaps
+
+The following are required before production:
+
+- schema-owner admission filtering and domain-aware alias resolution;
+- durable candidate and immutable audit stores;
+- owner approval and authoritative profile update workflows;
+- verified service-identity binding and tenant isolation;
+- revisioning, idempotency, migration, retention, correction, and deletion;
+- managed snapshots/cache with safe invalidation;
+- Cloud Logging, Monitoring, Trace, SLOs, alerts, and incident runbooks;
+- load, quota, cost, failure, regional recovery, and adversarial isolation testing.
+
+## 19. Validation commands
+
+Run the complete current validation set:
 
 ```bash
-set -a
-source .env
-set +a
-RUN_GCP_INTEGRATION_TESTS=1 \
-  python -m pytest -q tests/integration/test_agent_platform.py
+python scripts/validate_memory_contract.py
+python scripts/compile_memory_contract.py --check
+python -m pytest -q
+python scripts/validate_platform.py
 ```
 
-## 13. Troubleshooting
+Expected final acceptance line:
 
-| Symptom | Meaning | Resolution |
-|---|---|---|
-| `session initial state must include ...` | Older code expected identity duplicated in state | Use native `ToolContext` identity and the current tool implementation |
-| `Memory Bank is not configured` | Project or resource ID is absent at runtime | Set the project and Memory Bank/Agent Runtime ID, then restart or redeploy |
-| `null` from session inspection | A placeholder/nonexistent session ID was used by the older script | Run `inspect_state.py --list`, then supply a real numeric ID |
-| Empty session `state` | Session exists but has no explicit overrides | This is valid; inspect profile and Memory Bank separately |
-| Memory exists but is not selected | Profile/session precedence, domain mismatch, expiration, or confidence filtering | Compare normalized records and resolver rules |
-| Durable statement is not saved | Extractor did not recognize it, key is unsupported, or Memory Bank is unavailable | Review tool result and candidate status; do not infer persistence from the model response |
-
-## 14. Diagram page guide
-
-The attached draw.io file contains:
-
-1. **Read and Resolve** — end-to-end retrieval, normalization, deterministic resolution, and model response.
-2. **Session Override** — temporal language, ADK state delta, same-session precedence, and no Memory Bank write.
-3. **Long-Term Memory** — durable language, scoped Memory Bank creation, new-session recall, and profile authority.
-4. **Failure and Isolation** — source degradation, warnings, safe defaults, and the user/application/domain boundary.
-
-## 15. References
-
-- [Agent Platform Sessions overview](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sessions)
-- [Manage Sessions with ADK](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sessions/manage-with-adk)
-- [Memory Bank ADK quickstart](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank/adk-quickstart)
-- [Memory Bank API quickstart](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank/api-quickstart)
-- [Agent Runtime ADK quickstart](https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/runtime/quickstart-adk)
+```text
+Shared Memory Platform final scenario: PASS
+```

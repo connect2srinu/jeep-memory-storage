@@ -1,0 +1,17 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryConsumers
+metadata:
+  domain: delivery
+  version: "1.0"
+consumers:
+  - agentId: delivery-agent
+    consumerDomain: delivery
+    requiredPreferences:
+      - delivery.preferred_window
+      - customer.preferred_store
+      - grocery.allow_substitutions
+    capabilities:
+      resolveContext: true
+      submitCandidates: true
+      inspectProvenance: true
+      administerMemory: false
