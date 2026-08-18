@@ -1,497 +1,816 @@
-# Gemini Enterprise Agent Platform: Runtime, Memory, and Evaluation Service Assessment
+# Agent Platform Cost & Architecture Analysis --- 2026 Refresh
 
-## Purpose
+## Overview
 
-This page summarizes the evaluation currently being performed for the
-Gemini Enterprise Agent Platform (GEAP). The intent is to give platform
-leadership, product management, and architecture stakeholders a clear
-view of the decisions being assessed before standardizing the platform
-implementation.
+This document refreshes the earlier **Agent Platform Cost Analysis**
+comparing **Cloud Run + Cloud SQL** with **Gemini Enterprise Agent
+Platform (GEAP) Agent Runtime, Sessions, Memory Bank, and Memory
+Profiles**.
 
-The assessment is focused on three related areas:
+The earlier analysis was completed near the beginning of 2026. Under the
+pricing and capabilities available at that time, Cloud Run appeared
+significantly less expensive. Since then, GEAP has introduced material
+changes, particularly around Sessions, Memory Bank pricing, Memory
+Profiles, runtime capabilities, agent identity, governance, and
+observability.
 
-1.  **Agent Runtime vs. Cloud Run** for agent execution, including an
-    updated cost comparison.
-2.  **Memory Bank and Memory Profiles** for shared and persistent agent
-    memory.
-3.  **Evaluation services** for both online and offline evaluation
-    scenarios.
+The previous analysis should therefore remain as a historical baseline,
+but should not be used unchanged for the current platform decision.
 
-This is an **evaluation-in-progress**, not a final platform decision.
-The objective is to validate cost, capabilities, operational impact,
-developer experience, and enterprise requirements before establishing
-platform standards.
-
-------------------------------------------------------------------------
-
-## 1. Agent Runtime vs. Cloud Run
-
-### Background
-
-An earlier cost assessment compared hosting agents on Cloud Run with
-using the managed Vertex AI agent runtime. Based on the assumptions and
-pricing available at the beginning of 2026, Cloud Run appeared
-significantly less expensive.
-
-That analysis needs to be revisited because the Gemini Enterprise Agent
-Platform has evolved substantially, including changes to the runtime,
-Sessions, Memory Bank, Memory Profiles, agent identity, governance, and
-pricing models.
-
-The updated evaluation should therefore consider **total platform value
-and total cost of ownership**, rather than comparing compute cost alone.
-
-### Areas Being Evaluated
-
-  --------------------------------------------------------------------------------------
-  Evaluation Area   Cloud Run                Agent Runtime     What We Need to Determine
-  ----------------- ------------------------ ----------------- -------------------------
-  Runtime compute   Generally strong cost    Managed           Updated cost at expected
-  cost              optimization and         agent-specific    production volume
-                    concurrency controls     runtime pricing   
-
-  Scaling           Highly configurable      Managed for agent Behavior under peak and
-                                             workloads         sustained agent traffic
-
-  Development       Requires                 More agent-native Developer productivity
-  effort            application/runtime                        and standardization
-                    integration                                
-
-  Operational       Platform team owns more  More managed      Ongoing support and
-  effort            runtime configuration                      maintenance effort
-
-  Sessions          Requires integration     Native GEAP       Cost and operational
-                    with a session           integration       value
-                    implementation/service                     
-
-  Memory Bank       Can access through       Native            Whether runtime choice
-                    APIs/SDKs                integration       materially affects memory
-                                                               architecture
-
-  Agent identity    Requires additional      Platform-native   Enterprise
-  and governance    integration              capabilities      security/governance
-                                                               benefit
-
-  Observability     Cloud-native application Agent-aware       Required operational
-                    observability            platform          visibility
-                                             integration       
-
-  Runtime           Very high                More opinionated  Need for custom
-  flexibility                                toward agent      frameworks/dependencies
-                                             workloads         
-
-  Local development Strong                   Production        Required local
-                                             runtime is        development pattern
-                                             managed           
-
-  Portability       Higher                   Greater GEAP      Acceptable platform
-                                             affinity          dependency
-  --------------------------------------------------------------------------------------
-
-### Cost Assessment
-
-The previous comparison should be treated as a **historical baseline**,
-not as the current decision model.
-
-The revised analysis will:
-
--   Recalculate Cloud Run and Agent Runtime using current GEAP pricing.
--   Revisit the assumptions around request duration and CPU utilization.
--   Account for concurrency rather than assuming every request consumes
-    a dedicated CPU for its entire end-to-end latency.
--   Recalculate Sessions and Memory Bank using the current pricing
-    model.
--   Separate model/token costs from runtime infrastructure costs.
--   Include supporting platform services required by each option.
--   Consider engineering and operational effort in addition to
-    infrastructure spend.
--   Model realistic production traffic, peak traffic, and growth
-    scenarios.
-
-### Target Outcome
-
-The expected outcome is not necessarily that one runtime must be used
-for every workload.
-
-A likely platform pattern to validate is:
-
--   **Agent Runtime** as the preferred runtime for GEAP-native agent
-    workloads where managed agent lifecycle, identity, sessions, memory,
-    governance, and observability provide material value.
--   **Cloud Run** as a supported runtime for workloads requiring greater
-    runtime flexibility, conventional services, or specific cost/scaling
-    characteristics.
--   Establish clear decision criteria so development teams do not need
-    to make this choice independently for every agent.
+> **Status:** Work in progress. The figures below reuse the earlier
+> workload assumptions so the impact of the platform changes can be
+> understood. Final recommendations will be based on current Google
+> Cloud pricing and POC/load-test results.
 
 ------------------------------------------------------------------------
 
-## 2. Memory Bank and Memory Profiles
+# 1. Baseline Workload Assumptions
 
-### Objective
+  Assumption                                                          Baseline
+  ------------------------------------ ---------------------------------------
+  Runtime requests per session                                              10
+  Sessions per month                                                        1M
+  Runtime requests per month                                               10M
+  Average request duration                                           5 seconds
+  Session events per runtime request                                         3
+  Session events per month                                                 30M
+  Memory generated                                     1 per completed session
+  Memories generated per month                                              1M
+  Memory retrieval assumption            1 returned memory per runtime request
+  Memory retrievals per month                                              10M
+  Billing month                                                        30 days
 
-The memory evaluation is focused on supporting agents that need both
-agent-specific memory and access to shared user/domain context.
+The previous runtime calculation effectively used:
 
-Example domains may include:
+`10M requests × 5 seconds = 50M compute seconds = ~13,889 compute hours`
 
--   Customer
--   Grocery
--   Store
--   Delivery
--   Other line-of-business-specific profiles
+This assumption needs validation. Agent request latency can include time
+waiting for Gemini, tools, APIs, memory operations, and downstream
+agents. Wall-clock latency should therefore not automatically be treated
+as dedicated CPU utilization.
 
-An agent may own and update its domain-specific preferences while also
-consuming authorized preferences from other profiles.
+------------------------------------------------------------------------
 
-### Proposed Memory Pattern
+# 2. Previous Cloud Run + Cloud SQL Estimate
 
-The platform is evaluating a layered model:
+  ------------------------------------------------------------------------
+  Service               Previous Assumption          Previous Monthly Cost
+  --------------------- --------------------- ----------------------------
+  Cloud Run             1 vCPU, 2 GiB;                             \$50.11
+                        traffic builds/fades  
+                        over \~12 hours       
 
-**Structured preferences → Memory Profiles**
+  Cloud SQL ---         PostgreSQL, 250 GiB,                      \$229.75
+  Short-Term Memory     Enterprise Plus, 2    
+                        vCPU/16 GiB, HA       
+                        disabled              
 
-Use profiles for known, structured attributes that should be retrieved
-predictably and efficiently.
+  Cloud SQL ---         PostgreSQL, 250 GiB,                      \$396.78
+  Long-Term Memory      Enterprise Plus, 2    
+                        vCPU/16 GiB, HA       
+                        enabled               
 
-Examples:
+  Miscellaneous         Load balancer, Cloud                      \$100.00
+                        Trace, Artifact       
+                        Registry, Secret      
+                        Manager, etc.         
 
--   preferred store
--   substitution preference
--   delivery preference
--   brand preference
--   product preference
+  **Total**                                                   **\$776.60**
+  ------------------------------------------------------------------------
 
-**Dynamic/semantic memory → Memory Bank**
+This is useful as an infrastructure baseline. However, Cloud SQL storage
+by itself is not feature-equivalent to GEAP Sessions and Memory Bank.
 
-Use Memory Bank where the information is learned from conversations or
-cannot be represented effectively as a predefined structured preference.
+If Cloud Run/custom services are expected to provide equivalent
+capabilities, the TCO analysis should also consider session lifecycle,
+memory extraction, embeddings, semantic retrieval, ranking, retention,
+profile management, provenance, agent identity, governance, agent-aware
+telemetry, HA/DR, schema management, and operational support.
 
-**Shared Preference/Context Service**
+------------------------------------------------------------------------
 
-A platform service would provide a consistent abstraction across the
-different memory sources. Its responsibilities may include:
+# 3. Previous Managed Agent Platform Estimate
 
--   retrieving relevant profiles;
--   retrieving applicable long-term memories;
--   incorporating session-specific preferences;
--   incorporating preferences supplied through external profile APIs;
--   applying domain-specific precedence rules;
--   resolving conflicting preferences;
--   preserving source/provenance information;
--   producing an effective preference snapshot for the requesting agent.
+## Agent Runtime
 
-### Key Questions Being Evaluated
+Previous calculation:
+
+`10M × 5 seconds ÷ 3,600 = 13,889 hours`
+
+Estimated runtime cost: **\~\$1,450/month**
+
+## Sessions
+
+Previous pricing assumption:
+
+`30M events ÷ 1,000 × $0.25 = $7,500/month`
+
+## Memory Bank
+
+Stored memory:
+
+`1M ÷ 1,000 × $0.25 = $250/month`
+
+Memory retrieval:
+
+`10M ÷ 1,000 × $0.50 = $5,000/month`
+
+Memory Bank total: **\$5,250/month**
+
+  Service           Previous Monthly Cost
+  --------------- -----------------------
+  Agent Runtime                   \$1,450
+  Sessions                        \$7,500
+  Memory Bank                     \$5,250
+  **Total**                  **\$14,200**
+
+The earlier comparison was therefore:
+
+-   **Cloud Run + Cloud SQL: \$776.60**
+-   **Managed Agent Platform: \$14,200**
+
+This made the managed option appear approximately **18× more
+expensive**.
+
+------------------------------------------------------------------------
+
+# 4. New GEAP Changes That Require Reassessment
+
+The largest change is the consumption model for **Sessions and Memory
+Bank**.
+
+Current published GEAP pricing introduces operation-based pricing for
+these services, with the new Sessions and Memory Bank pricing taking
+effect September 1, 2026.
+
+  GEAP Capability           Current Published Rate
+  -------------------- ---------------------------
+  Agent Runtime CPU          \~\$0.085 / vCPU-hour
+  Agent Runtime RAM           \~\$0.009 / GiB-hour
+  Agent storage               \~\$0.30 / GiB-month
+  Sessions reads         \~\$0.085 / 3M operations
+  Sessions writes        \~\$0.085 / 1M operations
+  Memory Bank reads      \~\$0.085 / 3M operations
+  Memory Bank writes     \~\$0.085 / 1M operations
+
+Model inference, memory-generation model usage, embeddings, tools/APIs,
+storage, and other dependent services must be modeled separately.
+
+The key implication is that the **\$7,500 Sessions and \$5,250 Memory
+Bank estimates from the earlier analysis should not be carried forward
+unchanged**.
+
+------------------------------------------------------------------------
+
+# 5. Illustrative Recalculation
+
+These calculations illustrate the pricing-model impact. They are not yet
+the final production estimate.
+
+## Sessions
+
+Baseline: 30M session events/writes per month.
+
+Previous:
+
+`30M ÷ 1,000 × $0.25 = $7,500`
+
+Illustrative operation cost under the new model:
+
+`30M ÷ 1M × $0.085 = $2.55`
+
+Storage, reads, retention, and actual API-operation behavior still need
+to be added.
+
+## Memory Bank
+
+Baseline:
+
+-   1M memory writes/month
+-   10M memory reads/month
+
+Previous:
+
+`$250 storage/generation assumption + $5,000 retrieval = $5,250`
+
+Illustrative operation costs:
+
+`1M writes ÷ 1M × $0.085 = $0.085`
+
+`10M reads ÷ 3M × $0.085 ≈ $0.28`
+
+The final Memory Bank cost must additionally include storage,
+memory-generation/model usage, embeddings where applicable, retention,
+and actual operation counts.
+
+### Cost Implication
+
+The previous managed-platform total was dominated by **\$12,750/month
+for Sessions + Memory Bank**. That portion of the comparison changes
+materially under the new pricing model.
+
+Cloud Run may still have an advantage in raw runtime compute cost, but
+the earlier \~18× overall difference is no longer an appropriate
+current-state conclusion.
+
+------------------------------------------------------------------------
+
+# 6. What the Updated Comparison Must Measure
+
+The revised study should separate **raw infrastructure cost** from
+**total cost of ownership**.
 
   -----------------------------------------------------------------------
-  Question                            Why It Matters
-  ----------------------------------- -----------------------------------
-  How many Memory Profiles should be  Determines domain ownership and
-  used?                               isolation model
+  Area                    Cloud Run / Custom      GEAP Managed
+  ----------------------- ----------------------- -----------------------
+  Runtime compute         Likely lower / highly   Agent-specific managed
+                          tunable                 runtime
 
-  How should an agent read across     Required for shared-memory
-  profiles?                           scenarios
+  Concurrency             Highly configurable     Managed agent execution
 
-  Which agent/profile can update each Prevents unintended cross-domain
-  preference?                         updates
+  Sessions                Custom DB/service or    Native GEAP Sessions
+                          GEAP integration        
 
-  How are conflicts resolved?         Required when multiple domains
-                                      contain related preferences
+  Semantic memory         Custom/integrated       Memory Bank
 
-  Which attributes belong in profiles Impacts latency, predictability,
-  vs. semantic memory?                and cost
+  Structured memory       Custom profile store    Memory Profiles
 
-  Should memory be retrieved per turn Major latency and efficiency
-  or per session?                     consideration
+  Agent identity          Additional integration  GEAP capability
 
-  How are dynamic preferences         Prevents the schema from becoming
-  represented?                        too restrictive
+  Governance              Additional integration  GEAP capability
 
-  What is the isolation model for     Required for enterprise security
-  sensitive domains?                  and governance
+  Agent observability     Additional              Agent-aware integration
+                          instrumentation         
 
-  How is provenance retained?         Required for explainability and
-                                      preference resolution
+  Local execution         Strong                  Requires local/managed
+                                                  pattern
+
+  Platform engineering    Higher                  Lower
+
+  Runtime flexibility     Higher                  More opinionated
+
+  Portability             Higher                  Greater GEAP affinity
   -----------------------------------------------------------------------
 
-### Runtime Independence
-
-The memory architecture should not unnecessarily depend on whether an
-agent executes on Agent Runtime or Cloud Run.
-
-The preferred direction is to expose memory through a common platform
-contract so that an agent can request an **effective context/preference
-snapshot** without understanding the underlying storage implementation.
-
-This also supports future runtime changes without redesigning the memory
-model.
+The same representative ADK agent should be deployed to both runtimes
+and tested under identical load before finalizing runtime cost.
 
 ------------------------------------------------------------------------
 
-## 3. Online and Offline Development Model
+# 7. Memory Profiles --- New Capability to Include
 
-A key platform requirement is enabling developers to work efficiently
-without requiring every development activity to execute against
-production-like managed services.
+The earlier comparison primarily treated memory as Cloud SQL versus
+Memory Bank. The current architecture should also evaluate **Memory
+Profiles**.
 
-The evaluation will therefore define multiple execution modes.
+Memory Profiles are particularly relevant for structured preferences
+that should be accessed predictably rather than repeatedly discovered
+through semantic memory search.
 
-### Online / Managed Mode
+Examples include:
 
-Used for integration, performance, pre-production, and production
-testing.
+-   preferred store;
+-   substitution preference;
+-   delivery window;
+-   brand preference;
+-   product preference;
+-   other domain-specific preferences.
 
-Potential services include:
-
--   Agent Runtime or Cloud Run
--   Gemini models on Vertex AI
--   GEAP Sessions
--   Memory Bank
--   Memory Profiles
--   Shared Preference/Context Service
--   Enterprise identity and governance
--   Centralized observability
-
-### Local / Connected Mode
-
-The agent runs locally while connecting to selected Google Cloud
-services.
-
-Example uses:
-
--   local ADK development;
--   testing against a development Memory Bank;
--   testing Gemini model behavior;
--   validating integration with the shared preference service.
-
-This provides higher-fidelity testing without requiring deployment for
-every code change.
-
-### Offline / Mock Mode
-
-The agent and supporting dependencies run locally or use test doubles.
-
-Potential substitutes include:
-
--   in-memory session implementation;
--   local database or test fixture for preferences;
--   mock profile service;
--   mock Memory Bank provider;
--   recorded/model-stub responses where appropriate.
-
-The goal is to enable fast development, deterministic automated tests,
-and CI validation without unnecessary cloud dependencies.
-
-### Design Principle
-
-Agents should consume platform interfaces rather than directly coupling
-business logic to a specific persistence implementation.
-
-For example:
-
-`Agent → Shared Context Interface → Cloud Provider / Local Provider / Test Provider`
-
-This abstraction is important for developer productivity and
-testability.
+A multi-agent shared-memory scenario may include Customer, Grocery,
+Store, Delivery, and other domain profiles.
 
 ------------------------------------------------------------------------
 
-## 4. Evaluation Services
+# 8. Proposed Shared Memory Pattern
 
-The platform is also evaluating a common evaluation capability that can
-support agents throughout their lifecycle.
+``` text
+Grocery Agent
+      |
+      v
+Shared Preference / Context Service
+      |
+      +-------------+-------------+-------------+
+      |             |             |             |
+      v             v             v             v
+Grocery Profile Customer Profile Store Profile Delivery Profile
+      |
+      +---------------------------+
+                  |
+                  v
+             Memory Bank
+       Dynamic / Semantic Memory
+                  |
+                  v
+         Preference Resolver
+                  |
+                  v
+     Effective Preference Snapshot
+                  |
+                  v
+                Agent
+```
 
-The evaluation framework should support both **offline evaluations** and
-**online evaluations**.
+The platform service should control:
 
-### Offline Evaluations
+-   which profiles an agent can read;
+-   which profile an agent can update;
+-   preference precedence;
+-   conflict resolution;
+-   provenance;
+-   confidence where applicable;
+-   session overrides;
+-   external/UI preferences;
+-   effective context generation.
 
-Offline evaluations are primarily intended for development, regression
-testing, release validation, and model/prompt comparison.
+------------------------------------------------------------------------
 
-Potential capabilities include:
+# 9. Memory Profiles vs. Memory Bank
 
--   curated evaluation datasets;
--   golden/reference responses where appropriate;
--   tool-selection accuracy;
--   task completion;
+  Requirement                              Capability to Evaluate
+  ---------------------------------------- -----------------------------------
+  Known structured preference              Memory Profile
+  Predictable/low-latency profile access   Memory Profile
+  Domain-owned preference                  Memory Profile
+  Learned conversational information       Memory Bank
+  Unstructured long-term information       Memory Bank
+  Semantic retrieval                       Memory Bank
+  Session-only preference                  Session context
+  Browser/external profile preference      External Profile API
+  Conflict resolution                      Preference Resolver
+  Cross-domain context                     Shared Preference/Context Service
+
+The intent is not to replace Memory Bank with profiles. The two serve
+different purposes.
+
+------------------------------------------------------------------------
+
+# 10. Revisit the Per-Request Memory Retrieval Assumption
+
+The previous model assumes one memory retrieval for every runtime
+request.
+
+For a ten-turn session:
+
+``` text
+Turn 1 -> Memory retrieval
+Turn 2 -> Memory retrieval
+...
+Turn 10 -> Memory retrieval
+```
+
+The shared-memory design should test a more efficient approach:
+
+``` text
+Session Start
+     |
+Load Relevant Profiles
+     |
+Retrieve Applicable Semantic Memory
+     |
+Apply Priority / Conflict Rules
+     |
+Build Effective Preference Snapshot
+     |
+     +--> Turn 1
+     +--> Turn 2
+     +--> ...
+     +--> Turn 10
+```
+
+The snapshot can be refreshed when the user changes a preference, a
+relevant profile changes, significant new memory is created, or a
+freshness threshold is reached.
+
+This should reduce latency and unnecessary retrieval activity
+independent of runtime choice.
+
+------------------------------------------------------------------------
+
+# 11. Online and Offline Development
+
+The platform must support more than production execution.
+
+## Online / Production-Like
+
+``` text
+Agent
+  |
+Agent Runtime / Cloud Run
+  |
+Shared Context Service
+  |
+  +-- Sessions
+  +-- Memory Profiles
+  +-- Memory Bank
+  +-- Gemini
+```
+
+Used for integration, performance, pre-production, and production.
+
+## Local Agent + Cloud Services
+
+``` text
+Developer Laptop
+      |
+     ADK
+      |
+      +--> Gemini
+      +--> Development Memory Bank
+      +--> Development Profile/Context Service
+```
+
+Used for rapid development with realistic managed dependencies.
+
+## Offline / Mock
+
+``` text
+Developer Laptop
+      |
+     ADK
+      |
+Platform Interfaces
+      |
+      +--> In-Memory Sessions
+      +--> Local/Test Preference Store
+      +--> Mock Memory Provider
+      +--> Mock External Profile API
+```
+
+Used for unit testing, CI, deterministic regression tests, and
+development without mandatory cloud dependencies.
+
+A provider/interface abstraction should prevent agent business logic
+from being directly tied to Cloud SQL, Memory Bank, or the production
+runtime.
+
+------------------------------------------------------------------------
+
+# 12. Evaluation Service --- Offline
+
+The platform also needs a common evaluation capability.
+
+Offline evaluation should run against controlled datasets before
+deployment.
+
+Candidate metrics include:
+
 -   response quality;
 -   groundedness;
--   safety and policy checks;
+-   task completion;
+-   tool selection;
+-   tool arguments;
+-   A2A/multi-agent routing;
+-   safety/policy compliance;
 -   memory retrieval quality;
--   preference resolution correctness;
--   multi-agent/A2A workflow evaluation;
--   latency and token usage;
--   comparison across agent, prompt, model, and configuration versions.
+-   Memory Profile selection;
+-   preference conflict resolution;
+-   effective snapshot correctness;
+-   latency;
+-   token usage;
+-   regression against previous versions.
 
-Offline evaluation should be integrated with CI/CD so that material
-regressions can be identified before promotion.
+Proposed flow:
 
-### Online Evaluations
+``` text
+Agent / Prompt / Model Change
+            |
+            v
+     Evaluation Dataset
+            |
+            v
+   Offline Eval Service
+            |
+    +-------+-------+
+    |       |       |
+ Quality  Memory   Tools
+    |       |       |
+ Safety  Routing Performance
+    +-------+-------+
+            |
+            v
+       Eval Results
+            |
+            v
+    CI/CD Release Gate
+```
 
-Online evaluations are intended to assess production or production-like
-agent behavior using actual interaction telemetry, subject to security
-and privacy requirements.
+Offline evaluations should support local execution where practical,
+CI/CD execution, scheduled runs, and release/promotion gates.
 
-Potential capabilities include:
+------------------------------------------------------------------------
 
--   sampled production interactions;
--   quality scoring;
--   task success indicators;
--   tool-call behavior;
--   memory retrieval effectiveness;
--   latency and failure rates;
--   policy/guardrail signals;
+# 13. Evaluation Service --- Online
+
+Online evaluation should measure production or production-like behavior
+using controlled sampling.
+
+Candidate signals:
+
+-   task success;
 -   user feedback;
--   drift or regression detection.
+-   response quality;
+-   tool-call behavior;
+-   memory relevance;
+-   profile/preference-resolution accuracy;
+-   latency;
+-   token consumption;
+-   safety signals;
+-   agent routing;
+-   drift/regression.
 
-Online evaluation should complement operational monitoring rather than
-replace it.
+``` text
+Production Agent Traffic
+           |
+           v
+ Observability / Traces
+           |
+           v
+    Controlled Sampling
+           |
+           v
+    Online Eval Service
+           |
+   +-------+-------+
+   |       |       |
+Quality  Memory  Safety
+Tools   Routing Performance
+   +-------+-------+
+           |
+           v
+ Metrics / Trends / Alerts
+```
 
-### Online vs. Offline Evaluation
-
-  ------------------------------------------------------------------------
-  Area                    Offline Evaluation       Online Evaluation
-  ----------------------- ------------------------ -----------------------
-  Primary purpose         Pre-release quality and  Production quality
-                          regression testing       monitoring
-
-  Data                    Curated/synthetic/test   Sampled real
-                          datasets                 interactions
-
-  Execution               CI/CD, scheduled or      Continuous or scheduled
-                          on-demand                sampling
-
-  Reproducibility         High                     Lower due to real-world
-                                                   variability
-
-  Release gating          Yes                      Typically informs
-                                                   rollback/improvement
-                                                   decisions
-
-  Privacy considerations  Controlled datasets      Higher; requires strong
-                                                   governance
-
-  Cost predictability     Easier to control        Depends on sampling and
-                                                   evaluator usage
-  ------------------------------------------------------------------------
+The online design must additionally address privacy, sensitive data,
+evaluator cost, retention, access control, and audit requirements.
 
 ------------------------------------------------------------------------
 
-## 5. Platform-Level Decision Framework
+# 14. Runtime for Evaluation Services
 
-Rather than evaluating each component independently, the final
-recommendation should consider the complete platform experience.
-
-The major decision dimensions are:
+The agent runtime decision should not automatically determine where
+evaluation services execute.
 
   -----------------------------------------------------------------------
-  Dimension                           Key Consideration
+  Workload                            Candidate
   ----------------------------------- -----------------------------------
-  Cost                                Infrastructure cost plus
-                                      managed-service consumption
+  Production ADK agent                Agent Runtime vs. Cloud Run ---
+                                      under evaluation
 
-  Total Cost of Ownership             Engineering, maintenance, support,
-                                      and operational overhead
+  Shared Preference/Context Service   Cloud Run
 
-  Developer Experience                Time required to build, test,
-                                      deploy, and troubleshoot an agent
+  Offline evaluation orchestration    Cloud Run / appropriate batch
+                                      execution
 
-  Enterprise Governance               Identity, authorization,
-                                      auditability, isolation, and policy
-                                      enforcement
+  Online evaluation processing        Event-driven Cloud Run / managed
+                                      processing
 
-  Memory                              Structured profiles, semantic
-                                      memory, shared context, and
-                                      conflict resolution
+  Scheduled large evaluation jobs     Batch-oriented execution
 
-  Evaluation                          Consistent online/offline quality
-                                      measurement
+  Evaluation results                  Appropriate managed analytics/data
+                                      store
+  -----------------------------------------------------------------------
 
-  Observability                       Agent, model, tool, memory, and
-                                      infrastructure visibility
+The platform should select execution technology according to workload
+characteristics.
 
-  Scalability                         Production traffic, peak behavior,
-                                      and future growth
+------------------------------------------------------------------------
 
-  Availability/Resiliency             Enterprise availability and
-                                      regional requirements
+# 15. Three Architecture Options to Compare
 
-  Local Development                   Ability to develop and test without
-                                      full managed deployment
+## Option A --- Cloud Run-Centric
 
-  Portability                         Ability to change runtime or
-                                      implementation without redesigning
-                                      agents
+``` text
+Agent -> Cloud Run
+          |
+          +-- Custom/Integrated Sessions
+          +-- Cloud SQL/Profile Store
+          +-- Custom/Integrated Semantic Memory
+          +-- Shared Preference Service
+```
 
-  Platform Standardization            Ability to provide reusable
-                                      patterns across lines of business
+**Strengths:** cost control, flexibility, portability, local
+development.
+
+**Trade-offs:** greater platform engineering and operations;
+agent-native identity, governance, memory, lifecycle, and telemetry
+require integration.
+
+## Option B --- GEAP-Centric
+
+``` text
+Agent -> Agent Runtime
+          |
+          +-- GEAP Sessions
+          +-- Memory Profiles
+          +-- Memory Bank
+          +-- Agent Identity
+          +-- GEAP Governance/Observability
+```
+
+**Strengths:** managed agent lifecycle, native memory/session
+integration, lower platform operations, stronger agent-native
+governance.
+
+**Trade-offs:** potentially higher runtime compute cost, greater GEAP
+affinity, less runtime-level flexibility.
+
+## Option C --- Hybrid
+
+``` text
+              Agent Runtime
+                   |
+                 Agent
+                   |
+                   v
+      Shared Preference Service
+              Cloud Run
+                   |
+        +----------+----------+
+        |          |          |
+     Profiles  Memory Bank  External
+                           Preference API
+
+Evaluation Services -> Cloud Run / Event / Batch
+Offline Providers   -> Local/Test Implementations
+```
+
+**Strengths:** managed runtime where agent-specific capabilities provide
+value while retaining Cloud Run for reusable platform services and
+custom orchestration.
+
+**Trade-offs:** two runtime patterns to operate and clear platform
+contracts/standards are required.
+
+**Current direction to validate:** Hybrid is a strong candidate, but the
+POC and updated cost study should determine the final recommendation.
+
+------------------------------------------------------------------------
+
+# 16. Decision Criteria
+
+  -----------------------------------------------------------------------
+  Criterion                           Evaluation Question
+  ----------------------------------- -----------------------------------
+  Runtime cost                        What is the cost at representative
+                                      volume and concurrency?
+
+  Session/memory cost                 What is the cost under the new GEAP
+                                      pricing model?
+
+  Model/token cost                    How much of total cost is actually
+                                      model consumption?
+
+  Development effort                  How quickly can teams build and
+                                      deploy?
+
+  Platform engineering                What must the platform team build
+                                      itself?
+
+  Operations                          What is the long-term support
+                                      burden?
+
+  Scaling                             How do options behave at peak and
+                                      sustained traffic?
+
+  Availability                        How are enterprise HA/regional
+                                      requirements met?
+
+  Identity                            Can agents have governed workload
+                                      identity?
+
+  Governance                          How are authorization, audit, and
+                                      policy handled?
+
+  Observability                       Can model/tool/memory/agent
+                                      behavior be diagnosed?
+
+  Memory Profiles                     Do they satisfy structured
+                                      preference requirements?
+
+  Semantic memory                     Does Memory Bank satisfy
+                                      dynamic-memory requirements?
+
+  Cross-profile memory                Can authorized agents safely
+                                      consume multiple profiles?
+
+  Offline development                 Can developers work without full
+                                      cloud deployment?
+
+  Offline evaluation                  Can releases be regression-tested
+                                      and gated?
+
+  Online evaluation                   Can production quality and drift be
+                                      measured safely?
+
+  Portability                         How strongly does the design depend
+                                      on a runtime?
   -----------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
-## 6. Work in Progress / Next Steps
+# 17. Work to Complete
 
-The following activities are planned as part of the assessment:
+## Cost
 
--   [ ] Recalculate Agent Runtime cost using current GEAP pricing.
--   [ ] Recalculate Cloud Run cost using equivalent workload and
-    concurrency assumptions.
--   [ ] Include Sessions and Memory Bank using the current pricing
-    model.
--   [ ] Compare infrastructure cost separately from total cost of
-    ownership.
--   [ ] Validate realistic runtime CPU/memory utilization using a
-    representative agent workload.
--   [ ] Prototype Memory Profiles for structured user/domain
-    preferences.
--   [ ] Validate cross-profile read patterns and domain-specific write
-    ownership.
--   [ ] Prototype the Shared Preference/Context Service and effective
-    preference snapshot.
--   [ ] Validate session-level caching/reuse to avoid unnecessary memory
-    retrieval on every turn.
--   [ ] Define the local, connected, and offline development patterns.
--   [ ] Define a common abstraction for cloud and local memory
-    providers.
--   [ ] Prototype offline evaluation for regression and release
-    validation.
--   [ ] Prototype online evaluation using controlled production-like
-    telemetry.
--   [ ] Define common evaluation metrics for model, tool, memory, and
-    agent behavior.
--   [ ] Assess security, privacy, governance, and data-isolation
-    requirements.
--   [ ] Produce a final decision matrix and recommended platform
-    standards.
+-   [ ] Validate current Agent Runtime pricing with the Google Cloud
+    pricing calculator.
+-   [ ] Recalculate Cloud Run using realistic concurrency.
+-   [ ] Measure active CPU utilization vs. five-second wall-clock
+    latency.
+-   [ ] Recalculate Sessions using the new pricing model.
+-   [ ] Recalculate Memory Bank using the new pricing model.
+-   [ ] Include Memory Bank/session storage.
+-   [ ] Include memory-generation and embedding/model costs.
+-   [ ] Include Gemini inference separately.
+-   [ ] Model average, peak, and growth scenarios.
+-   [ ] Compare infrastructure cost and TCO separately.
+
+## Memory
+
+-   [ ] Build Memory Profiles POC.
+-   [ ] Validate domain-specific profiles.
+-   [ ] Validate cross-profile reads.
+-   [ ] Validate domain-specific write ownership.
+-   [ ] Define structured-profile vs. semantic-memory rules.
+-   [ ] Implement preference precedence/conflict rules.
+-   [ ] Validate effective preference snapshot.
+-   [ ] Compare per-turn retrieval vs. session-level context.
+-   [ ] Measure memory/profile latency.
+-   [ ] Validate sensitive-domain isolation.
+
+## Runtime
+
+-   [ ] Deploy the same ADK agent to Agent Runtime and Cloud Run.
+-   [ ] Run identical load tests.
+-   [ ] Compare concurrency/scaling.
+-   [ ] Compare cold-start behavior.
+-   [ ] Compare telemetry.
+-   [ ] Compare deployment and developer effort.
+-   [ ] Validate enterprise identity/networking requirements.
+
+## Offline Development
+
+-   [ ] Define cloud memory provider interface.
+-   [ ] Define local/test memory provider.
+-   [ ] Define local session provider.
+-   [ ] Validate local ADK + cloud-memory mode.
+-   [ ] Validate fully offline/mock mode.
+-   [ ] Integrate offline mode with CI.
+
+## Evaluation Services
+
+-   [ ] Define common evaluation schema.
+-   [ ] Create baseline evaluation datasets.
+-   [ ] Prototype offline evaluation.
+-   [ ] Integrate offline evaluation with CI/CD.
+-   [ ] Define release thresholds/gates.
+-   [ ] Prototype online evaluation.
+-   [ ] Define production sampling.
+-   [ ] Define memory-specific evaluation metrics.
+-   [ ] Define tool/A2A metrics.
+-   [ ] Define privacy and retention controls.
+-   [ ] Estimate evaluator/model cost.
 
 ------------------------------------------------------------------------
 
-## 7. Expected Deliverables
+# 18. Expected Outcome
 
-At the end of the assessment, the platform team should have:
+The refreshed assessment should produce:
 
-1.  An updated **Agent Runtime vs. Cloud Run cost and capability
-    comparison**.
-2.  A recommended **runtime decision framework** for platform users.
-3.  A validated **shared-memory architecture** using Memory Profiles,
-    Memory Bank, and the Shared Preference/Context Service.
-4.  A defined **online, connected, and offline development model**.
-5.  A common **online and offline evaluation architecture**.
-6.  A documented set of **platform standards, supported patterns, and
-    exception criteria**.
+1.  An updated cost model replacing the early-2026 comparison.
+2.  A Cloud Run vs. Agent Runtime decision matrix based on equivalent
+    capabilities.
+3.  A Memory Profiles + Memory Bank architecture for structured and
+    semantic memory.
+4.  A shared preference/context service design for multi-agent
+    scenarios.
+5.  Online, connected, and offline development patterns.
+6.  Online and offline evaluation service architecture.
+7.  Platform standards defining default runtime patterns and exception
+    criteria.
 
 ------------------------------------------------------------------------
 
-## Current Direction
+# Summary
 
-The current assessment is intentionally avoiding a single technology
-decision based only on compute price.
+The earlier analysis correctly represented the economics of the platform
+under the assumptions and pricing available at that time. However, the
+two largest managed-platform cost components in that analysis ---
+**Sessions and Memory Bank** --- are changing materially.
 
-The goal is to determine the combination of GEAP managed capabilities
-and Google Cloud services that provides the best balance of **cost,
-developer productivity, operational simplicity, governance, memory
-capabilities, evaluation quality, and enterprise scalability**.
+The previous **\$776.60 vs. \$14,200** comparison should therefore
+remain visible as historical context, but should not be treated as the
+current platform conclusion.
 
-The final recommendation will be based on validated workload
-measurements and proof-of-concept results rather than the historical
-cost comparison alone.
+The refreshed evaluation asks a broader question:
+
+> **What combination of Agent Runtime, Cloud Run, Sessions, Memory
+> Profiles, Memory Bank, shared platform services, and evaluation
+> services provides the best enterprise balance of cost, developer
+> experience, operational simplicity, governance, memory capability, and
+> scalability?**
+
+The original workload assumptions will initially be retained to make the
+impact of the GEAP changes visible. Those assumptions will then be
+validated through POCs, representative load testing, and current Google
+Cloud pricing before establishing the final platform standard.
