@@ -12,6 +12,8 @@ profiles:
         profileField: preferred_store
       - preference: customer.diet
         profileField: diet
+      - preference: customer.fruit
+        profileField: fruit
     generation:
       enabled: true
       sources: [CONFIRMED_PREFERENCE_CANDIDATE, EXPLICIT_PROFILE_SYNC]

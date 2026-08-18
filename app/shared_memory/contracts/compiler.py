@@ -98,9 +98,11 @@ def compile_contracts(bundle: ContractBundle) -> CompilationResult:
 
     grouped_profiles: dict[tuple[str, ...], list[dict[str, Any]]] = {}
     profile_manifest: dict[str, Any] = {"version": "1.0", "profiles": {}}
+    profile_registry: dict[str, Any] = {}
     for contract in bundle.profiles:
         for profile in contract.profiles:
             properties = {}
+            field_mappings = {}
             for field in profile.fields:
                 preference = preference_definitions[field.preference]
                 schema: dict[str, Any] = {
@@ -110,6 +112,7 @@ def compile_contracts(bundle: ContractBundle) -> CompilationResult:
                 if preference.allowed_values:
                     schema["enum"] = preference.allowed_values
                 properties[field.profile_field] = schema
+                field_mappings[field.profile_field] = field.preference
             schema_config = {
                 "id": profile.id,
                 "memory_schema": {
@@ -123,7 +126,12 @@ def compile_contracts(bundle: ContractBundle) -> CompilationResult:
             profile_manifest["profiles"][profile.id] = {
                 "owner_domain": profile.owner_domain,
                 "scope_keys": profile.scope_keys,
+                "fields": field_mappings,
                 "generation": profile.generation.model_dump(by_alias=False, mode="json"),
+            }
+            profile_registry[profile.id] = {
+                "owner_domain": profile.owner_domain,
+                "fields": field_mappings,
             }
     structured_configs = [
         {
@@ -134,6 +142,7 @@ def compile_contracts(bundle: ContractBundle) -> CompilationResult:
     ]
     memory_profile_payload = {
         "version": "1.0",
+        "profile_registry": profile_registry,
         "structured_memory_configs": structured_configs,
     }
 

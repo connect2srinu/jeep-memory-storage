@@ -338,6 +338,21 @@ class PlatformBehaviorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.disposition, CandidateDisposition.STORED_IN_SESSION)
         self.assertTrue(session.state("U123", "S456"))  # type: ignore[attr-defined]
 
+    async def test_grocery_snack_routes_to_grocery_long_term_memory(self) -> None:
+        platform, _, memory, candidates = build_platform()
+        result = await platform.submit_preference(
+            candidate=self.candidate(
+                "preferred_snack", "grocery", PreferenceScope.LONG_TERM, "mango_chips"
+            ),
+            consumer_domain="grocery",
+            agent_id="grocery-agent",
+        )
+        self.assertEqual(result.canonical_key, "grocery.preferred_snack")
+        self.assertEqual(result.owner_domain, "grocery")
+        self.assertEqual(result.disposition, CandidateDisposition.STORED_IN_DYNAMIC_MEMORY)
+        self.assertEqual(len(memory._items), 1)  # type: ignore[attr-defined]
+        self.assertEqual(len(candidates.items), 0)
+
     async def test_cross_domain_preference_becomes_candidate(self) -> None:
         platform, _, memory, candidates = build_platform()
         result = await platform.submit_preference(

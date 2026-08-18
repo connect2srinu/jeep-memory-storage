@@ -33,6 +33,12 @@
         "grocery"
       ]
     },
+    "fruit": {
+      "domain_priority": [
+        "customer",
+        "grocery"
+      ]
+    },
     "organic_preference": {
       "domain_priority": [
         "grocery",
@@ -53,6 +59,14 @@
       ]
     },
     "preferred_product_type": {
+      "domain_priority": [
+        "grocery",
+        "customer",
+        "store",
+        "delivery"
+      ]
+    },
+    "preferred_snack": {
       "domain_priority": [
         "grocery",
         "customer",

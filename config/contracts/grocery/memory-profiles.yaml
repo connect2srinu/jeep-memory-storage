@@ -19,6 +19,8 @@ profiles:
         profileField: preferred_milk
       - preference: grocery.preferred_product_type
         profileField: preferred_product_type
+      - preference: grocery.preferred_snack
+        profileField: preferred_snack
     generation:
       enabled: true
       sources: [CONFIRMED_PREFERENCE_CANDIDATE, SESSION_EVENTS]

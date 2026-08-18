@@ -33,8 +33,47 @@ class CandidateExtractorTests(unittest.TestCase):
         self.assertEqual(candidate.key, "grocery.preferred_milk")
         self.assertIs(candidate.requested_scope, PreferenceScope.LONG_TERM)
 
+    def test_ui_snack_phrase_is_long_term_grocery_candidate(self) -> None:
+        candidate = extract("I always prefer mango chips as my snack.")
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual(candidate.key, "grocery.preferred_snack")
+        self.assertEqual(candidate.value, "mango_chips")
+        self.assertEqual(candidate.proposed_domain, "grocery")
+        self.assertIs(candidate.requested_scope, PreferenceScope.LONG_TERM)
+
+    def test_confirmed_preferred_snack_is_long_term(self) -> None:
+        candidate = extract("I confirm that my preferred snack is potato chips.")
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual((candidate.key, candidate.value), (
+            "grocery.preferred_snack",
+            "potato_chips",
+        ))
+        self.assertIs(candidate.requested_scope, PreferenceScope.LONG_TERM)
+
+    def test_original_snack_wording_is_supported(self) -> None:
+        candidate = extract("I confirm that my preferred potato chips as snack.")
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual((candidate.key, candidate.value), (
+            "grocery.preferred_snack",
+            "potato_chips",
+        ))
+
+    def test_today_snack_is_session_only(self) -> None:
+        candidate = extract("For today, use pretzels as my snack.")
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual((candidate.key, candidate.value), (
+            "grocery.preferred_snack",
+            "pretzels",
+        ))
+        self.assertIs(candidate.requested_scope, PreferenceScope.SESSION)
+
     def test_incidental_choice_is_not_promoted(self) -> None:
         self.assertIsNone(extract("Add oat milk to my cart."))
+        self.assertIsNone(extract("Add mango chips to my cart."))
 
     def test_ignore_personal_diet_becomes_grocery_session_override(self) -> None:
         candidate = extract(

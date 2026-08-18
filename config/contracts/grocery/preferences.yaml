@@ -78,3 +78,17 @@ preferences:
     resolutionPolicy: preferred_product_type
     profile: grocery-preferences-v1
     aliases: [preferred_product, preferred_product_type]
+
+  - key: grocery.preferred_snack
+    type: string
+    description: Grocery-owned preferred snack type preference
+    ownerDomain: grocery
+    canonical: true
+    sensitivity: normal
+    scopes: [SESSION, LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [grocery, store, delivery]
+    allowedWriters: [grocery]
+    resolutionPolicy: preferred_snack
+    profile: grocery-preferences-v1
+    aliases: [preferred_snack]

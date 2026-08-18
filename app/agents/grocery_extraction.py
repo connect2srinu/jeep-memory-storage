@@ -50,6 +50,26 @@ _RULES = (
     ),
     _Rule(
         re.compile(
+            r"\b(?:for today|today|for this (?:trip|order))\b.*?"
+            r"\b(?:use|prefer) (?P<value>[a-z][a-z0-9 -]*?) as (?:my )?snack\b",
+            re.IGNORECASE,
+        ),
+        "grocery.preferred_snack",
+        "grocery",
+        PreferenceScope.SESSION,
+    ),
+    _Rule(
+        re.compile(
+            r"\b(?:for today|today|for this (?:trip|order))\b.*?"
+            r"\bmy preferred snack is (?P<value>[a-z][a-z0-9 -]*?)(?:[.!]|$)",
+            re.IGNORECASE,
+        ),
+        "grocery.preferred_snack",
+        "grocery",
+        PreferenceScope.SESSION,
+    ),
+    _Rule(
+        re.compile(
             r"\b(?:today|for this trip)\b.*?\b(?:do not|don't) "
             r"apply my vegetarian preference\b",
             re.IGNORECASE,
@@ -82,6 +102,36 @@ _RULES = (
             re.IGNORECASE,
         ),
         "grocery.preferred_milk",
+        "grocery",
+        PreferenceScope.LONG_TERM,
+    ),
+    _Rule(
+        re.compile(
+            r"\bI (?:always|usually) prefer (?P<value>[a-z][a-z0-9 -]*?) "
+            r"as (?:my )?snack\b",
+            re.IGNORECASE,
+        ),
+        "grocery.preferred_snack",
+        "grocery",
+        PreferenceScope.LONG_TERM,
+    ),
+    _Rule(
+        re.compile(
+            r"\bI confirm that (?:my )?preferred snack is "
+            r"(?P<value>[a-z][a-z0-9 -]*?)(?:[.!]|$)",
+            re.IGNORECASE,
+        ),
+        "grocery.preferred_snack",
+        "grocery",
+        PreferenceScope.LONG_TERM,
+    ),
+    _Rule(
+        re.compile(
+            r"\bI confirm that my preferred (?P<value>[a-z][a-z0-9 -]*?) "
+            r"as (?:my )?snack\b",
+            re.IGNORECASE,
+        ),
+        "grocery.preferred_snack",
         "grocery",
         PreferenceScope.LONG_TERM,
     ),

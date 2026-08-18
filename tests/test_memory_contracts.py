@@ -24,7 +24,12 @@ def test_example_contracts_validate_and_compile_deterministically() -> None:
     compilation = compile_contracts(bundle)
 
     assert len(bundle.domains) == 5
-    assert sum(len(item.preferences) for item in bundle.catalogs) == 9
+    preference_keys = {
+        preference.key
+        for catalog in bundle.catalogs
+        for preference in catalog.preferences
+    }
+    assert {"customer.fruit", "grocery.preferred_snack"} <= preference_keys
     assert compilation.differences(PROJECT_ROOT) == []
 
 
@@ -41,6 +46,18 @@ def test_compiled_memory_profiles_are_per_domain_and_sdk_compatible() -> None:
         "grocery-preferences-v1",
         "store-preferences-v1",
     }
+
+    payload = json.loads(
+        (PROJECT_ROOT / "app/shared_memory/profiles/memory_profiles.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    registry = payload["profile_registry"]
+    assert registry["customer-preferences-v1"]["fields"]["fruit"] == "customer.fruit"
+    assert (
+        registry["grocery-preferences-v1"]["fields"]["preferred_snack"]
+        == "grocery.preferred_snack"
+    )
 
 
 def test_cross_domain_consumer_reference_is_rejected(tmp_path: Path) -> None:

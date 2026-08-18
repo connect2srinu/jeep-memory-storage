@@ -42,3 +42,7 @@ policies:
       - grocery.preferred_product_type
       - store.preferred_product_type
     domainPriority: [grocery, customer, store, delivery]
+
+  - id: preferred_snack
+    appliesTo: [grocery.preferred_snack]
+    domainPriority: [grocery, customer, store, delivery]

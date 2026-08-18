@@ -1,6 +1,11 @@
 {
   "profiles": {
     "customer-preferences-v1": {
+      "fields": {
+        "diet": "customer.diet",
+        "fruit": "customer.fruit",
+        "preferred_store": "customer.preferred_store"
+      },
       "generation": {
         "enabled": true,
         "inferred_fields_allowed": false,
@@ -20,6 +25,9 @@
       ]
     },
     "delivery-preferences-v1": {
+      "fields": {
+        "preferred_window": "delivery.preferred_window"
+      },
       "generation": {
         "enabled": true,
         "inferred_fields_allowed": false,
@@ -37,6 +45,14 @@
       ]
     },
     "grocery-preferences-v1": {
+      "fields": {
+        "allow_substitutions": "grocery.allow_substitutions",
+        "organic_preference": "grocery.organic_preference",
+        "preferred_brand": "grocery.preferred_brand",
+        "preferred_milk": "grocery.preferred_milk",
+        "preferred_product_type": "grocery.preferred_product_type",
+        "preferred_snack": "grocery.preferred_snack"
+      },
       "generation": {
         "enabled": true,
         "inferred_fields_allowed": false,
@@ -57,6 +73,9 @@
       ]
     },
     "store-preferences-v1": {
+      "fields": {
+        "preferred_product_type": "store.preferred_product_type"
+      },
       "generation": {
         "enabled": true,
         "inferred_fields_allowed": false,

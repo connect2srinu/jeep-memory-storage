@@ -11,3 +11,7 @@ policies:
   - id: diet
     appliesTo: [customer.diet]
     domainPriority: [customer, grocery]
+
+  - id: fruit
+    appliesTo: [customer.fruit]
+    domainPriority: [customer, grocery]

@@ -1,4 +1,37 @@
 {
+  "profile_registry": {
+    "customer-preferences-v1": {
+      "fields": {
+        "diet": "customer.diet",
+        "fruit": "customer.fruit",
+        "preferred_store": "customer.preferred_store"
+      },
+      "owner_domain": "customer"
+    },
+    "delivery-preferences-v1": {
+      "fields": {
+        "preferred_window": "delivery.preferred_window"
+      },
+      "owner_domain": "delivery"
+    },
+    "grocery-preferences-v1": {
+      "fields": {
+        "allow_substitutions": "grocery.allow_substitutions",
+        "organic_preference": "grocery.organic_preference",
+        "preferred_brand": "grocery.preferred_brand",
+        "preferred_milk": "grocery.preferred_milk",
+        "preferred_product_type": "grocery.preferred_product_type",
+        "preferred_snack": "grocery.preferred_snack"
+      },
+      "owner_domain": "grocery"
+    },
+    "store-preferences-v1": {
+      "fields": {
+        "preferred_product_type": "store.preferred_product_type"
+      },
+      "owner_domain": "store"
+    }
+  },
   "structured_memory_configs": [
     {
       "schema_configs": [
@@ -10,6 +43,10 @@
             "properties": {
               "diet": {
                 "description": "User-confirmed dietary preference",
+                "type": "string"
+              },
+              "fruit": {
+                "description": "User-confirmed fruit preference",
                 "type": "string"
               },
               "preferred_store": {
@@ -58,6 +95,10 @@
               },
               "preferred_product_type": {
                 "description": "Grocery-owned product type preference",
+                "type": "string"
+              },
+              "preferred_snack": {
+                "description": "Grocery-owned preferred snack type preference",
                 "type": "string"
               }
             },

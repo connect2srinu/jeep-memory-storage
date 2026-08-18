@@ -33,3 +33,19 @@ preferences:
     aliases: [diet]
     confirmation:
       requiredForLongTerm: true
+
+  - key: customer.fruit
+    type: string
+    description: User-confirmed fruit preference
+    ownerDomain: customer
+    canonical: true
+    sensitivity: sensitive
+    scopes: [SESSION, LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [customer, grocery]
+    allowedWriters: [customer]
+    resolutionPolicy: fruit
+    profile: customer-preferences-v1
+    aliases: [fruit]
+    confirmation:
+      requiredForLongTerm: true

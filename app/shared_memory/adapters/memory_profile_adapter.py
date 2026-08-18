@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from datetime import UTC, datetime
+from importlib.resources import files
 from typing import Any
 
 from app.shared_memory.catalog import PreferenceCatalog
 from app.shared_memory.models import Preference, PreferenceSource
+from app.shared_memory.observability import log_event
+
+
+def _load_profile_registry() -> dict[str, dict[str, Any]]:
+    path = files("app.shared_memory.profiles").joinpath("memory_profiles.json")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    registry = payload.get("profile_registry", {})
+    if not isinstance(registry, dict):
+        return {}
+    return {
+        str(schema_id): metadata
+        for schema_id, metadata in registry.items()
+        if isinstance(metadata, dict)
+    }
 
 
 class NullMemoryProfileAdapter:
@@ -27,11 +43,109 @@ class AgentPlatformMemoryProfileAdapter:
         project: str | None = None,
         location: str | None = None,
         agent_engine_id: str | None = None,
+        profile_registry: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         self.catalog = catalog
         self.project = project
         self.location = location
         self.agent_engine_id = agent_engine_id
+        self.profile_registry = (
+            _load_profile_registry() if profile_registry is None else profile_registry
+        )
+
+    def _reject_profile_value(
+        self,
+        *,
+        requested_domain: str,
+        schema_id: str,
+        raw_key: str | None,
+        reason: str,
+    ) -> None:
+        log_event(
+            "memory_profile_value_rejected",
+            requested_domain=requested_domain,
+            schema_id=schema_id,
+            profile_field=raw_key,
+            reason=reason,
+        )
+
+    def _normalize_response(self, domain: str, response: Any) -> list[Preference]:
+        result: list[Preference] = []
+        profiles = getattr(response, "profiles", {}) or {}
+        for raw_schema_id, profile in profiles.items():
+            schema_id = str(raw_schema_id)
+            metadata = self.profile_registry.get(schema_id)
+            if metadata is None:
+                self._reject_profile_value(
+                    requested_domain=domain,
+                    schema_id=schema_id,
+                    raw_key=None,
+                    reason="UNKNOWN_SCHEMA",
+                )
+                continue
+
+            schema_owner = str(metadata.get("owner_domain", ""))
+            if schema_owner != domain:
+                self._reject_profile_value(
+                    requested_domain=domain,
+                    schema_id=schema_id,
+                    raw_key=None,
+                    reason="SCHEMA_OWNER_MISMATCH",
+                )
+                continue
+
+            field_mappings = metadata.get("fields", {})
+            if not isinstance(field_mappings, dict):
+                self._reject_profile_value(
+                    requested_domain=domain,
+                    schema_id=schema_id,
+                    raw_key=None,
+                    reason="INVALID_SCHEMA_REGISTRY",
+                )
+                continue
+
+            values = getattr(profile, "profile", {}) or {}
+            for raw_key, value in values.items():
+                profile_field = str(raw_key)
+                canonical_key = field_mappings.get(profile_field)
+                if not isinstance(canonical_key, str):
+                    self._reject_profile_value(
+                        requested_domain=domain,
+                        schema_id=schema_id,
+                        raw_key=profile_field,
+                        reason="UNKNOWN_PROFILE_FIELD",
+                    )
+                    continue
+
+                entry = self.catalog.lookup(canonical_key)
+                if entry is None or entry.owner_domain != schema_owner:
+                    self._reject_profile_value(
+                        requested_domain=domain,
+                        schema_id=schema_id,
+                        raw_key=profile_field,
+                        reason="CATALOG_OWNER_MISMATCH",
+                    )
+                    continue
+
+                result.append(
+                    Preference(
+                        key=entry.key,
+                        value=value,
+                        source=PreferenceSource.MEMORY_PROFILE,
+                        owner_domain=entry.owner_domain,
+                        confidence=1.0,
+                        updated_at=datetime.now(UTC),
+                        confirmed=True,
+                        canonical=True,
+                        schema_version=entry.schema_version,
+                        sensitivity=entry.sensitivity,
+                        provenance={
+                            "service": "agent-platform-memory-profile",
+                            "schema_id": schema_id,
+                        },
+                    )
+                )
+        return result
 
     async def get_memory_profile_preferences(
         self, user_id: str, app_name: str, domains: tuple[str, ...]
@@ -61,27 +175,5 @@ class AgentPlatformMemoryProfileAdapter:
         )
         result: list[Preference] = []
         for domain, response in zip(domains, responses, strict=True):
-            for schema_id, profile in (getattr(response, "profiles", {}) or {}).items():
-                for raw_key, value in (getattr(profile, "profile", {}) or {}).items():
-                    entry = self.catalog.lookup(str(raw_key), domain)
-                    key = entry.key if entry else f"{domain}.{raw_key}"
-                    result.append(
-                        Preference(
-                            key=key,
-                            value=value,
-                            source=PreferenceSource.MEMORY_PROFILE,
-                            owner_domain=entry.owner_domain if entry else domain,
-                            confidence=1.0,
-                            updated_at=datetime.now(UTC),
-                            confirmed=True,
-                            canonical=bool(entry),
-                            schema_version=entry.schema_version if entry else "1",
-                            sensitivity=entry.sensitivity if entry else "normal",
-                            provenance={
-                                "service": "agent-platform-memory-profile",
-                                "schema_id": str(schema_id),
-                            },
-                        )
-                    )
+            result.extend(self._normalize_response(domain, response))
         return result
-

@@ -26,11 +26,13 @@
       "required_preferences": [
         "customer.preferred_store",
         "customer.diet",
+        "customer.fruit",
         "grocery.allow_substitutions",
         "grocery.organic_preference",
         "grocery.preferred_brand",
         "grocery.preferred_milk",
         "grocery.preferred_product_type",
+        "grocery.preferred_snack",
         "store.preferred_product_type",
         "delivery.preferred_window"
       ],
