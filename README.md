@@ -79,54 +79,73 @@ flowchart TD
 ## Package structure
 
 ```text
-app/
-  agents/
-    grocery_agent.py                 ADK reference consumer
-    grocery_extraction.py            Grocery-owned extraction semantics
-    reference_consumers.py           Store and Delivery examples
-  shared_memory/
-    api/routes.py                     FastAPI endpoints
-    models/preference.py              normalized contracts
-    catalog/
-      catalog.json                    canonical preference definitions
-      preference_catalog.py           catalog interface and validation
-    policies/
-      domain_policy.json              explicit domain read/write allowlists
-      resolution_policy.json          attribute-level resolver policies
-      policy_registry.py              policy interface
-    auth/authorization_service.py     enforcement point
-    adapters/
-      agent_platform_session_adapter.py
-      mock_profile_adapter.py
-      memory_profile_adapter.py
-      memory_bank_adapter.py
-    services/
-      session_context_service.py
-      profile_preference_service.py
-      long_term_memory_service.py
-      preference_context_service.py
-      snapshot_service.py
-      shared_memory_service.py
-    resolver/preference_resolver.py   pure deterministic resolver
-    observability/logging.py          redacted structured logging
-    bootstrap.py                      dependency wiring
-  tools/preference_tools.py           thin ADK-to-platform bridge
-  agent.py                             ADK discovery compatibility entry point
-scripts/
-  validate_memory_contract.py         validate domain-owned YAML contracts
-  compile_memory_contract.py          generate deterministic runtime artifacts
-  demo_memory_contract.py             exercise the sample contract bundle
-  deploy.py
-  generate_profile.py                 submit an event for Memory Profile generation
-  run_local.py
-  seed_memory.py
-  inspect_state.py
-  inspect_memory.py
-  validate_platform.py
-config/
-  contracts/<domain>/                 source-of-truth onboarding YAML
-  templates/domain-onboarding/        copyable contract templates
-  generated/profile_manifest.json     compiled profile ownership and field map
+.
+├── app/
+│   ├── agent.py                         ADK discovery entry point
+│   ├── api.py                           FastAPI application entry point
+│   ├── config.py                        environment-backed runtime settings
+│   ├── logging_config.py                application logging setup
+│   ├── agents/
+│   │   ├── grocery_agent.py             Grocery ADK reference consumer
+│   │   ├── grocery_extraction.py        Grocery-owned extraction rules
+│   │   └── reference_consumers.py       Store and Delivery examples
+│   ├── tools/preference_tools.py        thin ADK-to-platform tool bridge
+│   └── shared_memory/
+│       ├── adapters/                     Sessions, Memory Bank, Memory Profile,
+│       │                                 and explicit-profile adapters
+│       ├── api/routes.py                 shared-memory REST endpoints
+│       ├── auth/
+│       │   ├── authorization_service.py  domain and key authorization
+│       │   └── consumer_registry.py      registered-agent capability checks
+│       ├── catalog/
+│       │   ├── catalog.json              generated canonical catalog
+│       │   └── preference_catalog.py     catalog loading and validation
+│       ├── contracts/
+│       │   ├── compiler.py               YAML-to-runtime artifact compiler
+│       │   ├── loader.py                 contract discovery and parsing
+│       │   ├── models.py                 Pydantic contract models
+│       │   └── consumers.json            generated consumer registrations
+│       ├── models/preference.py          normalized runtime contracts
+│       ├── observability/logging.py      redacted structured events
+│       ├── policies/
+│       │   ├── domain_policy.json        generated domain allowlists
+│       │   ├── resolution_policy.json    generated resolver policies
+│       │   └── policy_registry.py        policy loading interface
+│       ├── profiles/memory_profiles.json generated schemas and owner-field registry
+│       ├── resolver/preference_resolver.py
+│       │                                 pure deterministic resolver
+│       ├── services/                      orchestration, source retrieval, persistence,
+│       │                                 resolution, and snapshot services
+│       ├── bootstrap.py                  dependency wiring
+│       └── demo.py                       deterministic acceptance scenario
+├── config/
+│   ├── contracts/<domain>/               source-of-truth onboarding YAML bundles
+│   │   └── {domain,preferences,resolution-policies,memory-profiles,consumers}.yaml
+│   ├── schemas/                          JSON Schemas for every YAML contract kind
+│   ├── templates/domain-onboarding/      copyable new-domain templates
+│   └── generated/profile_manifest.json   compiled profile ownership and field map
+├── scripts/
+│   ├── validate_memory_contract.py       validate YAML without writing files
+│   ├── compile_memory_contract.py        generate or check runtime artifacts
+│   ├── demo_memory_contract.py           exercise the sample contract bundle
+│   ├── run_local.py                      run the in-memory Grocery demo
+│   ├── start_adk_web.sh                  start ADK Web with managed services
+│   ├── deploy.py                         deploy runtime and profile schemas
+│   ├── generate_profile.py               submit a profile-generation event
+│   ├── seed_memory.py                    submit a governed long-term preference
+│   ├── inspect_state.py                  inspect managed Session state
+│   ├── inspect_memory.py                 inspect normalized long-term memory
+│   └── validate_platform.py              run the end-to-end acceptance scenario
+├── tests/
+│   ├── integration/test_agent_platform.py managed-service integration test
+│   └── test_*.py                         unit and contract regression tests
+├── docs/                                architecture, operations, onboarding,
+│                                        Confluence Markdown, and draw.io diagrams
+├── .github/workflows/memory-contracts.yml contract-validation CI workflow
+├── agents-cli-manifest.yaml              Agent Platform deployment manifest
+├── .env.example                          cloud and runtime configuration template
+├── pyproject.toml                         package, dependency, and tool configuration
+└── requirements.txt                      compatible pip requirements
 ```
 
 ## Contract-driven configuration
