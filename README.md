@@ -10,6 +10,12 @@ Store and Delivery are minimal consumers of the same service facade.
 The implementation uses Google ADK, Gemini on Vertex AI, Gemini Enterprise Agent Platform
 Sessions, Agent Platform Memory Bank, and the current `agentplatform.Client` memory APIs.
 
+The current reference flow supports temporary session overrides, governed long-term writes,
+structured Memory Profile generation, deterministic resolution, provenance inspection, and
+cross-domain candidate routing. The Grocery demo includes `grocery.preferred_snack`; the Customer
+domain includes `customer.fruit` and demonstrates that a Grocery agent may read an authorized
+Customer preference but may not directly update it.
+
 ## Platform objective
 
 Business agents receive one `EffectivePreferenceContext`. They do not query Session state,
@@ -107,13 +113,48 @@ app/
   tools/preference_tools.py           thin ADK-to-platform bridge
   agent.py                             ADK discovery compatibility entry point
 scripts/
+  validate_memory_contract.py         validate domain-owned YAML contracts
+  compile_memory_contract.py          generate deterministic runtime artifacts
+  demo_memory_contract.py             exercise the sample contract bundle
   deploy.py
+  generate_profile.py                 submit an event for Memory Profile generation
   run_local.py
   seed_memory.py
   inspect_state.py
   inspect_memory.py
   validate_platform.py
+config/
+  contracts/<domain>/                 source-of-truth onboarding YAML
+  templates/domain-onboarding/        copyable contract templates
+  generated/profile_manifest.json     compiled profile ownership and field map
 ```
+
+## Contract-driven configuration
+
+Business-domain teams declare memory behavior in YAML under `config/contracts/<domain>/`. The
+platform compiler validates ownership and references, then generates the JSON artifacts used at
+runtime. Do not hand-edit generated files.
+
+| Contract file | Declares |
+|---|---|
+| `domain.yaml` | domain identity, owners, data classification, and isolation mode |
+| `preferences.yaml` | canonical keys, types, scopes, readers, writers, aliases, and sensitivity |
+| `resolution-policies.yaml` | strategy, source priority, domain priority, confirmation, and confidence |
+| `memory-profiles.yaml` | Google Memory Profile schemas, fields, scope keys, and generation rules |
+| `consumers.yaml` | agent registration and capabilities such as resolve, submit, and provenance inspection |
+
+Validate and compile after any contract change:
+
+```bash
+python scripts/validate_memory_contract.py
+python scripts/compile_memory_contract.py
+python scripts/compile_memory_contract.py --check
+```
+
+The compiler produces the catalog, domain and resolution policies, consumer registrations,
+structured Memory Profile configuration, and a profile registry that maps each schema field to
+its canonical owner-domain key. CI should run both validation and `--check` so stale generated
+artifacts cannot be merged.
 
 ## Memory source types
 
@@ -139,10 +180,22 @@ Examples:
 ```text
 customer.preferred_store
 customer.diet
+customer.fruit
 grocery.preferred_brand
 grocery.allow_substitutions
+grocery.preferred_snack
 delivery.preferred_window
 ```
+
+The checked-in example currently contains:
+
+| Owner domain | Canonical preferences |
+|---|---|
+| Customer | `diet`, `fruit`, `preferred_store` |
+| Grocery | `allow_substitutions`, `organic_preference`, `preferred_brand`, `preferred_milk`, `preferred_product_type`, `preferred_snack` |
+| Store | `preferred_product_type` |
+| Delivery | `preferred_window` |
+| Pharmacy | no shared preferences; strict-isolation example |
 
 Unknown but valid domain-owned keys remain dynamic:
 
@@ -258,8 +311,10 @@ version. It is invalidated after writes and is never a source of truth.
 3. Strict value and scope validation runs.
 4. Domain and catalog write policy is enforced.
 5. Session scope becomes an ADK state delta and is not written to Memory Bank.
-6. Authorized long-term scope becomes domain-scoped Memory Bank memory.
-7. Unauthorized cross-domain writes become candidate events.
+6. Authorized long-term scope becomes domain-scoped Memory Bank memory and returns
+   `STORED_IN_DYNAMIC_MEMORY`. It does not automatically regenerate a structured Memory Profile.
+7. Unauthorized cross-domain writes become `CROSS_DOMAIN_CANDIDATE` events; they do not update the
+   owner domain.
 8. Snapshots for the user are invalidated.
 
 The extractor can propose; it cannot bypass authorization, select storage, or choose a conflict
@@ -343,6 +398,33 @@ launcher is:
 ./scripts/start_adk_web.sh
 ```
 
+### Quick Snack UI check
+
+Start a new ADK Web session with a synthetic user that is not also used for profile-generation
+tests, then submit:
+
+```text
+I always prefer mango chips as my snack.
+```
+
+The Grocery extractor should emit `grocery.preferred_snack=mango_chips`, owner `grocery`, scope
+`LONG_TERM`; the platform should return `STORED_IN_DYNAMIC_MEMORY`. Verify it from another terminal:
+
+```bash
+python scripts/inspect_memory.py --user-id ui-demo-user --domains grocery
+```
+
+For a temporary override, submit `For today, use pretzels as my snack.` The result should be
+`STORED_IN_SESSION`, and `inspect_state.py` should show the session value:
+
+```bash
+python scripts/inspect_state.py --user-id ui-demo-user --list
+python scripts/inspect_state.py --user-id ui-demo-user --session-id SESSION_ID
+```
+
+The deterministic Grocery extractor is deliberately narrow. A new canonical key in YAML is not
+automatically understood by the UI: add and test domain extraction semantics as part of onboarding.
+
 ## GCP deployment and Memory Profiles
 
 ```bash
@@ -360,6 +442,51 @@ profiles with `client.agent_engines.memories.retrieve_profiles(...)`.
 Natural-language/dynamic preferences use exact-scope Memory Bank retrieval and creation through
 `agentplatform.Client`. Existing POC memories in the legacy `customer.grocery` scope are read during
 migration; new writes use individual domains such as `grocery`.
+
+### Create or update a structured Memory Profile
+
+After the contracts are compiled and profile schemas are deployed, submit an explicit event for a
+separate demo user:
+
+```bash
+python scripts/generate_profile.py \
+  --user-id profile-demo-user \
+  --domain grocery \
+  --text "I always prefer mango chips as my snack."
+
+python scripts/inspect_memory.py \
+  --user-id profile-demo-user \
+  --domains grocery
+```
+
+Run `generate_profile.py` again with a new explicit statement to ask Memory Bank to update the
+profile. Generation is provider-managed and may not be immediately visible; inspect until the
+normalized `grocery.preferred_snack` record shows `source: MEMORY_PROFILE` and provenance schema
+`grocery-preferences-v1`.
+
+Use different users for the UI-write demo and profile-generation demo. A Memory Profile has higher
+source priority than `DOMAIN_MEMORY`, so an older profile value can remain effective even after a
+UI long-term write succeeds.
+
+### Memory Profile owner isolation
+
+The read adapter accepts a profile field only when all of these agree:
+
+1. the schema is registered;
+2. the schema owner matches the requested domain;
+3. the profile field maps to a known canonical key;
+4. the catalog owner matches the schema owner.
+
+Rejected fields produce a redacted `memory_profile_value_rejected` event. For example, a Grocery
+inspection admits values from `grocery-preferences-v1` and filters Customer and Store schema values,
+even if Google returns those records for the same scope.
+
+There is a remaining provider-side limitation: the example schemas use the same scope-key signature
+`user_id`, `app_name`, `domain`, and the installed generation API does not accept a schema ID.
+Memory Bank may therefore generate foreign-schema records in the underlying bank. The adapter
+prevents those records from entering resolution but does not remove them. Strong write-side domain
+isolation requires separate Memory Bank resources per domain or independently selectable
+domain-specific scope signatures.
 
 ## Failure behavior
 
@@ -388,6 +515,8 @@ right-to-forget, and profile-owner approval.
 Run all local checks:
 
 ```bash
+python scripts/validate_memory_contract.py
+python scripts/compile_memory_contract.py --check
 python -m ruff check app scripts tests
 python -m pytest -q
 ```
@@ -436,6 +565,15 @@ Inspect normalized Memory Profiles and dynamic memory:
 python scripts/inspect_memory.py --user-id user-123 --domains grocery,customer
 ```
 
+Generate or update a configured structured profile from an explicit event:
+
+```bash
+python scripts/generate_profile.py \
+  --user-id user-123 \
+  --domain grocery \
+  --text "I always prefer mango chips as my snack."
+```
+
 Submit a validated long-term preference:
 
 ```bash
@@ -451,11 +589,15 @@ python scripts/seed_memory.py \
 
 - The explicit Profile API is represented by `MockProfileAdapter`.
 - Cross-domain candidates use an in-memory repository rather than a durable workflow.
+- There is no candidate review UI; queued candidates are lost when the process restarts.
 - The effective snapshot uses an in-process TTL cache.
 - Grocery extraction uses transparent deterministic rules. Production Gemini extraction should use
   structured output and the same catalog validation boundary.
-- Canonical profile writes need an authoritative profile adapter/workflow; the POC preserves the
-  existing direct, governed Memory Bank write path.
+- UI long-term writes persist domain memory, not structured Memory Profiles. Canonical profile
+  updates need an authoritative profile adapter or approved profile-generation workflow.
+- Shared Memory Profile scope signatures can cause provider-side cross-schema generation. Runtime
+  schema-owner filtering protects resolution, but full write isolation needs separate resources or
+  selectable domain-specific scope signatures.
 - Authentication validates required identities but does not yet verify external tokens.
 - Memory Profiles require deploying the configured schema and generating/ingesting profile events.
 
@@ -473,7 +615,12 @@ python scripts/seed_memory.py \
 ## Detailed documentation and diagrams
 
 - [Shared Memory Platform design](docs/shared-memory-platform.md)
+- [Agent memory setup and end-to-end flows](docs/agent-memory-setup.md)
+- [ADK Web demo, profile generation, and inspection](docs/adk-web-demo.md)
 - [Platform-admin domain onboarding](docs/domain-onboarding.md)
+- [Confluence: platform developer architecture](docs/confluence-platform-developer-architecture.md)
+- [Confluence: DevOps resource lifecycle](docs/confluence-devops-resource-lifecycle.md)
+- [Confluence: new-domain demo](docs/confluence-domain-onboarding-demo.md)
 - [Complete Grocery contract example](config/contracts/grocery)
 - [Copyable domain contract templates](config/templates/domain-onboarding)
 - [Editable platform architecture diagram](docs/shared-memory-platform.drawio)
