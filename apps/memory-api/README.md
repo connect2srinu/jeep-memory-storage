@@ -29,5 +29,10 @@ YAML contracts as the initial GitOps source. Runtime resolution continues to use
 core until the database-backed authorization and policy repositories pass their later migration
 gates.
 
+The provider-neutral `MemoryStore` protocol and strict scope registry now define the next runtime
+boundary. `MockMemoryStore` supplies deterministic offline schemas, lazy profile creation, natural
+memories, event ingestion, explicit writes, and scope isolation while the Vertex implementation is
+being moved behind the same contract.
+
 Agents must eventually authenticate with workload identity. The current compatibility routes retain
 the POC request model and are not a production authentication boundary.
