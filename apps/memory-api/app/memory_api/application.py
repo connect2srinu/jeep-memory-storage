@@ -10,7 +10,6 @@ from memory_api.api.admin.routes import create_admin_router
 from memory_api.api.runtime.models import ApiError
 from memory_api.api.runtime.routes import create_runtime_router
 from memory_api.config.settings import MemoryApiSettings
-from memory_api.integrations import MockMemoryStore
 from memory_api.observability.runtime import (
     CorrelationAndMetricsMiddleware,
     RuntimeMetrics,
@@ -18,6 +17,7 @@ from memory_api.observability.runtime import (
 )
 from memory_api.persistence.database import Database
 from memory_api.persistence.runtime_repository import SqlAlchemyRuntimeControlPlaneRepository
+from memory_api.repositories import MemoryStore
 from memory_api.security.authentication import AuthenticationError
 from memory_api.services.admin_service import (
     AdminControlPlaneService,
@@ -32,11 +32,11 @@ def create_app(
     settings: MemoryApiSettings | None = None,
     *,
     database: Database | None = None,
-    store: MockMemoryStore | None = None,
+    store: MemoryStore | None = None,
 ) -> FastAPI:
     configured = settings or MemoryApiSettings.from_environment()
     runtime_database = database or Database(configured.database_url)
-    runtime_store = store or MockMemoryStore()
+    runtime_store = store or configured.memory_store()
     metrics = RuntimeMetrics()
 
     @asynccontextmanager

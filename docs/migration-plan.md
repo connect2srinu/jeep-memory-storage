@@ -322,13 +322,17 @@ audit, and a live browser workflow against the current Admin API pass.
 
 ### Phase 8 — Vertex integration
 
-- Adapt existing Memory Bank/Profile code to `VertexMemoryBankStore`.
-- Add provider provisioning from approved active schema versions.
-- Validate GenerateMemories, available event ingestion, RetrieveProfiles, exact scopes, and lazy
+- [x] Adapt existing Memory Bank/Profile code to `VertexMemoryBankStore`.
+- [x] Add provider provisioning from approved active schema versions.
+- [x] Validate GenerateMemories, available event ingestion, RetrieveProfiles, exact scopes, and lazy
   profile creation.
-- Document provider limitations and isolation choices.
+- [x] Document provider limitations and isolation choices.
 
 Gate: the MemoryStore contract suite and acceptance data pass in a configured GCP environment.
+
+Status: implementation complete and locally verified. The provider adapter, exact-scope contract
+suite, active-schema context exporter, and opt-in GCP test are in place. The live GCP portion of the
+gate remains environment-gated until the deployment placeholders and ADC are supplied.
 
 ### Phase 9 — End-to-end integration
 

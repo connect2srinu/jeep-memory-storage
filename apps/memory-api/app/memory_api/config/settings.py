@@ -30,6 +30,10 @@ class MemoryApiSettings:
     google_id_token_audience: str | None
     include_legacy_routes: bool = False
     admin_role_bindings_json: str = "{}"
+    memory_backend: str = "mock"
+    google_cloud_project: str | None = None
+    google_cloud_location: str = "us-central1"
+    memory_bank_resource_id: str | None = None
 
     @classmethod
     def from_environment(cls) -> MemoryApiSettings:
@@ -41,7 +45,27 @@ class MemoryApiSettings:
             google_id_token_audience=os.getenv("GOOGLE_ID_TOKEN_AUDIENCE"),
             include_legacy_routes=environment_bool("INCLUDE_LEGACY_ROUTES", False),
             admin_role_bindings_json=os.getenv("ADMIN_ROLE_BINDINGS_JSON", "{}"),
+            memory_backend=os.getenv("MEMORY_BACKEND", "mock").strip().lower(),
+            google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            google_cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            memory_bank_resource_id=(
+                os.getenv("AGENT_PLATFORM_MEMORY_BANK_ID")
+                or os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ID")
+            ),
         )
+
+    def memory_store(self):
+        from memory_api.integrations import MockMemoryStore, VertexMemoryBankStore
+
+        if self.memory_backend == "mock":
+            return MockMemoryStore()
+        if self.memory_backend == "vertex":
+            return VertexMemoryBankStore.from_config(
+                project=self.google_cloud_project or "",
+                location=self.google_cloud_location,
+                resource_id=self.memory_bank_resource_id or "",
+            )
+        raise ValueError("MEMORY_BACKEND must be 'mock' or 'vertex'")
 
     def authenticator(self) -> AgentAuthenticator:
         if not self.auth_enabled:
