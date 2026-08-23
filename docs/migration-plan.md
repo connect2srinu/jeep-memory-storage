@@ -251,10 +251,12 @@ Gate: all three applications start independently; existing 63 tests still pass.
 
 ### Phase 2 — Platform domain and PostgreSQL control plane
 
-- Add typed domain entities and repository interfaces.
-- Add SQLAlchemy models, Alembic, PostgreSQL repositories, and initial migration.
-- Seed/import existing YAML contracts into normalized tables.
-- Preserve YAML validation/compilation as a GitOps interface.
+- [x] Add typed domain entities and repository interfaces.
+- [x] Add normalized SQLAlchemy models, async database lifecycle, and an initial Alembic migration.
+- [x] Add an idempotent importer for existing validated YAML contracts.
+- [x] Preserve YAML validation/compilation as the initial GitOps interface.
+- [x] Add SQLite repository tests and an opt-in PostgreSQL contract test.
+- [ ] Run the PostgreSQL contract test against the Compose database and record the result.
 
 Gate: repository contract tests pass against PostgreSQL; no runtime reads are switched yet.
 

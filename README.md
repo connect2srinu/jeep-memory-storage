@@ -88,6 +88,11 @@ flowchart TD
 │   │   └── pyproject.toml
 │   ├── memory-api/                      independent FastAPI deployment entry point
 │   │   ├── app/memory_api/
+│   │   │   ├── domain/                  platform-owned control-plane types
+│   │   │   ├── persistence/             SQLAlchemy models, database, repositories
+│   │   │   └── services/                YAML contract bootstrap service
+│   │   ├── migrations/                  Alembic control-plane schema revisions
+│   │   ├── scripts/                     database bootstrap operations
 │   │   ├── tests/
 │   │   ├── Dockerfile
 │   │   └── pyproject.toml
@@ -423,9 +428,10 @@ docker compose up --build
 ```
 
 Then open the Admin Console at `http://localhost:3000`; the Memory API is available at
-`http://localhost:8080` and reports health at `/healthz`. The first migration slice does not yet use
-PostgreSQL for control-plane reads, but the service is included so database migrations can be added
-without changing the local topology.
+`http://localhost:8080` and reports health at `/healthz`. Runtime resolution does not yet read its
+control-plane configuration from PostgreSQL. Memory API startup does run Alembic and idempotently
+imports the validated YAML contracts into normalized control-plane tables. PostgreSQL stays internal
+to the Compose network as `postgres:5432`, avoiding collisions with a host installation.
 
 Run the new Reference Agent separately:
 
