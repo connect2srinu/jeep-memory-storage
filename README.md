@@ -88,16 +88,22 @@ flowchart TD
 │   │   └── pyproject.toml
 │   ├── memory-api/                      independent FastAPI deployment entry point
 │   │   ├── app/memory_api/
+│   │   │   ├── api/runtime/             workload-authenticated agent API
+│   │   │   ├── api/admin/               RBAC control-plane and approval API
 │   │   │   ├── domain/                  platform-owned control-plane types
 │   │   │   ├── persistence/             SQLAlchemy models, database, repositories
-│   │   │   └── services/                YAML contract bootstrap service
+│   │   │   ├── security/                workload and admin authentication/RBAC
+│   │   │   └── services/                runtime, bootstrap, admin, and approval services
 │   │   ├── migrations/                  Alembic control-plane schema revisions
 │   │   ├── scripts/                     database bootstrap operations
 │   │   ├── tests/
 │   │   ├── Dockerfile
 │   │   └── pyproject.toml
 │   └── admin-console/                   React control-plane application
-│       ├── src/
+│       ├── src/App.tsx                  governed resource and approval workflows
+│       ├── src/api.ts                   typed Admin API client
+│       ├── src/governance.ts            role guards, duplicate checks, priority ordering
+│       ├── src/*.test.*                 component and governance tests
 │       ├── Dockerfile
 │       └── package.json
 ├── packages/

@@ -309,11 +309,16 @@ lifecycle conflicts, approvals, rejection, revocation, expiry, grant state, audi
 
 ### Phase 7 — React Admin Console
 
-- Build the required pages and typed API client.
-- Add schema preview, normalized duplicate warnings, ordered resolution controls, and approval UX.
-- Add component and browser-level workflow tests.
+- [x] Build the required pages and typed API client.
+- [x] Add schema preview, normalized duplicate warnings, ordered resolution controls, and approval UX.
+- [x] Add component and browser-level workflow tests.
 
 Gate: the acceptance configuration can be created using only the Console and Admin API.
+
+Status: complete. The Console exposes every planned administration area, role-aware mutation guards,
+governed JSON templates, schema preview/duplicate checks, ordered policy controls, access decisions,
+and audit. TypeScript, six component/utility tests, a production build, a zero-vulnerability npm
+audit, and a live browser workflow against the current Admin API pass.
 
 ### Phase 8 — Vertex integration
 
