@@ -1,0 +1,24 @@
+name: Platform CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "codex/**"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e '.[dev]' -e 'apps/memory-api[dev]'
+      - run: python scripts/validate_memory_contract.py
+      - run: python scripts/compile_memory_contract.py --check
+      - run: python scripts/validate_deployment_security.py
+      - run: pytest -q
+      - run: PYTHONPATH=apps/memory-api/app:. pytest -q apps/memory-api/tests
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive infrastructure/terraform
+      - run: terraform -chdir=infrastructure/terraform/environments/dev init -backend=false
+      - run: terraform -chdir=infrastructure/terraform/environments/dev validate

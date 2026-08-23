@@ -8,7 +8,8 @@ Store and Delivery are minimal consumers of the same service facade.
 > business domain owns what its memories mean.
 
 The implementation uses Google ADK, Gemini on Vertex AI, Gemini Enterprise Agent Platform
-Sessions, Agent Platform Memory Bank, and the current `agentplatform.Client` memory APIs.
+Sessions, Agent Platform Memory Bank, PostgreSQL, Cloud Run, IAP, and the current
+`agentplatform.Client` memory APIs.
 
 The current reference flow supports temporary session overrides, governed long-term writes,
 structured Memory Profile generation, deterministic resolution, provenance inspection, and
@@ -92,6 +93,7 @@ flowchart TD
 │   │   │   ├── api/admin/               RBAC control-plane and approval API
 │   │   │   ├── domain/                  platform-owned control-plane types
 │   │   │   ├── persistence/             SQLAlchemy models, database, repositories
+│   │   │   ├── integrations/            mock and Vertex MemoryStore implementations
 │   │   │   ├── security/                workload and admin authentication/RBAC
 │   │   │   └── services/                runtime, bootstrap, admin, and approval services
 │   │   ├── migrations/                  Alembic control-plane schema revisions
@@ -108,7 +110,11 @@ flowchart TD
 │       └── package.json
 ├── packages/
 │   ├── contracts/                       destination for shared API/YAML contracts
-│   └── test-fixtures/                   destination for cross-app acceptance data
+│   └── test-fixtures/                   user-1001 cross-app acceptance data
+├── infrastructure/
+│   ├── terraform/modules/platform/      reusable GCP resources, IAM, services, monitoring
+│   ├── terraform/environments/dev/      placeholder-driven development composition
+│   └── cloud-run/                       image build, plan, and smoke scripts
 ├── app/
 │   │                                     compatibility package retained during migration
 │   ├── agent.py                         ADK discovery entry point
@@ -165,7 +171,9 @@ flowchart TD
 │   ├── seed_memory.py                    submit a governed long-term preference
 │   ├── inspect_state.py                  inspect managed Session state
 │   ├── inspect_memory.py                 inspect normalized long-term memory
-│   └── validate_platform.py              run the end-to-end acceptance scenario
+│   ├── validate_platform.py              run the legacy acceptance scenario
+│   ├── run_phase9_acceptance.py          API-driven mock or Vertex acceptance scenario
+│   └── validate_deployment_security.py   reject public auth and checked-in credentials
 ├── tests/
 │   ├── integration/test_agent_platform.py managed-service integration test
 │   └── test_*.py                         unit and contract regression tests
@@ -174,17 +182,39 @@ flowchart TD
 ├── .github/workflows/memory-contracts.yml contract-validation CI workflow
 ├── agents-cli-manifest.yaml              Agent Platform deployment manifest
 ├── .env.example                          cloud and runtime configuration template
-├── docker-compose.yml                    PostgreSQL, Memory API, and Admin Console
+├── cloudbuild.yaml                       tested immutable builds for all three applications
+├── docker-compose.yml                    PostgreSQL, Memory API, Admin Console, optional agent
 ├── pyproject.toml                         package, dependency, and tool configuration
 └── requirements.txt                      compatible pip requirements
 ```
 
-The repository is in an incremental separation period. `apps/reference-agent` already communicates
-through HTTP and has no Memory Bank SDK dependency. `apps/memory-api` currently reuses the tested
-legacy platform core under `app/shared_memory`; those modules move behind the API in later slices.
-The compatibility package remains until equivalent target tests pass. See
+The target applications now communicate through HTTP and the Memory API owns the mock/Vertex store,
+control plane, authorization, resolution, and provider provisioning boundaries. The legacy package
+remains as a compatibility surface while callers migrate. See
 [`docs/existing-architecture-analysis.md`](docs/existing-architecture-analysis.md) and
 [`docs/migration-plan.md`](docs/migration-plan.md).
+
+## Run and deploy
+
+```bash
+# Core local stack
+docker compose up --build
+
+# Include the ADK reference agent (requires Google/Gemini configuration)
+docker compose --profile agent up --build
+
+# Full governed user-1001 flow
+python scripts/run_phase9_acceptance.py --memory-api-url http://localhost:8080
+```
+
+Local URLs are Admin Console `http://localhost:3000`, Memory API
+`http://localhost:8080/docs`, and optional ADK Web `http://localhost:8000/dev-ui/`.
+
+For a placeholder-driven GCP deployment, follow
+[`docs/deployment-operations.md`](docs/deployment-operations.md) and fill only the values in
+[`docs/deployment-placeholders.md`](docs/deployment-placeholders.md). Terraform never runs
+automatically; the plan, migration job, live Vertex acceptance, rollback, and teardown are explicit
+operator gates.
 
 ## Contract-driven configuration
 
@@ -248,8 +278,9 @@ The checked-in example currently contains:
 
 | Owner domain | Canonical preferences |
 |---|---|
-| Customer | `diet`, `fruit`, `preferred_store` |
-| Grocery | `allow_substitutions`, `organic_preference`, `preferred_brand`, `preferred_milk`, `preferred_product_type`, `preferred_snack` |
+| Customer | `diet`, `fruit`, `fulfillment_preference`, `preferred_store` |
+| Grocery | `allow_substitutions`, `dietary_preference`, `organic_preference`, `preferred_brand`, `preferred_milk`, `preferred_product_type`, `preferred_snack`, `preferred_store` |
+| Inventory | `preferred_store` |
 | Store | `preferred_product_type` |
 | Delivery | `preferred_window` |
 | Pharmacy | no shared preferences; strict-isolation example |
@@ -273,7 +304,7 @@ Unknown domains default to self-only strict isolation.
 
 | Consumer | Read | Write |
 |---|---|---|
-| Grocery | grocery, customer, store, delivery | grocery |
+| Grocery | grocery, customer, store, delivery, inventory | grocery |
 | Store | store, customer, grocery | store |
 | Delivery | delivery, customer, grocery | delivery |
 | Pharmacy | pharmacy only | pharmacy only |

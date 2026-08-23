@@ -7,6 +7,7 @@ from memory_api.security.admin import AdminAuthenticator
 from memory_api.security.authentication import (
     AgentAuthenticator,
     GoogleIdTokenAuthenticator,
+    IapJwtAuthenticator,
     LocalAgentAuthenticator,
 )
 
@@ -34,6 +35,8 @@ class MemoryApiSettings:
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
     memory_bank_resource_id: str | None = None
+    admin_auth_mode: str = "bearer"
+    iap_jwt_audience: str | None = None
 
     @classmethod
     def from_environment(cls) -> MemoryApiSettings:
@@ -52,6 +55,8 @@ class MemoryApiSettings:
                 os.getenv("AGENT_PLATFORM_MEMORY_BANK_ID")
                 or os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ID")
             ),
+            admin_auth_mode=os.getenv("ADMIN_AUTH_MODE", "bearer").strip().lower(),
+            iap_jwt_audience=os.getenv("IAP_JWT_AUDIENCE"),
         )
 
     def memory_store(self):
@@ -73,8 +78,14 @@ class MemoryApiSettings:
         return GoogleIdTokenAuthenticator(self.google_id_token_audience or "")
 
     def admin_authenticator(self) -> AdminAuthenticator:
+        if self.auth_enabled and self.admin_auth_mode == "iap":
+            identity_authenticator = IapJwtAuthenticator(self.iap_jwt_audience or "")
+        elif self.admin_auth_mode == "bearer":
+            identity_authenticator = self.authenticator()
+        else:
+            raise ValueError("ADMIN_AUTH_MODE must be 'bearer' or 'iap'")
         return AdminAuthenticator(
             auth_enabled=self.auth_enabled,
-            google_authenticator=self.authenticator(),
+            google_authenticator=identity_authenticator,
             role_bindings_json=self.admin_role_bindings_json,
         )

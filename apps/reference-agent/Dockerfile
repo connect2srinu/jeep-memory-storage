@@ -7,4 +7,6 @@ WORKDIR /application
 COPY apps/reference-agent ./
 RUN python -m pip install --no-cache-dir .
 
-CMD ["adk", "web", "--host", "0.0.0.0", "--port", "8000", "app"]
+EXPOSE 8000
+
+CMD ["sh", "-c", "adk web --host 0.0.0.0 --port ${PORT:-8000} app"]

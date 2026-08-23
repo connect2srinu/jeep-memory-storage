@@ -1,0 +1,6 @@
+terraform {
+  backend "gcs" {
+    bucket = "<TERRAFORM_STATE_BUCKET>"
+    prefix = "geap-memory/dev"
+  }
+}

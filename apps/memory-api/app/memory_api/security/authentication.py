@@ -67,3 +67,45 @@ class GoogleIdTokenAuthenticator:
         from google.oauth2 import id_token
 
         return id_token.verify_oauth2_token(token, GoogleRequest(), self.audience)
+
+
+class IapJwtAuthenticator:
+    """Verify the JWT assertion added by Google Cloud Identity-Aware Proxy."""
+
+    CERTS_URL = "https://www.gstatic.com/iap/verify/public_key"
+
+    def __init__(self, audience: str) -> None:
+        if not audience.strip():
+            raise ValueError("IAP_JWT_AUDIENCE is required when ADMIN_AUTH_MODE=iap")
+        self.audience = audience
+
+    async def authenticate(self, request: Request) -> AuthenticatedPrincipal:
+        token = request.headers.get("x-goog-iap-jwt-assertion", "").strip()
+        if not token:
+            raise AuthenticationError("IAP JWT assertion is required")
+        try:
+            claims = await asyncio.to_thread(self._verify, token)
+        except Exception as exc:
+            raise AuthenticationError("IAP JWT verification failed") from exc
+        if claims.get("iss") != "https://cloud.google.com/iap":
+            raise AuthenticationError("IAP JWT issuer is not allowed")
+        subject = str(claims.get("sub", "")).strip()
+        principal = str(claims.get("email", "")).strip()
+        if not subject or not principal:
+            raise AuthenticationError("verified IAP JWT lacks subject or email")
+        return AuthenticatedPrincipal(
+            subject=subject,
+            principal=principal,
+            issuer="https://cloud.google.com/iap",
+        )
+
+    def _verify(self, token: str) -> dict[str, Any]:
+        from google.auth.transport.requests import Request as GoogleRequest
+        from google.oauth2 import id_token
+
+        return id_token.verify_token(
+            token,
+            GoogleRequest(),
+            audience=self.audience,
+            certs_url=self.CERTS_URL,
+        )

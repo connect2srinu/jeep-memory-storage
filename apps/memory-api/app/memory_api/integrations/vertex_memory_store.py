@@ -53,7 +53,8 @@ class AgentPlatformMemoryBankClient:
             direct_contents_source={
                 "events": [{"content": {"role": "user", "parts": [{"text": text}]}}]
             },
-            generation_trigger_config={"generation_rule": {"immediate": {}}},
+            # An omitted generation_rule force-flushes immediately in the current SDK.
+            generation_trigger_config={},
         )
 
 

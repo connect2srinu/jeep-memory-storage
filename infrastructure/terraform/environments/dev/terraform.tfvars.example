@@ -1,0 +1,26 @@
+project_id              = "<GCP_PROJECT_ID>"
+region                  = "<GCP_REGION>"
+admin_domain            = "<ADMIN_DNS_NAME>"
+iap_oauth_client_id     = "<IAP_OAUTH_CLIENT_ID>"
+iap_oauth_client_secret = "<IAP_OAUTH_CLIENT_SECRET>"
+iap_jwt_audience        = "/projects/<PROJECT_NUMBER>/global/backendServices/<MEMORY_API_BACKEND_ID>"
+iap_members             = ["group:<ADMIN_GROUP_EMAIL>"]
+
+admin_role_bindings_json = <<EOT
+{"<PLATFORM_ADMIN_EMAIL>":{"roles":["PLATFORM_ADMIN"],"domains":[]}}
+EOT
+
+agent_principal_overrides_json = <<EOT
+{"grocery-agent":"<REFERENCE_AGENT_SERVICE_ACCOUNT_EMAIL>","customer-agent":"<CUSTOMER_AGENT_SERVICE_ACCOUNT_EMAIL>","inventory-agent":"<INVENTORY_AGENT_SERVICE_ACCOUNT_EMAIL>"}
+EOT
+
+memory_bank_resource_id = "<AGENT_PLATFORM_MEMORY_BANK_ID>"
+memory_api_audience     = "<MEMORY_API_CLOUD_RUN_URL>"
+gemini_model            = "<GEMINI_MODEL>"
+
+memory_api_image      = "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPOSITORY>/memory-api:<IMMUTABLE_TAG>"
+admin_console_image   = "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPOSITORY>/admin-console:<IMMUTABLE_TAG>"
+reference_agent_image = "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPOSITORY>/reference-agent:<IMMUTABLE_TAG>"
+
+notification_channel_ids = ["projects/<PROJECT_ID>/notificationChannels/<CHANNEL_ID>"]
+deletion_protection       = true

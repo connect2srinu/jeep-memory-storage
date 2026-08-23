@@ -59,5 +59,25 @@ services:
     ports:
       - "3000:80"
 
+  reference-agent:
+    profiles: ["agent"]
+    build:
+      context: .
+      dockerfile: apps/reference-agent/Dockerfile
+    environment:
+      MEMORY_API_URL: http://memory-api:8080
+      REFERENCE_AGENT_ID: grocery-agent
+      ADK_APP_NAME: grocery_shared_preferences
+      PREFERENCE_DOMAIN: grocery
+      GOOGLE_GENAI_USE_VERTEXAI: "true"
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+    depends_on:
+      memory-api:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
 volumes:
   shared-memory-postgres:

@@ -1,4 +1,10 @@
 .env
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+infrastructure/terraform/environments/*/terraform.tfvars
+infrastructure/terraform/environments/*/backend.tf
 .venv/
 node_modules/
 *.tsbuildinfo

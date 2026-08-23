@@ -349,14 +349,19 @@ placeholders and workload/admin ID tokens.
 
 ### Phase 10 — Deployment and operations
 
-- Add Docker Compose for PostgreSQL, Memory API, and Admin Console.
-- Add Terraform dev modules for APIs, service accounts, Artifact Registry, Cloud Run, Cloud SQL,
+- [x] Add Docker Compose for PostgreSQL, Memory API, and Admin Console.
+- [x] Add Terraform dev modules for APIs, service accounts, Artifact Registry, Cloud Run, Cloud SQL,
   Secret Manager, IAM, and networking.
-- Add Cloud Run deployment configuration for all three apps.
-- Add dashboards/alerts, migration jobs, rollback procedures, and security checks.
+- [x] Add Cloud Run deployment configuration for all three apps.
+- [x] Add dashboards/alerts, migration jobs, rollback procedures, and security checks.
 
 Gate: documented dev deployment, smoke test, rollback, and teardown succeed without automatically
 creating production resources.
+
+Status: implementation and local/static validation complete. Compose, image build configuration,
+modular Terraform, IAP authentication, a one-shot migration/bootstrap job, dashboards, alerts,
+security policy checks, smoke/acceptance commands, rollback, and teardown are documented. Cloud
+apply/smoke/teardown remain operator gates and require the listed environment placeholders.
 
 ## Test strategy
 

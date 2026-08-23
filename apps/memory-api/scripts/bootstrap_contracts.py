@@ -10,6 +10,7 @@ from pathlib import Path
 from app.shared_memory.contracts import load_contracts
 from memory_api.persistence import Database
 from memory_api.services import ContractBootstrapService
+from memory_api.services.principal_overrides import apply_principal_overrides
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +32,9 @@ async def run() -> None:
             await database.create_schema()
         async with database.session() as session:
             result = await ContractBootstrapService(session).import_bundle(bundle)
+            await apply_principal_overrides(
+                session, os.getenv("AGENT_PRINCIPAL_OVERRIDES_JSON", "{}")
+            )
         print(json.dumps(asdict(result), indent=2, sort_keys=True))
     finally:
         await database.dispose()

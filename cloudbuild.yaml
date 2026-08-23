@@ -1,0 +1,25 @@
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: geap-memory-dev-containers
+  _TAG: $SHORT_SHA
+
+steps:
+  - id: test-memory-api
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -c
+      - pip install -e '.[dev]' -e 'apps/memory-api[dev]' && PYTHONPATH=apps/memory-api/app:. pytest -q apps/memory-api/tests
+  - id: build-memory-api
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, apps/memory-api/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/memory-api:${_TAG}', .]
+  - id: build-reference-agent
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, apps/reference-agent/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}', .]
+  - id: build-admin-console
+    name: gcr.io/cloud-builders/docker
+    args: [build, --build-arg, VITE_MEMORY_API_URL=/api/v1/admin, -f, apps/admin-console/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}', .]
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/memory-api:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}'
