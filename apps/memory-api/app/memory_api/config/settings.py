@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from memory_api.security.admin import AdminAuthenticator
 from memory_api.security.authentication import (
     AgentAuthenticator,
     GoogleIdTokenAuthenticator,
@@ -28,6 +29,7 @@ class MemoryApiSettings:
     auth_enabled: bool
     google_id_token_audience: str | None
     include_legacy_routes: bool = False
+    admin_role_bindings_json: str = "{}"
 
     @classmethod
     def from_environment(cls) -> MemoryApiSettings:
@@ -38,9 +40,17 @@ class MemoryApiSettings:
             auth_enabled=environment_bool("AUTH_ENABLED", False),
             google_id_token_audience=os.getenv("GOOGLE_ID_TOKEN_AUDIENCE"),
             include_legacy_routes=environment_bool("INCLUDE_LEGACY_ROUTES", False),
+            admin_role_bindings_json=os.getenv("ADMIN_ROLE_BINDINGS_JSON", "{}"),
         )
 
     def authenticator(self) -> AgentAuthenticator:
         if not self.auth_enabled:
             return LocalAgentAuthenticator()
         return GoogleIdTokenAuthenticator(self.google_id_token_audience or "")
+
+    def admin_authenticator(self) -> AdminAuthenticator:
+        return AdminAuthenticator(
+            auth_enabled=self.auth_enabled,
+            google_authenticator=self.authenticator(),
+            role_bindings_json=self.admin_role_bindings_json,
+        )

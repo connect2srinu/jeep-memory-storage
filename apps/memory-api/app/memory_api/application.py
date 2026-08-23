@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from memory_api.api.admin.routes import create_admin_router
 from memory_api.api.runtime.models import ApiError
 from memory_api.api.runtime.routes import create_runtime_router
 from memory_api.config.settings import MemoryApiSettings
@@ -18,6 +19,11 @@ from memory_api.observability.runtime import (
 from memory_api.persistence.database import Database
 from memory_api.persistence.runtime_repository import SqlAlchemyRuntimeControlPlaneRepository
 from memory_api.security.authentication import AuthenticationError
+from memory_api.services.admin_service import (
+    AdminControlPlaneService,
+    ResourceConflictError,
+    ResourceNotFoundError,
+)
 from memory_api.services.runtime_service import RuntimeMemoryService
 from memory_api.services.scope_registry import ScopeRegistry
 
@@ -56,10 +62,20 @@ def create_app(
                 ScopeRegistry(),
             )
 
+    async def admin_service() -> AsyncIterator[AdminControlPlaneService]:
+        async with runtime_database.session() as session:
+            yield AdminControlPlaneService(session)
+
     api.include_router(
         create_runtime_router(
             authenticator=configured.authenticator(),
             service_dependency=runtime_service,
+        )
+    )
+    api.include_router(
+        create_admin_router(
+            authenticator=configured.admin_authenticator(),
+            service_dependency=admin_service,
         )
     )
 
@@ -91,6 +107,24 @@ def create_app(
 
     api.add_exception_handler(KeyError, invalid_request)
     api.add_exception_handler(ValueError, invalid_request)
+
+    @api.exception_handler(ResourceNotFoundError)
+    async def resource_not_found(_: Request, exc: ResourceNotFoundError) -> JSONResponse:
+        payload = ApiError(
+            code="NOT_FOUND",
+            message=str(exc),
+            correlationId=correlation_id_context.get(),
+        )
+        return JSONResponse(status_code=404, content=payload.model_dump(by_alias=True))
+
+    @api.exception_handler(ResourceConflictError)
+    async def resource_conflict(_: Request, exc: ResourceConflictError) -> JSONResponse:
+        payload = ApiError(
+            code="CONFLICT",
+            message=str(exc),
+            correlationId=correlation_id_context.get(),
+        )
+        return JSONResponse(status_code=409, content=payload.model_dump(by_alias=True))
 
     @api.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

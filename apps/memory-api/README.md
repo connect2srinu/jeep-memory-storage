@@ -1,8 +1,8 @@
 # Shared Memory API
 
-This application is the runtime-independent API boundary for agents and the Admin Console. During
-the first migration slice its entry point reuses the tested legacy platform services. Subsequent
-slices move those services into this package without changing the HTTP boundary.
+This application is the runtime-independent API boundary for agents and the Admin Console. It owns
+runtime authorization and resolution, normalized PostgreSQL control-plane records, governed admin
+workflows, transactional audit, and the provider-neutral memory-store boundary.
 
 Run from the repository root:
 
@@ -70,3 +70,27 @@ curl -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.preferred_s
     "value": "mango chips"
   }'
 ```
+
+## Phase 6 Admin API
+
+Governed resources are available below `/api/v1/admin`: domains, scopes, schemas, preference
+catalog entries, agents, resolution policies, dynamic-memory policies, access requests, approvals,
+and audit events. Records are lifecycle-managed; use `PATCH` transitions through `DRAFT`,
+`PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `DEPRECATED`, and `RETIRED` instead of physical deletion.
+
+Local development requires trusted simulation headers:
+
+```bash
+curl http://localhost:8080/api/v1/admin/domains \
+  -H 'X-Admin-User: local-admin@example.com' \
+  -H 'X-Admin-Roles: PLATFORM_ADMIN'
+```
+
+Supported roles are `PLATFORM_ADMIN`, `DOMAIN_ADMIN`, `SCHEMA_OWNER`, `AGENT_OWNER`, and `VIEWER`.
+Domain-scoped roles must also send `X-Admin-Domains` locally. These headers are ignored as an
+identity source when `AUTH_ENABLED=true`; production uses a verified Google ID token and the
+server-controlled `ADMIN_ROLE_BINDINGS_JSON` map.
+
+Access approval creates or updates an `agent_schema_grant` in the same transaction as the request
+and audit events. Rejecting creates no grant. Revoking or expiring disables the grant without
+copying or deleting memory. See `docs/admin-api.md` for request examples and authorization rules.

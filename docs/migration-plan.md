@@ -295,12 +295,17 @@ snapshot behavior. A package boundary test prevents Memory Bank provider SDK imp
 
 ### Phase 6 — Admin APIs and approval workflow
 
-- Add CRUD/state-transition services for domains, scopes, schemas, catalog, agents, policies, and
+- [x] Add CRUD/state-transition services for domains, scopes, schemas, catalog, agents, policies, and
   dynamic-memory policies.
-- Implement request, approve, reject, revoke, and expire grant flows.
-- Write audit events in the same database transaction as control-plane changes.
+- [x] Implement request, approve, reject, revoke, and expire grant flows.
+- [x] Write audit events in the same database transaction as control-plane changes.
 
 Gate: RBAC, ownership, transition, expiry, and audit tests pass.
+
+Status: complete. Local headers provide explicit development identities; authenticated deployments
+bind verified Google principals to server-controlled roles and domain ownership. Governed records
+use retirement instead of physical deletion. The Phase 6 API tests cover role and ownership denial,
+lifecycle conflicts, approvals, rejection, revocation, expiry, grant state, audit, and OpenAPI.
 
 ### Phase 7 — React Admin Console
 
