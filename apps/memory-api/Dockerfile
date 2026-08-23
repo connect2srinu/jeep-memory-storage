@@ -15,4 +15,4 @@ RUN python -m pip install --no-cache-dir -e . -e 'apps/memory-api'
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "alembic -c apps/memory-api/alembic.ini upgrade head && uvicorn memory_api.main:app --host 0.0.0.0 --port 8080"]
+CMD ["sh", "-c", "python apps/memory-api/scripts/wait_for_database.py && alembic -c apps/memory-api/alembic.ini upgrade head && uvicorn memory_api.main:app --host 0.0.0.0 --port 8080"]

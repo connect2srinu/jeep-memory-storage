@@ -30,6 +30,7 @@ services:
       - sh
       - -c
       - >-
+        python apps/memory-api/scripts/wait_for_database.py &&
         alembic -c apps/memory-api/alembic.ini upgrade head &&
         PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/bootstrap_contracts.py &&
         uvicorn memory_api.main:app --host 0.0.0.0 --port 8080
