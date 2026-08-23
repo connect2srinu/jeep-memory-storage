@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shared_memory
+      POSTGRES_USER: shared_memory
+      POSTGRES_PASSWORD: local-development-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shared_memory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - shared-memory-postgres:/var/lib/postgresql/data
+
+  memory-api:
+    build:
+      context: .
+      dockerfile: apps/memory-api/Dockerfile
+    environment:
+      MEMORY_BACKEND: mock
+      AUTH_ENABLED: "false"
+      DATABASE_URL: postgresql+asyncpg://shared_memory:local-development-only@postgres:5432/shared_memory
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  admin-console:
+    build:
+      context: .
+      dockerfile: apps/admin-console/Dockerfile
+    depends_on:
+      memory-api:
+        condition: service_started
+    ports:
+      - "3000:80"
+
+volumes:
+  shared-memory-postgres:

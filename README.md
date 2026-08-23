@@ -80,7 +80,26 @@ flowchart TD
 
 ```text
 .
+├── apps/
+│   ├── reference-agent/                 independent ADK consumer; HTTP API client only
+│   │   ├── app/reference_agent/         agent, Session snapshot tools, settings, client
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   ├── memory-api/                      independent FastAPI deployment entry point
+│   │   ├── app/memory_api/
+│   │   ├── tests/
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml
+│   └── admin-console/                   React control-plane application
+│       ├── src/
+│       ├── Dockerfile
+│       └── package.json
+├── packages/
+│   ├── contracts/                       destination for shared API/YAML contracts
+│   └── test-fixtures/                   destination for cross-app acceptance data
 ├── app/
+│   │                                     compatibility package retained during migration
 │   ├── agent.py                         ADK discovery entry point
 │   ├── api.py                           FastAPI application entry point
 │   ├── config.py                        environment-backed runtime settings
@@ -144,9 +163,17 @@ flowchart TD
 ├── .github/workflows/memory-contracts.yml contract-validation CI workflow
 ├── agents-cli-manifest.yaml              Agent Platform deployment manifest
 ├── .env.example                          cloud and runtime configuration template
+├── docker-compose.yml                    PostgreSQL, Memory API, and Admin Console
 ├── pyproject.toml                         package, dependency, and tool configuration
 └── requirements.txt                      compatible pip requirements
 ```
+
+The repository is in an incremental separation period. `apps/reference-agent` already communicates
+through HTTP and has no Memory Bank SDK dependency. `apps/memory-api` currently reuses the tested
+legacy platform core under `app/shared_memory`; those modules move behind the API in later slices.
+The compatibility package remains until equivalent target tests pass. See
+[`docs/existing-architecture-analysis.md`](docs/existing-architecture-analysis.md) and
+[`docs/migration-plan.md`](docs/migration-plan.md).
 
 ## Contract-driven configuration
 
@@ -386,6 +413,30 @@ gcloud auth application-default login
 
 Required cloud settings are documented in `.env.example`. Keep Sessions, Memory Bank, and Agent
 Runtime in a supported common location.
+
+### Run the separated local applications
+
+Start PostgreSQL, the Memory API, and the Admin Console:
+
+```bash
+docker compose up --build
+```
+
+Then open the Admin Console at `http://localhost:3000`; the Memory API is available at
+`http://localhost:8080` and reports health at `/healthz`. The first migration slice does not yet use
+PostgreSQL for control-plane reads, but the service is included so database migrations can be added
+without changing the local topology.
+
+Run the new Reference Agent separately:
+
+```bash
+cd apps/reference-agent
+python -m pip install -e '.[dev]'
+export MEMORY_API_URL=http://localhost:8080
+adk web app
+```
+
+The original root ADK entry point remains available while behavior is migrated and compared.
 
 ## Run the Grocery reference agent
 

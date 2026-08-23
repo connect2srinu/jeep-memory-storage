@@ -234,17 +234,18 @@ record it in metrics.
 - [x] Record lint/test baseline.
 - [x] Produce existing architecture analysis.
 - [x] Produce migration plan and mapping.
-- [ ] Commit Phase 0 documents separately.
+- [x] Commit Phase 0 documents separately.
 
 Gate: documents match the repository and no runtime code changes are included.
 
 ### Phase 1 — Repository separation without behavior change
 
-- Create the three application directories and shared package directories.
-- Add independent READMEs, package manifests, health endpoints, and Dockerfiles.
-- Establish root task commands and compatibility imports.
-- Move/copy the Memory API entry point first; keep current root tests green.
-- Add an empty but runnable React Console shell that calls a Memory API health endpoint.
+- [x] Create the three application directories and shared package directories.
+- [x] Add independent READMEs, package manifests, a health endpoint, and Dockerfiles.
+- [x] Add compatibility entry points while leaving the legacy package intact.
+- [x] Move/copy the Memory API entry point first; keep current root tests green.
+- [x] Add a runnable React Console shell that calls the Memory API health endpoint.
+- [x] Add Docker Compose topology and application-boundary regression tests.
 
 Gate: all three applications start independently; existing 63 tests still pass.
 
