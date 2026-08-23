@@ -264,7 +264,7 @@ Gate: repository contract tests pass against PostgreSQL; no runtime reads are sw
 
 - [x] Add scope registry and `MemoryStore` protocol.
 - [x] Implement mock schemas, profiles, natural memories, event generation, and explicit writes.
-- [ ] Port resolver and authorization tests to the Memory API package.
+- [x] Port resolver and authorization tests to the Memory API package.
 
 Gate: required resolver, authorization, scope isolation, and backend contract tests pass offline.
 

@@ -34,5 +34,11 @@ boundary. `MockMemoryStore` supplies deterministic offline schemas, lazy profile
 memories, event ingestion, explicit writes, and scope isolation while the Vertex implementation is
 being moved behind the same contract.
 
+The Memory API package also owns a pure deterministic resolver and default-deny authorization
+service. Offline tests cover precedence, expiration, confidence thresholds, provenance, capability
+checks, schema grants, cross-domain access rules, and cross-user scope isolation. This completes the
+Phase 3 offline gate; the versioned HTTP routes and verified workload identity are introduced in
+Phase 4.
+
 Agents must eventually authenticate with workload identity. The current compatibility routes retain
 the POC request model and are not a production authentication boundary.

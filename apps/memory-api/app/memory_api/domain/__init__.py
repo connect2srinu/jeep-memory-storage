@@ -8,14 +8,54 @@ from .control_plane import (
     RegisteredAgent,
     ScopeDefinition,
 )
+from .memory import (
+    GenerationResult,
+    MemoryEvent,
+    MemoryProfile,
+    MemoryProfileSchema,
+    MemoryScope,
+    NaturalMemory,
+    PreferenceWrite,
+)
+from .preferences import (
+    EffectivePreferenceSnapshot,
+    Preference,
+    PreferenceSource,
+    ResolvedPreference,
+)
+from .resolution import (
+    DomainAccessPolicy,
+    PreferenceCatalog,
+    PreferenceDefinition,
+    ResolutionPolicy,
+    ResolutionPolicyRegistry,
+    ResolutionStrategy,
+)
 
 __all__ = [
     "AccessPermission",
     "AccessRequestStatus",
     "AgentRuntimeType",
+    "DomainAccessPolicy",
+    "EffectivePreferenceSnapshot",
+    "GenerationResult",
     "LifecycleStatus",
     "MemoryDomain",
+    "MemoryEvent",
+    "MemoryProfile",
+    "MemoryProfileSchema",
+    "MemoryScope",
+    "NaturalMemory",
+    "Preference",
+    "PreferenceCatalog",
+    "PreferenceDefinition",
+    "PreferenceSource",
+    "PreferenceWrite",
     "ProfileSchema",
     "RegisteredAgent",
+    "ResolutionPolicy",
+    "ResolutionPolicyRegistry",
+    "ResolutionStrategy",
+    "ResolvedPreference",
     "ScopeDefinition",
 ]
