@@ -270,10 +270,10 @@ Gate: required resolver, authorization, scope isolation, and backend contract te
 
 ### Phase 4 — Runtime API and workload identity
 
-- Add runtime routers, DTOs, middleware, correlation IDs, and structured metrics.
-- Implement authenticator interface, local mode, and Google ID-token verifier.
-- Resolve schema grants and scopes from PostgreSQL.
-- Return versioned Effective Preference Snapshots.
+- [x] Add runtime routers, DTOs, middleware, correlation IDs, and structured metrics.
+- [x] Implement authenticator interface, local mode, and Google ID-token verifier.
+- [x] Resolve schema grants and scopes from PostgreSQL.
+- [x] Return versioned Effective Preference Snapshots.
 
 Gate: API tests cover resolve, raw-profile filtering, event ingestion, explicit writes, denials, and
 no cross-user leakage.

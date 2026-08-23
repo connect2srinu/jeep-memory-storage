@@ -21,32 +21,38 @@ class MemoryApiClient:
         self.transport = transport
         self.timeout = timeout
 
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}"} if self.token else {}
+    def _headers(self, agent_id: str) -> dict[str, str]:
+        if self.token:
+            return {"Authorization": f"Bearer {self.token}"}
+        return {"X-Agent-ID": agent_id}
 
     async def resolve_preferences(
         self,
         *,
         user_id: str,
         session_id: str,
+        app_name: str,
         consumer_domain: str,
         agent_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         async with httpx.AsyncClient(
             base_url=self.base_url,
-            headers=self._headers(),
+            headers=self._headers(agent_id),
             transport=self.transport,
             timeout=self.timeout,
         ) as client:
             response = await client.post(
-                "/v1/memory/context/resolve",
+                "/api/v1/runtime/preferences/resolve",
                 json={
-                    "userId": user_id,
+                    "scope": {
+                        "userId": user_id,
+                        "appName": app_name,
+                        "domain": consumer_domain,
+                    },
                     "sessionId": session_id,
-                    "consumerDomain": consumer_domain,
                     "agentId": agent_id,
-                    "context": context or {},
+                    "includeProvenance": bool((context or {}).get("includeProvenance", False)),
                 },
             )
             response.raise_for_status()

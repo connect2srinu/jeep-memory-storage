@@ -373,32 +373,34 @@ winner.
 
 ## Shared Memory Platform API
 
-The lightweight FastAPI layer exposes:
+The Phase 4 Memory API exposes:
 
 ```text
-POST /v1/memory/context/resolve
-POST /v1/memory/preferences
-GET  /v1/memory/users/{userId}/effective-context
+POST /api/v1/runtime/preferences/resolve
+POST /api/v1/runtime/preferences/refresh
+POST /api/v1/runtime/profiles
+POST /api/v1/runtime/memory/events
+PUT  /api/v1/runtime/preferences/{canonical_attribute}
 ```
 
 Run locally:
 
 ```bash
 source .venv/bin/activate
-uvicorn app.api:api --reload --port 8080
+PYTHONPATH=apps/memory-api/app uvicorn memory_api.main:app --reload --port 8080
 ```
 
 Example resolve request:
 
 ```bash
-curl -X POST http://localhost:8080/v1/memory/context/resolve \
+curl -X POST http://localhost:8080/api/v1/runtime/preferences/resolve \
   -H 'content-type: application/json' \
+  -H 'X-Agent-ID: grocery-agent' \
   -d '{
-    "userId": "U123",
+    "scope": {"userId": "U123", "appName": "grocery-app", "domain": "grocery"},
     "sessionId": "S456",
-    "consumerDomain": "grocery",
     "agentId": "grocery-agent",
-    "context": {"storeId": "084", "task": "shopping"}
+    "includeProvenance": true
   }'
 ```
 
@@ -428,10 +430,10 @@ docker compose up --build
 ```
 
 Then open the Admin Console at `http://localhost:3000`; the Memory API is available at
-`http://localhost:8080` and reports health at `/healthz`. Runtime resolution does not yet read its
-control-plane configuration from PostgreSQL. Memory API startup does run Alembic and idempotently
-imports the validated YAML contracts into normalized control-plane tables. PostgreSQL stays internal
-to the Compose network as `postgres:5432`, avoiding collisions with a host installation.
+`http://localhost:8080` and reports health at `/healthz`. Runtime identity, grants, schemas, scopes,
+field mappings, and policy versions are read from PostgreSQL. Startup runs Alembic and idempotently
+imports the validated YAML contracts before Uvicorn starts. PostgreSQL stays internal to the Compose
+network as `postgres:5432`, avoiding collisions with a host installation.
 
 Run the new Reference Agent separately:
 

@@ -1,8 +1,5 @@
-"""Independent Memory API entry point for the first migration slice."""
+"""Uvicorn entry point for the independently owned Memory API."""
 
-from app.api import api as app
+from memory_api.application import create_app
 
-
-@app.get("/healthz", include_in_schema=False)
-async def healthz() -> dict[str, str]:
-    return {"status": "ok", "application": "memory-api"}
+app = create_app()

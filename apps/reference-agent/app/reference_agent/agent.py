@@ -31,6 +31,7 @@ async def refresh_user_preferences(tool_context: Any) -> dict[str, Any]:
     snapshot = await client.resolve_preferences(
         user_id=user_id,
         session_id=session_id,
+        app_name=settings.app_name,
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
     )

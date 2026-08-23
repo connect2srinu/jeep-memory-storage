@@ -40,5 +40,33 @@ checks, schema grants, cross-domain access rules, and cross-user scope isolation
 Phase 3 offline gate; the versioned HTTP routes and verified workload identity are introduced in
 Phase 4.
 
-Agents must eventually authenticate with workload identity. The current compatibility routes retain
-the POC request model and are not a production authentication boundary.
+## Phase 4 runtime API
+
+Runtime operations are available below `/api/v1/runtime`:
+
+- `POST /preferences/resolve`
+- `POST /preferences/refresh`
+- `POST /profiles`
+- `POST /memory/events`
+- `PUT /preferences/{canonical_attribute}`
+
+With `AUTH_ENABLED=false`, callers must send `X-Agent-ID`; this mode is only for local development.
+With `AUTH_ENABLED=true`, callers must send a Google-signed bearer ID token whose audience equals
+`GOOGLE_ID_TOKEN_AUDIENCE`. The verified service-account email is mapped to one active agent in the
+PostgreSQL registry. Request-body agent IDs are diagnostic only and cannot establish identity.
+
+Legacy `/v1/memory/*` routes are disabled by default. Set `INCLUDE_LEGACY_ROUTES=true` only during a
+controlled compatibility window. Production deployments must keep it false.
+
+Example local update:
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.preferred_snack \
+  -H 'Content-Type: application/json' \
+  -H 'X-Agent-ID: grocery-agent' \
+  -d '{
+    "scope": {"userId": "demo-user", "appName": "grocery-app", "domain": "grocery"},
+    "schemaId": "grocery-preferences-v1",
+    "value": "mango chips"
+  }'
+```

@@ -24,6 +24,7 @@ services:
     environment:
       MEMORY_BACKEND: mock
       AUTH_ENABLED: "false"
+      INCLUDE_LEGACY_ROUTES: "false"
       DATABASE_URL: postgresql+asyncpg://shared_memory:local-development-only@postgres:5432/shared_memory
     command:
       - sh
