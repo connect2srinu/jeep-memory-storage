@@ -280,14 +280,18 @@ no cross-user leakage.
 
 ### Phase 5 — Reference ADK Agent cutover
 
-- Add typed async Memory API client and token provider.
-- Load a snapshot once during Session initialization.
-- Add `get_user_preferences` and `refresh_user_preferences` tools.
-- Route writes/events through the API and refresh only after changes or explicit requests.
-- Remove Memory Bank SDK dependencies from the Reference Agent package.
+- [x] Add typed async Memory API client and token provider.
+- [x] Load a snapshot once during Session initialization.
+- [x] Add `get_user_preferences` and `refresh_user_preferences` tools.
+- [x] Route writes/events through the API and refresh only after changes or explicit requests.
+- [x] Remove Memory Bank SDK dependencies from the Reference Agent package.
 
 Gate: an end-to-end mock test proves session start, Gemini context, update, refresh, and changed
 behavior. Only then retire agent-side in-process service calls.
+
+Status: complete. The deterministic reference-agent test exercises the initialization callback,
+model-context injection, cached read, explicit update, event submission, refresh, and changed
+snapshot behavior. A package boundary test prevents Memory Bank provider SDK imports.
 
 ### Phase 6 — Admin APIs and approval workflow
 
