@@ -12,7 +12,7 @@ spec:
   scopes:
     profileScopeKeys: [user_id, app_name, domain]
   permissions:
-    read: [grocery, customer, store, delivery]
+    read: [grocery, customer, store, delivery, inventory]
     write: [grocery]
   dynamicMemory:
     enabled: true

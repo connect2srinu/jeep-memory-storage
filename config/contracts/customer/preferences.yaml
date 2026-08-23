@@ -4,6 +4,20 @@ metadata:
   domain: customer
   version: "1.0"
 preferences:
+  - key: customer.fulfillment_preference
+    type: string
+    description: User-confirmed order fulfillment preference
+    ownerDomain: customer
+    canonical: true
+    sensitivity: normal
+    scopes: [LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [customer, grocery, delivery]
+    allowedWriters: [customer]
+    resolutionPolicy: fulfillment_preference
+    profile: customer-preferences-v1
+    aliases: [fulfillment_preference]
+
   - key: customer.preferred_store
     type: string
     description: User-confirmed preferred store identifier

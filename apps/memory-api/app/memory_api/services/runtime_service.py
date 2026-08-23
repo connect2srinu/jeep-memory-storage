@@ -301,7 +301,7 @@ class RuntimeMemoryService:
                     PreferenceDefinition(
                         key=attribute,
                         owner_domain=grant.domain_id,
-                        resolution_key=str(rules.get("legacy_policy_id") or attribute.rsplit(".", 1)[-1]),
+                        resolution_key=attribute.rsplit(".", 1)[-1],
                         allowed_readers=(agent.domain_id,),
                         allowed_writers=(grant.domain_id,),
                     )
@@ -336,7 +336,7 @@ class RuntimeMemoryService:
         )
         policies = {}
         for attribute, rules in rule_map.items():
-            logical_key = str(rules.get("legacy_policy_id") or attribute.rsplit(".", 1)[-1])
+            logical_key = attribute.rsplit(".", 1)[-1]
             policies[logical_key] = ResolutionPolicy(
                 id=f"{default_policy.id}:{logical_key}",
                 source_priority=tuple(

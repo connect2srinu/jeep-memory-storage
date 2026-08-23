@@ -9,6 +9,10 @@ profiles:
     ownerDomain: grocery
     scopeKeys: [user_id, app_name, domain]
     fields:
+      - preference: grocery.preferred_store
+        profileField: preferred_store
+      - preference: grocery.dietary_preference
+        profileField: dietary_preference
       - preference: grocery.allow_substitutions
         profileField: allow_substitutions
       - preference: grocery.organic_preference

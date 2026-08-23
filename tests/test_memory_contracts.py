@@ -23,7 +23,7 @@ def test_example_contracts_validate_and_compile_deterministically() -> None:
     bundle = load_contracts(CONTRACTS_DIR)
     compilation = compile_contracts(bundle)
 
-    assert len(bundle.domains) == 5
+    assert len(bundle.domains) == 6
     preference_keys = {
         preference.key
         for catalog in bundle.catalogs
@@ -44,6 +44,7 @@ def test_compiled_memory_profiles_are_per_domain_and_sdk_compatible() -> None:
         "customer-preferences-v1",
         "delivery-preferences-v1",
         "grocery-preferences-v1",
+        "inventory-preferences-v1",
         "store-preferences-v1",
     }
 

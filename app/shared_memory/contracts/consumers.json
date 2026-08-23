@@ -1,5 +1,21 @@
 {
   "consumers": {
+    "customer-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": true,
+        "resolve_context": true,
+        "submit_candidates": true
+      },
+      "consumer_domain": "customer",
+      "required_preferences": [
+        "customer.preferred_store",
+        "customer.fulfillment_preference",
+        "customer.diet",
+        "customer.fruit"
+      ],
+      "service_account": null
+    },
     "delivery-agent": {
       "capabilities": {
         "administer_memory": false,
@@ -24,7 +40,10 @@
       },
       "consumer_domain": "grocery",
       "required_preferences": [
+        "grocery.preferred_store",
+        "grocery.dietary_preference",
         "customer.preferred_store",
+        "customer.fulfillment_preference",
         "customer.diet",
         "customer.fruit",
         "grocery.allow_substitutions",
@@ -34,7 +53,8 @@
         "grocery.preferred_product_type",
         "grocery.preferred_snack",
         "store.preferred_product_type",
-        "delivery.preferred_window"
+        "delivery.preferred_window",
+        "inventory.preferred_store"
       ],
       "service_account": null
     },
@@ -49,6 +69,19 @@
       "required_preferences": [
         "customer.preferred_store",
         "grocery.allow_substitutions"
+      ],
+      "service_account": null
+    },
+    "inventory-agent": {
+      "capabilities": {
+        "administer_memory": false,
+        "inspect_provenance": true,
+        "resolve_context": true,
+        "submit_candidates": true
+      },
+      "consumer_domain": "inventory",
+      "required_preferences": [
+        "inventory.preferred_store"
       ],
       "service_account": null
     },

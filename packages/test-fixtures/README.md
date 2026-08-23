@@ -1,4 +1,5 @@
 # Shared Test Fixtures
 
-This package will hold mock profiles, domain configuration, and the user `1001` acceptance scenario
-shared by the Memory API, Reference Agent, and end-to-end tests.
+`user-1001-acceptance.json` is the portable seed and assertion bundle shared by the mock integration
+test and `scripts/run_phase9_acceptance.py`. Local and Vertex checks therefore exercise the same
+profiles, precedence, update, provenance, and version expectations.

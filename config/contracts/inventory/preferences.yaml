@@ -1,0 +1,19 @@
+apiVersion: memory.platform/v1alpha1
+kind: PreferenceCatalog
+metadata:
+  domain: inventory
+  version: "1.0"
+preferences:
+  - key: inventory.preferred_store
+    type: string
+    description: Inventory-context preferred store identifier
+    ownerDomain: inventory
+    canonical: true
+    sensitivity: normal
+    scopes: [LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [inventory, grocery]
+    allowedWriters: [inventory]
+    resolutionPolicy: preferred_store
+    profile: inventory-preferences-v1
+    aliases: [preferred_store]

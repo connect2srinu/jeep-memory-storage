@@ -4,6 +4,7 @@
       "fields": {
         "diet": "customer.diet",
         "fruit": "customer.fruit",
+        "fulfillment_preference": "customer.fulfillment_preference",
         "preferred_store": "customer.preferred_store"
       },
       "owner_domain": "customer"
@@ -17,13 +18,21 @@
     "grocery-preferences-v1": {
       "fields": {
         "allow_substitutions": "grocery.allow_substitutions",
+        "dietary_preference": "grocery.dietary_preference",
         "organic_preference": "grocery.organic_preference",
         "preferred_brand": "grocery.preferred_brand",
         "preferred_milk": "grocery.preferred_milk",
         "preferred_product_type": "grocery.preferred_product_type",
-        "preferred_snack": "grocery.preferred_snack"
+        "preferred_snack": "grocery.preferred_snack",
+        "preferred_store": "grocery.preferred_store"
       },
       "owner_domain": "grocery"
+    },
+    "inventory-preferences-v1": {
+      "fields": {
+        "preferred_store": "inventory.preferred_store"
+      },
+      "owner_domain": "inventory"
     },
     "store-preferences-v1": {
       "fields": {
@@ -47,6 +56,10 @@
               },
               "fruit": {
                 "description": "User-confirmed fruit preference",
+                "type": "string"
+              },
+              "fulfillment_preference": {
+                "description": "User-confirmed order fulfillment preference",
                 "type": "string"
               },
               "preferred_store": {
@@ -81,6 +94,10 @@
                 "description": "Whether grocery substitutions are permitted",
                 "type": "boolean"
               },
+              "dietary_preference": {
+                "description": "Grocery-context dietary preference",
+                "type": "string"
+              },
               "organic_preference": {
                 "description": "Preference for organic grocery products",
                 "type": "boolean"
@@ -99,6 +116,24 @@
               },
               "preferred_snack": {
                 "description": "Grocery-owned preferred snack type preference",
+                "type": "string"
+              },
+              "preferred_store": {
+                "description": "Grocery-context preferred store identifier",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "id": "inventory-preferences-v1",
+          "memory_schema": {
+            "additionalProperties": false,
+            "description": "Canonical preferences owned by inventory.",
+            "properties": {
+              "preferred_store": {
+                "description": "Inventory-context preferred store identifier",
                 "type": "string"
               }
             },

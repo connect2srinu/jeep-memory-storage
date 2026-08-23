@@ -6,7 +6,11 @@ metadata:
 policies:
   - id: preferred_store
     appliesTo: [customer.preferred_store]
-    domainPriority: [customer, store, grocery]
+    domainPriority: [customer, grocery, inventory]
+
+  - id: fulfillment_preference
+    appliesTo: [customer.fulfillment_preference]
+    domainPriority: [customer, grocery, delivery]
 
   - id: diet
     appliesTo: [customer.diet]

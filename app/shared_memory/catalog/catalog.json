@@ -46,6 +46,29 @@
       "sensitivity": "sensitive",
       "type": "string"
     },
+    "customer.fulfillment_preference": {
+      "aliases": [
+        "fulfillment_preference"
+      ],
+      "allowed_readers": [
+        "customer",
+        "grocery",
+        "delivery"
+      ],
+      "allowed_writers": [
+        "customer"
+      ],
+      "canonical": true,
+      "description": "User-confirmed order fulfillment preference",
+      "owner_domain": "customer",
+      "resolution_policy": "fulfillment_preference",
+      "schema_version": "1",
+      "scopes": [
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
     "customer.preferred_store": {
       "aliases": [
         "preferred_store"
@@ -117,6 +140,27 @@
       "sensitivity": "normal",
       "ttl_seconds": 86400,
       "type": "boolean"
+    },
+    "grocery.dietary_preference": {
+      "aliases": [
+        "dietary_preference"
+      ],
+      "allowed_readers": [
+        "grocery"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Grocery-context dietary preference",
+      "owner_domain": "grocery",
+      "resolution_policy": "dietary_preference",
+      "schema_version": "1",
+      "scopes": [
+        "LONG_TERM"
+      ],
+      "sensitivity": "sensitive",
+      "type": "string"
     },
     "grocery.organic_preference": {
       "aliases": [
@@ -232,6 +276,49 @@
       "schema_version": "1",
       "scopes": [
         "SESSION",
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "grocery.preferred_store": {
+      "aliases": [
+        "preferred_store"
+      ],
+      "allowed_readers": [
+        "grocery"
+      ],
+      "allowed_writers": [
+        "grocery"
+      ],
+      "canonical": true,
+      "description": "Grocery-context preferred store identifier",
+      "owner_domain": "grocery",
+      "resolution_policy": "preferred_store",
+      "schema_version": "1",
+      "scopes": [
+        "LONG_TERM"
+      ],
+      "sensitivity": "normal",
+      "type": "string"
+    },
+    "inventory.preferred_store": {
+      "aliases": [
+        "preferred_store"
+      ],
+      "allowed_readers": [
+        "inventory",
+        "grocery"
+      ],
+      "allowed_writers": [
+        "inventory"
+      ],
+      "canonical": true,
+      "description": "Inventory-context preferred store identifier",
+      "owner_domain": "inventory",
+      "resolution_policy": "preferred_store",
+      "schema_version": "1",
+      "scopes": [
         "LONG_TERM"
       ],
       "sensitivity": "normal",

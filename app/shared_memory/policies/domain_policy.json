@@ -26,10 +26,21 @@
         "grocery",
         "customer",
         "store",
-        "delivery"
+        "delivery",
+        "inventory"
       ],
       "write": [
         "grocery"
+      ]
+    },
+    "inventory": {
+      "isolation": "standard",
+      "read": [
+        "inventory",
+        "grocery"
+      ],
+      "write": [
+        "inventory"
       ]
     },
     "pharmacy": {

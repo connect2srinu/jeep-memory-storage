@@ -7,7 +7,10 @@ consumers:
   - agentId: grocery-agent
     consumerDomain: grocery
     requiredPreferences:
+      - grocery.preferred_store
+      - grocery.dietary_preference
       - customer.preferred_store
+      - customer.fulfillment_preference
       - customer.diet
       - customer.fruit
       - grocery.allow_substitutions
@@ -18,6 +21,7 @@ consumers:
       - grocery.preferred_snack
       - store.preferred_product_type
       - delivery.preferred_window
+      - inventory.preferred_store
     capabilities:
       resolveContext: true
       submitCandidates: true

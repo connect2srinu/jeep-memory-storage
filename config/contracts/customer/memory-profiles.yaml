@@ -8,6 +8,8 @@ profiles:
     ownerDomain: customer
     scopeKeys: [user_id, app_name, domain]
     fields:
+      - preference: customer.fulfillment_preference
+        profileField: fulfillment_preference
       - preference: customer.preferred_store
         profileField: preferred_store
       - preference: customer.diet

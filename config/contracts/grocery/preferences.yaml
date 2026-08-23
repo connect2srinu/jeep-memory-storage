@@ -4,6 +4,34 @@ metadata:
   domain: grocery
   version: "1.0"
 preferences:
+  - key: grocery.preferred_store
+    type: string
+    description: Grocery-context preferred store identifier
+    ownerDomain: grocery
+    canonical: true
+    sensitivity: normal
+    scopes: [LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [grocery]
+    allowedWriters: [grocery]
+    resolutionPolicy: preferred_store
+    profile: grocery-preferences-v1
+    aliases: [preferred_store]
+
+  - key: grocery.dietary_preference
+    type: string
+    description: Grocery-context dietary preference
+    ownerDomain: grocery
+    canonical: true
+    sensitivity: sensitive
+    scopes: [LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [grocery]
+    allowedWriters: [grocery]
+    resolutionPolicy: dietary_preference
+    profile: grocery-preferences-v1
+    aliases: [dietary_preference]
+
   - key: grocery.allow_substitutions
     type: boolean
     description: Whether grocery substitutions are permitted

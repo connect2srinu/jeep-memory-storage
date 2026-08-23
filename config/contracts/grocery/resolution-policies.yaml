@@ -21,6 +21,17 @@ defaults:
     - HIGHEST_CONFIDENCE
   minimumConfidence: 0.70
 policies:
+  - id: grocery_preferred_store_resolution
+    appliesTo:
+      - grocery.preferred_store
+      - customer.preferred_store
+      - inventory.preferred_store
+    domainPriority: [customer, grocery, inventory]
+
+  - id: dietary_preference
+    appliesTo: [grocery.dietary_preference]
+    domainPriority: [grocery, customer]
+
   - id: allow_substitutions
     appliesTo: [grocery.allow_substitutions]
     domainPriority: [grocery, customer, store]

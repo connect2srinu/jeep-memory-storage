@@ -336,12 +336,16 @@ gate remains environment-gated until the deployment placeholders and ADC are sup
 
 ### Phase 9 — End-to-end integration
 
-- Seed Customer, Grocery, and Inventory domains/schemas and user `1001`.
-- Exercise access request and owner approval.
-- Apply Grocery default precedence and Customer-first `preferred_store` override.
-- Resolve, update a preference, refresh, and verify provenance/version changes.
+- [x] Seed Customer, Grocery, and Inventory domains/schemas and user `1001`.
+- [x] Exercise access request and owner approval.
+- [x] Apply Grocery default precedence and Customer-first `preferred_store` override.
+- [x] Resolve, update a preference, refresh, and verify provenance/version changes.
 
 Gate: the complete scenario passes first with mock, then Vertex.
+
+Status: the portable fixture, API-driven runner, and full mock acceptance test pass. The same runner
+targets Vertex without code changes; that live portion remains gated on the Phase 10 deployment
+placeholders and workload/admin ID tokens.
 
 ### Phase 10 — Deployment and operations
 

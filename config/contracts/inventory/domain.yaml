@@ -1,0 +1,21 @@
+apiVersion: memory.platform/v1alpha1
+kind: MemoryDomain
+metadata:
+  name: inventory
+  displayName: Inventory
+  version: "1.0"
+  owner:
+    team: inventory-platform
+    email: inventory-platform@example.com
+spec:
+  isolation: standard
+  scopes:
+    profileScopeKeys: [user_id, app_name, domain]
+  permissions:
+    read: [inventory, grocery]
+    write: [inventory]
+  dynamicMemory:
+    enabled: false
+  defaults:
+    retentionDays: 365
+    inferredPreferenceTtlDays: 90

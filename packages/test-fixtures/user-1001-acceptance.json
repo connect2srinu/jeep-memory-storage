@@ -1,0 +1,30 @@
+{
+  "userId": "1001",
+  "appName": "grocery_shared_preferences",
+  "sessionId": "phase9-session-1001",
+  "profiles": {
+    "grocery": {
+      "grocery.preferred_store": "Store-A",
+      "grocery.dietary_preference": "vegetarian"
+    },
+    "customer": {
+      "customer.preferred_store": "Store-B",
+      "customer.fulfillment_preference": "pickup"
+    },
+    "inventory": {
+      "inventory.preferred_store": "Store-C"
+    }
+  },
+  "expected": {
+    "preferred_store": "Store-B",
+    "dietary_preference": "vegetarian",
+    "fulfillment_preference": "pickup",
+    "preferred_store_owner": "customer",
+    "preferred_store_reason": "DOMAIN_AUTHORITY"
+  },
+  "update": {
+    "attribute": "grocery.dietary_preference",
+    "value": "vegan",
+    "expectedLogicalKey": "dietary_preference"
+  }
+}

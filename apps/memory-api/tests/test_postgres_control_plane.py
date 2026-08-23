@@ -30,7 +30,7 @@ async def test_contract_bootstrap_against_postgres() -> None:
             )
         async with database.session() as session:
             domains = await SqlAlchemyControlPlaneRepository(session).list_domains()
-        assert result.domains == 5
+        assert result.domains == 6
         assert len(domains) == 5
     finally:
         await database.dispose()
