@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,17 @@ def test_normalized_control_plane_tables_are_declared() -> None:
         "dynamic_memory_policies",
         "audit_events",
     } <= set(Base.metadata.tables)
+
+
+def test_database_constraint_names_are_globally_unique() -> None:
+    names = [
+        constraint.name
+        for table in Base.metadata.tables.values()
+        for constraint in table.constraints
+        if constraint.name is not None
+    ]
+    duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
+    assert duplicates == []
 
 
 @pytest.mark.asyncio

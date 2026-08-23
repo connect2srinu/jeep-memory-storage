@@ -117,8 +117,16 @@ class PreferenceDefinitionRecord(TimestampMixin, Base):
 class SchemaPreferenceMappingRecord(TimestampMixin, Base):
     __tablename__ = "schema_preference_mappings"
     __table_args__ = (
-        UniqueConstraint("schema_version_id", "attribute_id"),
-        UniqueConstraint("schema_version_id", "profile_field"),
+        UniqueConstraint(
+            "schema_version_id",
+            "attribute_id",
+            name="uq_schema_preference_mapping_attribute",
+        ),
+        UniqueConstraint(
+            "schema_version_id",
+            "profile_field",
+            name="uq_schema_preference_mapping_field",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)

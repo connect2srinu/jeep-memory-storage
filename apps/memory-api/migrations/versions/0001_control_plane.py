@@ -120,8 +120,16 @@ def upgrade() -> None:
         ),
         sa.Column("profile_field", sa.String(127), nullable=False),
         *timestamps(),
-        sa.UniqueConstraint("schema_version_id", "attribute_id"),
-        sa.UniqueConstraint("schema_version_id", "profile_field"),
+        sa.UniqueConstraint(
+            "schema_version_id",
+            "attribute_id",
+            name="uq_schema_preference_mapping_attribute",
+        ),
+        sa.UniqueConstraint(
+            "schema_version_id",
+            "profile_field",
+            name="uq_schema_preference_mapping_field",
+        ),
     )
     op.create_table(
         "registered_agents",
