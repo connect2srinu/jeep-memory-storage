@@ -75,11 +75,39 @@ gcloud auth application-default set-quota-project "$GOOGLE_CLOUD_PROJECT"
 Use this mode for deterministic development without cloud mutations:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
 Activation reports `REGISTERED_LOCAL`. Schemas and profile data in the mock store are process-local
-and are lost when the Memory API restarts.
+and are lost when the Memory API restarts. PostgreSQL metadata is retained in the
+`shared-memory-postgres` Docker volume.
+
+Wait for all services to become healthy, then open:
+
+- Admin Console: `http://localhost:3000`
+- Memory API health: `http://localhost:8080/healthz`
+- Memory API OpenAPI: `http://localhost:8080/docs`
+
+The reference agent is an optional Compose profile. Start it with the rest of the mock stack when
+Google Cloud credentials and the model settings in `.env` are available:
+
+```bash
+docker compose --profile agent up --build
+```
+
+Then open ADK Web at `http://localhost:8000/dev-ui/?app=reference_agent`.
+
+Useful lifecycle commands:
+
+```bash
+docker compose ps
+docker compose logs -f memory-api admin-console
+docker compose down
+```
+
+Use `docker compose down -v` only when intentionally deleting the local PostgreSQL volume and all
+local control-plane data.
 
 ## Run locally with Vertex Memory Bank
 
@@ -91,6 +119,7 @@ export AGENT_PLATFORM_MEMORY_BANK_ID=YOUR_AGENT_ENGINE_ID
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.vertex.yml \
+  --profile agent \
   up --build
 ```
 
@@ -103,6 +132,9 @@ Check the services:
 curl http://localhost:8080/healthz
 docker compose -f docker-compose.yml -f docker-compose.vertex.yml ps
 ```
+
+For the complete local startup sequence, troubleshooting, and the GCP resource/deployment order,
+see [Deployment and operations](docs/deployment-operations.md).
 
 ## Create a domain and schema from the UI
 
@@ -201,5 +233,6 @@ Start with [docs/README.md](docs/README.md). The canonical guides are:
 - [Deployment and operations](docs/deployment-operations.md)
 - [Admin API](docs/admin-api.md)
 
-Draw.io sources are [agent-memory-flows.drawio](docs/agent-memory-flows.drawio) and
-[shared-memory-platform.drawio](docs/shared-memory-platform.drawio).
+Draw.io sources are [agent-memory-flows.drawio](docs/agent-memory-flows.drawio),
+[shared-memory-platform.drawio](docs/shared-memory-platform.drawio), and the Google service view
+[google-cloud-services-architecture.drawio](docs/google-cloud-services-architecture.drawio).

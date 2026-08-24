@@ -23,6 +23,7 @@ Confluence-importable versions:
 Reference material:
 
 - [Shared Memory Platform](shared-memory-platform.md)
+- [Google Cloud Services Architecture](google-cloud-services-architecture.drawio)
 - [Deployment Placeholders](deployment-placeholders.md)
 - [2026 Cost and Architecture Assessment](geap_runtime_memory_eval_assessment.md)
 

@@ -78,7 +78,7 @@ async def test_admin_authentication_and_viewer_read_only(admin_environment) -> N
     denied = await client.post(
         "/api/v1/admin/domains",
         headers=VIEWER,
-        json={"id": "loyalty", "name": "Loyalty", "ownerTeam": "loyalty-team"},
+        json={"id": "rewards", "name": "Rewards", "ownerTeam": "rewards-team"},
     )
     assert denied.status_code == 403
 
@@ -90,10 +90,10 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         "/api/v1/admin/domains",
         headers=PLATFORM,
         json={
-            "id": "loyalty",
-            "name": "Loyalty",
+            "id": "rewards",
+            "name": "Rewards",
             "description": "Rewards preferences",
-            "ownerTeam": "loyalty-team",
+            "ownerTeam": "rewards-team",
         },
     )
     assert created_domain.status_code == 201, created_domain.text
@@ -103,28 +103,28 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         (
             "scopes",
             {
-                "id": "loyalty:profile-scope",
+                "id": "rewards:profile-scope",
                 "scopeType": "DOMAIN_PROFILE",
                 "scopeKeys": ["user_id", "app_name"],
-                "ownerDomainId": "loyalty",
+                "ownerDomainId": "rewards",
             },
         ),
         (
             "schemas",
             {
-                "id": "loyalty-preferences-v1",
-                "domainId": "loyalty",
-                "displayName": "Loyalty Preferences",
-                "ownerTeam": "loyalty-team",
+                "id": "rewards-preferences-v1",
+                "domainId": "rewards",
+                "displayName": "Rewards Preferences",
+                "ownerTeam": "rewards-team",
                 "version": "1",
-                "scopeDefinitionId": "loyalty:profile-scope",
+                "scopeDefinitionId": "rewards:profile-scope",
                 "vertexSchemaDefinition": {
                     "type": "object",
                     "properties": {"preferred_reward": {"type": "string"}},
                 },
                 "mappings": [
                     {
-                        "attributeId": "loyalty.preferred_reward",
+                        "attributeId": "rewards.preferred_reward",
                         "profileField": "preferred_reward",
                     }
                 ],
@@ -133,9 +133,9 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         (
             "agents",
             {
-                "id": "loyalty-agent",
-                "displayName": "Loyalty Agent",
-                "domainId": "loyalty",
+                "id": "rewards-agent",
+                "displayName": "Rewards Agent",
+                "domainId": "rewards",
                 "runtimeType": "ADK_CLOUD_RUN",
                 "identityType": "GOOGLE_SERVICE_ACCOUNT",
                 "capabilities": {"resolve_context": True},
@@ -144,16 +144,16 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         (
             "resolution-policies",
             {
-                "id": "loyalty-policy-v1",
-                "agentId": "loyalty-agent",
-                "name": "Loyalty policy",
+                "id": "rewards-policy-v1",
+                "agentId": "rewards-agent",
+                "name": "Rewards policy",
                 "version": "1",
                 "defaultRules": {"strategy": "DOMAIN_AUTHORITY"},
-                "schemaPriorities": [{"schemaId": "loyalty-preferences-v1", "priority": 0}],
+                "schemaPriorities": [{"schemaId": "rewards-preferences-v1", "priority": 0}],
                 "attributeOverrides": [
                     {
-                        "attributeId": "loyalty.preferred_reward",
-                        "schemaPrecedence": ["loyalty-preferences-v1"],
+                        "attributeId": "rewards.preferred_reward",
+                        "schemaPrecedence": ["rewards-preferences-v1"],
                         "rules": {"minimum_confidence": 0.8},
                     }
                 ],
@@ -162,9 +162,9 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         (
             "dynamic-memory-policies",
             {
-                "id": "loyalty-dynamic-v1",
+                "id": "rewards-dynamic-v1",
                 "level": "DOMAIN",
-                "domainId": "loyalty",
+                "domainId": "rewards",
                 "confidenceThreshold": 0.8,
             },
         ),
@@ -173,12 +173,12 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         "/api/v1/admin/preference-catalog",
         headers=PLATFORM,
         json={
-            "attributeId": "loyalty.preferred_reward",
+            "attributeId": "rewards.preferred_reward",
             "displayName": "Preferred Reward",
             "description": "Reward selection",
             "dataType": "string",
             "sensitivityClassification": "normal",
-            "canonicalOwnerId": "loyalty",
+            "canonicalOwnerId": "rewards",
         },
     )
     assert preference.status_code == 201, preference.text
@@ -186,19 +186,19 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         response = await client.post(f"/api/v1/admin/{resource}", headers=PLATFORM, json=payload)
         assert response.status_code == 201, (resource, response.text)
 
-    fetched = await client.get("/api/v1/admin/agents/loyalty-agent", headers=VIEWER)
+    fetched = await client.get("/api/v1/admin/agents/rewards-agent", headers=VIEWER)
     assert fetched.status_code == 200
-    assert fetched.json()["data"]["domain_id"] == "loyalty"
+    assert fetched.json()["data"]["domain_id"] == "rewards"
 
-    schema = await client.get("/api/v1/admin/schemas/loyalty-preferences-v1", headers=VIEWER)
+    schema = await client.get("/api/v1/admin/schemas/rewards-preferences-v1", headers=VIEWER)
     assert schema.json()["data"]["versions"][0]["mappings"][0]["attribute_id"] == (
-        "loyalty.preferred_reward"
+        "rewards.preferred_reward"
     )
-    policy = await client.get("/api/v1/admin/resolution-policies/loyalty-policy-v1", headers=VIEWER)
-    assert policy.json()["data"]["schema_priorities"][0]["schema_id"] == ("loyalty-preferences-v1")
+    policy = await client.get("/api/v1/admin/resolution-policies/rewards-policy-v1", headers=VIEWER)
+    assert policy.json()["data"]["schema_priorities"][0]["schema_id"] == ("rewards-preferences-v1")
 
     schema_pending = await client.patch(
-        "/api/v1/admin/schemas/loyalty-preferences-v1",
+        "/api/v1/admin/schemas/rewards-preferences-v1",
         headers=PLATFORM,
         json={"status": "PENDING_APPROVAL"},
     )
@@ -206,16 +206,16 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
     assert schema_pending.json()["data"]["versions"][0]["status"] == "PENDING_APPROVAL"
 
     policy_updated = await client.patch(
-        "/api/v1/admin/resolution-policies/loyalty-policy-v1",
+        "/api/v1/admin/resolution-policies/rewards-policy-v1",
         headers=PLATFORM,
         json={
             "changes": {
                 "defaultRules": {"strategy": "CONFIDENCE_THEN_PRIORITY"},
-                "schemaPriorities": [{"schemaId": "loyalty-preferences-v1", "priority": 2}],
+                "schemaPriorities": [{"schemaId": "rewards-preferences-v1", "priority": 2}],
                 "attributeOverrides": [
                     {
-                        "attributeId": "loyalty.preferred_reward",
-                        "schemaPrecedence": ["loyalty-preferences-v1"],
+                        "attributeId": "rewards.preferred_reward",
+                        "schemaPrecedence": ["rewards-preferences-v1"],
                         "rules": {"minimum_confidence": 0.9},
                     }
                 ],
@@ -229,7 +229,7 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
     }
 
     pending = await client.patch(
-        "/api/v1/admin/agents/loyalty-agent",
+        "/api/v1/admin/agents/rewards-agent",
         headers=PLATFORM,
         json={"status": "PENDING_APPROVAL", "changes": {"display_name": "Rewards Agent"}},
     )
@@ -238,7 +238,7 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
     assert pending.json()["data"]["display_name"] == "Rewards Agent"
 
     invalid = await client.patch(
-        "/api/v1/admin/agents/loyalty-agent",
+        "/api/v1/admin/agents/rewards-agent",
         headers=PLATFORM,
         json={"status": "ACTIVE"},
     )
@@ -247,7 +247,7 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
     duplicate = await client.post(
         "/api/v1/admin/domains",
         headers=PLATFORM,
-        json={"id": "loyalty", "name": "Duplicate", "ownerTeam": "team"},
+        json={"id": "rewards", "name": "Duplicate", "ownerTeam": "team"},
     )
     assert duplicate.status_code == 409
 

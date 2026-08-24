@@ -280,7 +280,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         <h3>Define the business use case</h3><p>These values establish ownership and naming for the generated resources.</p>
         <div className="form-grid">
           <label>Use case name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
-          <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options"><option value="grocery" /><option value="customer" /><option value="delivery" /><option value="loyalty" /></datalist></label>
+          <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options"><option value="grocery" /><option value="customer" /><option value="delivery" /></datalist></label>
           <label className="wide">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <label>Owning team<input value={team} onChange={(event) => setTeam(event.target.value)} /></label>
           <label>Environment<select value={environment} onChange={(event) => setEnvironment(event.target.value)}><option value="development">Development</option><option value="test">Test</option><option value="production">Production</option></select></label>
