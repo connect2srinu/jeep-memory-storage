@@ -1,13 +1,36 @@
 # Memory Admin Console
 
 The React Admin Console is the human control-plane client for `/api/v1/admin/*`. It never calls
-Memory Bank directly. It provides role-aware pages for domains, scopes, schemas, preference
-catalog, agents, access requests, approvals, resolution policies, dynamic-memory policies, and
-audit.
+Vertex Memory Bank directly.
+
+## Primary workflow
+
+Use **Create Memory Setup** for new domains:
+
+```text
+Use Case -> Preferences -> Scope -> Memory -> Agent -> Sharing -> Resolution -> Review -> Activate
+```
+
+The wizard validates domain-prefixed custom attributes, previews the generated contract, and sends
+one activation request. Activation creates or reuses the domain and scope, creates the owned schema,
+registers the agent, grants owned access, creates shared-access requests, and provisions the
+configured runtime backend.
+
+Choose `READ_WRITE` for an owned schema when the agent must save preferences. Shared schemas should
+normally be `READ`; they remain pending until the owning domain approves them.
+
+Successful Vertex activation reports `PROVISIONED`. `REGISTERED_LOCAL` indicates the mock backend.
+No user profiles are created at activation time; they remain lazy.
 
 ## Run locally
 
-Start the Memory API on port 8080, then run:
+The Compose stack serves the console at `http://localhost:3000`:
+
+```bash
+docker compose up --build
+```
+
+For frontend development:
 
 ```bash
 cd apps/admin-console
@@ -15,27 +38,22 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. To proxy to a different local API:
+Open `http://localhost:5173`. Override the API proxy when necessary:
 
 ```bash
 MEMORY_API_PROXY_TARGET=http://127.0.0.1:8081 npm run dev -- --port 3002
 ```
 
-The persona bar supplies the local `X-Admin-*` development identity. Select a role and its assigned
-domains to exercise API-enforced guards. In authenticated deployments, these headers do not grant
-permissions; verified Google principals use server-controlled `ADMIN_ROLE_BINDINGS_JSON` entries.
+The local persona bar supplies development-only `X-Admin-*` headers. Authenticated deployments
+ignore those headers and use verified Google principals with server-controlled role bindings.
 
-## Workflows
+## Advanced administration
 
-- Resource pages list current records and offer governed JSON creation templates when the role can
-  mutate that resource.
-- Schema creation includes an inline Vertex schema preview and normalized duplicate detection for
-  canonical attributes/profile fields.
-- Resolution Policy creation exposes ordered schema priorities with up/down controls.
-- Access Requests and Approvals expose request, approve, reject, revoke, and expiry states.
-- Audit is read-only and shows the actor, action, target, time, and correlation ID.
+**Manage / Advanced** exposes domains, scopes, schemas, catalog entries, agents, access requests,
+approvals, resolution policies, dynamic-memory policies, and audit events. Existing active schemas
+are immutable through the wizard; adding fields requires a reviewed new schema version.
 
-Run the frontend gate:
+## Validation
 
 ```bash
 npm run typecheck
@@ -44,5 +62,4 @@ npm run build
 npm audit --audit-level=moderate
 ```
 
-The browser workflow validates API connectivity, schema data/preview, viewer role guards, resource
-navigation, policy ordering, and audit rendering against a current Memory API.
+See `docs/guided-memory-setup.md` for the complete onboarding and validation flow.

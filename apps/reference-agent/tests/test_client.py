@@ -25,6 +25,7 @@ def snapshot_payload(value: str = "mango") -> dict:
         "snapshotVersion": "v1",
         "policyVersion": "p1",
         "schemaVersions": {"grocery-preferences-v1": "1"},
+        "writablePreferences": ["grocery.preferred_snack"],
         "generatedAt": "2026-08-22T00:00:00Z",
     }
 
@@ -82,7 +83,6 @@ async def test_refresh_update_and_event_use_runtime_routes() -> None:
         app_name="grocery-app",
         consumer_domain="grocery",
         agent_id="grocery-agent",
-        schema_id="grocery-preferences-v1",
         attribute="grocery.preferred_snack",
         value="potato chips",
     )
@@ -94,7 +94,6 @@ async def test_refresh_update_and_event_use_runtime_routes() -> None:
         text="I prefer potato chips.",
         candidates=[
             PreferenceCandidate(
-                schema_id="grocery-preferences-v1",
                 attribute="grocery.preferred_snack",
                 value="potato chips",
             )
@@ -113,7 +112,8 @@ async def test_refresh_update_and_event_use_runtime_routes() -> None:
         ("POST", "/api/v1/runtime/memory/events"),
         ("POST", "/api/v1/runtime/preferences/refresh"),
     ]
-    assert requests[1][2]["candidates"][0]["schemaId"] == "grocery-preferences-v1"
+    assert "schemaId" not in requests[0][2]
+    assert "schemaId" not in requests[1][2]["candidates"][0]
     assert refreshed.preferences["grocery.preferred_snack"].value == "potato chips"
 
 

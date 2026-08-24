@@ -3,9 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminApiClient, AdminApiError } from "./api";
 import { canMutate, findNormalizedDuplicates, movePriority, recordId } from "./governance";
 import type { AdminIdentity, AdminRecord, AdminRole } from "./types";
+import { MemorySetupWizard } from "./Wizard";
 
-const sections = [
+const primarySections = [
   ["dashboard", "Dashboard"],
+  ["create-setup", "Create Memory Setup"],
+] as const;
+
+const advancedSections = [
   ["domains", "Domains"],
   ["scopes", "Scopes"],
   ["schemas", "Schemas"],
@@ -17,6 +22,8 @@ const sections = [
   ["dynamic-memory-policies", "Dynamic Memory Policies"],
   ["audit", "Audit"],
 ] as const;
+
+const sections = [...primarySections, ...advancedSections] as const;
 
 const templates: Record<string, AdminRecord> = {
   domains: { id: "loyalty", name: "Loyalty", description: "", ownerTeam: "loyalty-team" },
@@ -184,27 +191,28 @@ function AccessActions({ records, api, reload, approvalsOnly }: { records: Admin
 export function ConsolePage({ section, identity, api }: { section: string; identity: AdminIdentity; api: AdminApiClient }) {
   const resource = section === "approvals" ? "access-requests" : section;
   const [records, setRecords] = useState<AdminRecord[]>([]);
-  const [loading, setLoading] = useState(section !== "dashboard");
+  const [loading, setLoading] = useState(!["dashboard", "create-setup"].includes(section));
   const [error, setError] = useState("");
   const title = sections.find(([id]) => id === section)?.[1] ?? section;
   const reload = useCallback(() => {
-    if (section === "dashboard") return;
+    if (["dashboard", "create-setup"].includes(section)) return;
     setLoading(true);
     api.list(resource).then(setRecords).catch((caught) => setError(caught instanceof Error ? caught.message : "Request failed")).finally(() => setLoading(false));
   }, [api, resource, section]);
   useEffect(reload, [api, resource, section]);
-  if (section === "dashboard") return <section><h2>Governed memory control plane</h2><p>Create domain contracts, approve least-privilege access, and inspect every control-plane change from one console.</p><div className="metric-grid"><article><strong>11</strong><span>Administration areas</span></article><article><strong>5</strong><span>RBAC roles</span></article><article><strong>1</strong><span>Memory API boundary</span></article></div></section>;
+  if (section === "dashboard") return <section><h2>Governed memory control plane</h2><p>Use the guided setup to create a domain profile, register an agent, and submit any required sharing approvals.</p><div className="metric-grid"><article><strong>9</strong><span>Guided decisions</span></article><article><strong>5</strong><span>RBAC roles</span></article><article><strong>0</strong><span>Profiles pre-created</span></article></div></section>;
+  if (section === "create-setup") return <MemorySetupWizard api={api} />;
   const writable = canMutate(identity, section);
   return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "access-requests" || section === "approvals" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={section === "approvals"} /> : <ResourceTable records={records} />}{writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}</section>;
 }
 
 export function ConsoleShell({ identity, section, status, onSection }: { identity: AdminIdentity; section: string; status: string; onSection: (value: string) => void }) {
   const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_MEMORY_API_URL ?? "/memory-api/api/v1/admin", identity), [identity]);
-  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><strong>Memory Admin</strong></div><nav aria-label="Administration">{sections.map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} /></main></div>;
+  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><strong>Memory Admin</strong></div><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section)}><summary>Manage / Advanced</summary>{advancedSections.map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} /></main></div>;
 }
 
 export default function App() {
-  const [section, setSection] = useState("dashboard");
+  const [section, setSection] = useState("create-setup");
   const [status, setStatus] = useState("checking");
   const [user, setUser] = useState("platform-admin@example.com");
   const [role, setRole] = useState<AdminRole>("PLATFORM_ADMIN");

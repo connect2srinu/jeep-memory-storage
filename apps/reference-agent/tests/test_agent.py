@@ -34,6 +34,7 @@ def make_snapshot(value: str, version: str) -> EffectivePreferenceSnapshot:
             "snapshotVersion": version,
             "policyVersion": "p1",
             "schemaVersions": {"grocery-preferences-v1": "1"},
+            "writablePreferences": ["grocery.preferred_snack"],
             "generatedAt": "2026-08-22T00:00:00Z",
         }
     )
@@ -111,7 +112,6 @@ async def test_phase_5_session_context_update_and_refresh(monkeypatch) -> None:
 
     result = await agent_module.update_user_preference(
         "grocery.preferred_snack",
-        "grocery-preferences-v1",
         "potato chips",
         context,
     )
@@ -133,12 +133,12 @@ async def test_event_refreshes_only_after_success(monkeypatch) -> None:
     result = await agent_module.submit_preference_event(
         "I prefer pretzels.",
         "grocery.preferred_snack",
-        "grocery-preferences-v1",
         "pretzels",
         context,
     )
 
     assert client.events[0]["candidates"][0].attribute == "grocery.preferred_snack"
+    assert client.events[0]["candidates"][0].schema_id is None
     assert result["snapshot"]["preferences"]["grocery.preferred_snack"]["value"] == "pretzels"
     assert client.refresh_calls == 1
 
@@ -158,7 +158,6 @@ async def test_failed_update_does_not_replace_or_refresh_snapshot(monkeypatch) -
     with pytest.raises(RuntimeError, match="update rejected"):
         await agent_module.update_user_preference(
             "grocery.preferred_snack",
-            "grocery-preferences-v1",
             "potato chips",
             context,
         )
@@ -172,3 +171,11 @@ def test_reference_agent_has_no_memory_bank_sdk_imports() -> None:
     source = "\n".join(path.read_text(encoding="utf-8") for path in package.glob("*.py"))
     forbidden = ("google.cloud.aiplatform", "vertexai", "agentplatform", "MemoryBank")
     assert not any(name in source for name in forbidden)
+
+
+def test_model_facing_write_tools_do_not_expose_schema_ids() -> None:
+    import inspect
+
+    assert "schema_id" not in inspect.signature(agent_module.update_user_preference).parameters
+    assert "schema_id" not in inspect.signature(agent_module.submit_preference_event).parameters
+    assert "writablePreferences" in agent_module.INSTRUCTION

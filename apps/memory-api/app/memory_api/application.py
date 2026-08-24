@@ -24,8 +24,10 @@ from memory_api.services.admin_service import (
     ResourceConflictError,
     ResourceNotFoundError,
 )
+from memory_api.services.guided_setup import GuidedMemorySetupService
 from memory_api.services.runtime_service import RuntimeMemoryService
 from memory_api.services.scope_registry import ScopeRegistry
+from memory_api.services.vertex_provisioning import VertexContextProvisioner
 
 
 def create_app(
@@ -37,6 +39,15 @@ def create_app(
     configured = settings or MemoryApiSettings.from_environment()
     runtime_database = database or Database(configured.database_url)
     runtime_store = store or configured.memory_store()
+    vertex_provisioner = (
+        VertexContextProvisioner(
+            project=configured.google_cloud_project or "",
+            location=configured.google_cloud_location,
+            resource_id=configured.memory_bank_resource_id or "",
+        )
+        if configured.memory_backend == "vertex"
+        else None
+    )
     metrics = RuntimeMetrics()
 
     @asynccontextmanager
@@ -66,6 +77,10 @@ def create_app(
         async with runtime_database.session() as session:
             yield AdminControlPlaneService(session)
 
+    async def guided_setup_service() -> AsyncIterator[GuidedMemorySetupService]:
+        async with runtime_database.session() as session:
+            yield GuidedMemorySetupService(session, runtime_store, vertex_provisioner)
+
     api.include_router(
         create_runtime_router(
             authenticator=configured.authenticator(),
@@ -76,6 +91,7 @@ def create_app(
         create_admin_router(
             authenticator=configured.admin_authenticator(),
             service_dependency=admin_service,
+            guided_service_dependency=guided_setup_service,
         )
     )
 

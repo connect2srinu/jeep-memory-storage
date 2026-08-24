@@ -8,9 +8,12 @@ import pytest_asyncio
 from app.shared_memory.contracts import load_contracts
 from memory_api.application import create_app
 from memory_api.config import MemoryApiSettings
+from memory_api.domain.control_plane import AccessPermission
+from memory_api.domain.runtime import RuntimeAgent, RuntimeSchemaGrant
 from memory_api.integrations import MockMemoryStore
 from memory_api.persistence import Database
 from memory_api.services import ContractBootstrapService
+from memory_api.services.runtime_service import RuntimeMemoryService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -78,6 +81,7 @@ async def test_explicit_write_then_resolve_returns_versioned_snapshot(runtime_cl
     )
     assert len(payload["snapshotVersion"]) == 24
     assert payload["policyVersion"] == "1.0"
+    assert "grocery.preferred_snack" in payload["writablePreferences"]
 
 
 @pytest.mark.asyncio
@@ -182,6 +186,81 @@ async def test_event_ingestion_raw_profiles_and_refresh(runtime_client) -> None:
     )
     assert refreshed.status_code == 200
     assert refreshed.json()["preferences"]["preferred_snack"]["value"] == "potato chips"
+
+
+@pytest.mark.asyncio
+async def test_schema_less_writes_resolve_the_owned_writable_schema(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    update = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.preferred_snack",
+        headers=headers,
+        json={"scope": scope("schema-less-update"), "value": "pretzels"},
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["reference"] == ("grocery-preferences-v1:grocery.preferred_snack")
+
+    event = await runtime_client.post(
+        "/api/v1/runtime/memory/events",
+        headers=headers,
+        json={
+            "scope": scope("schema-less-event"),
+            "text": "I prefer potato chips as my snack.",
+            "candidates": [{"attribute": "preferred_snack", "value": "potato chips"}],
+        },
+    )
+    assert event.status_code == 200, event.text
+
+
+@pytest.mark.asyncio
+async def test_schema_less_write_does_not_escalate_to_shared_or_unknown_schema(
+    runtime_client,
+) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    shared = await runtime_client.put(
+        "/api/v1/runtime/preferences/customer.diet",
+        headers=headers,
+        json={"scope": scope("shared-write"), "value": "vegan"},
+    )
+    assert shared.status_code == 403
+    assert "no same-domain WRITE access" in shared.json()["message"]
+
+    unknown = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.not_onboarded",
+        headers=headers,
+        json={"scope": scope("unknown-write"), "value": "anything"},
+    )
+    assert unknown.status_code == 400
+    assert "not registered in a writable schema" in unknown.json()["message"]
+
+
+def test_schema_less_write_rejects_ambiguous_owned_mappings() -> None:
+    service = RuntimeMemoryService(None, MockMemoryStore(), None)  # type: ignore[arg-type]
+    agent = RuntimeAgent(
+        id="grocery-agent",
+        domain_id="grocery",
+        principal=None,
+        capabilities=frozenset({"submit_candidates"}),
+    )
+    grants = tuple(
+        RuntimeSchemaGrant(
+            schema_id=schema_id,
+            domain_id="grocery",
+            schema_version="1",
+            permission=AccessPermission.READ_WRITE,
+            scope_keys=("user_id", "app_name", "domain"),
+            field_to_attribute={"preferred_snack": "grocery.preferred_snack"},
+        )
+        for schema_id in ("grocery-preferences-v1", "grocery-preferences-v2")
+    )
+
+    with pytest.raises(ValueError, match="multiple writable schemas"):
+        service._resolve_write_grant(
+            agent,
+            grants,
+            "grocery.preferred_snack",
+            "grocery",
+            None,
+        )
 
 
 @pytest.mark.asyncio

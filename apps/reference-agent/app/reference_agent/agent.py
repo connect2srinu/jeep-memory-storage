@@ -55,6 +55,7 @@ async def _load_snapshot(context: Any, *, refresh: bool) -> dict[str, Any]:
         app_name=settings.app_name,
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
+        include_provenance=True,
     )
     payload = _snapshot_payload(snapshot)
     context.state[SNAPSHOT_STATE_KEY] = payload
@@ -97,18 +98,16 @@ async def refresh_user_preferences(tool_context: ToolContext) -> dict[str, Any]:
 
 async def update_user_preference(
     attribute: str,
-    schema_id: str,
     value: str,
     tool_context: ToolContext,
 ) -> dict[str, Any]:
-    """Save one canonical preference, then refresh and return the effective Session snapshot."""
+    """Save a preference; the platform resolves its authorized writable schema."""
     user_id, _ = _identity(tool_context)
     mutation = await build_memory_api_client().update_preference(
         user_id=user_id,
         app_name=settings.app_name,
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
-        schema_id=schema_id,
         attribute=attribute,
         value=value,
     )
@@ -122,7 +121,6 @@ async def update_user_preference(
 async def submit_preference_event(
     text: str,
     attribute: str,
-    schema_id: str,
     value: str,
     tool_context: ToolContext,
 ) -> dict[str, Any]:
@@ -134,7 +132,7 @@ async def submit_preference_event(
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
         text=text,
-        candidates=[PreferenceCandidate(schema_id=schema_id, attribute=attribute, value=value)],
+        candidates=[PreferenceCandidate(attribute=attribute, value=value)],
     )
     snapshot = await _load_snapshot(tool_context, refresh=True)
     return {
@@ -143,14 +141,22 @@ async def submit_preference_event(
     }
 
 
-INSTRUCTION = """
-You are Grocery Preference Assistant, a reference consumer of the Shared Memory API.
-The effective preference snapshot is loaded into Session state before Gemini runs and is included
-in model context. Use get_user_preferences when you need the structured values. Call
-refresh_user_preferences only when the user explicitly requests a refresh. Use
+INSTRUCTION = f"""
+You are the preference assistant for the {settings.consumer_domain} domain and a reference consumer
+of the Shared Memory API. Users describe preferences naturally and must never be asked for schema
+IDs or canonical attribute IDs. The effective preference snapshot is loaded into Session state
+before Gemini runs and is included in model context. Its writablePreferences list is the complete
+set of canonical preferences this agent may update. Map the user's statement to the single best
+entry in writablePreferences and pass that entry as attribute. The platform resolves the owning
+writable schema behind the scenes; never guess or request a schema ID.
+
+Use get_user_preferences when you need the structured values. Call refresh_user_preferences only
+when the user explicitly requests a refresh. Use
 update_user_preference for an explicit canonical preference update and submit_preference_event for
 a natural-language memory event with a candidate; both tools refresh after a successful change.
-Never fabricate absent preferences and never attempt to query Memory Bank directly.
+Never fabricate absent preferences, never write an attribute outside writablePreferences, and never
+attempt to query Memory Bank directly. If no writable preference clearly matches the request, explain
+that the preference must be onboarded instead of inventing an attribute.
 """
 
 root_agent = Agent(

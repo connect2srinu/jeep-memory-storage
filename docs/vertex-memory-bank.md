@@ -1,57 +1,68 @@
-# Vertex Memory Bank integration
+# Vertex Memory Bank Integration
 
-The Memory API is the only application allowed to call Gemini Enterprise Agent Platform Memory
-Bank. Set `MEMORY_BACKEND=vertex` in a deployed Memory API; agents and the Admin Console continue to
-call the platform APIs and receive no Memory Bank IAM permissions.
+## Configuration
 
-## Runtime mapping
+The Memory API uses Vertex when these settings are present and `MEMORY_BACKEND=vertex`:
 
-| Platform operation | Provider operation | Behavior |
-|---|---|---|
-| Retrieve profiles | `retrieve_profiles` | Uses the exact `user_id`, `app_name`, `domain` scope and filters to authorized active schemas. |
-| Retrieve natural memories | `retrieve` | Uses the same exact scope. Typed internal explicit-write records are excluded from natural-memory results. |
-| Submit event | `ingest_events` plus a typed event record | Triggers lazy provider generation and keeps an auditable event reference. |
-| Explicit update | `create` typed memory | Overlays the latest explicit field value on provider profiles because the current SDK has no field-level profile update operation. |
-
-The overlay record contains schema ID/version, domain, profile field, value, update time, and a
-monotonic version. It is stored at the same exact scope as the provider profile. Runtime
-authorization rejects cross-domain writes before the store is called, and the store repeats the
-schema/domain guard.
-
-## Provision approved schemas
-
-The control-plane database is authoritative. Export only active schema definitions and versions:
-
-```bash
-PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/export_vertex_context.py \
-  --output config/generated/vertex-context-spec.json
+```text
+GOOGLE_CLOUD_PROJECT
+GOOGLE_CLOUD_LOCATION
+AGENT_PLATFORM_MEMORY_BANK_ID (or GOOGLE_CLOUD_AGENT_ENGINE_ID)
+GOOGLE_APPLICATION_CREDENTIALS
 ```
 
-Review the generated file, then pass its `memory_bank_config` as the Agent Runtime `context_spec`
-during the controlled deployment/update. Profile instances are never bulk-created: Memory Bank
-creates them lazily after user events.
+Use `docker-compose.vertex.yml` for the local cloud-backed stack.
 
-## Cloud-gated contract check
+## Schema provisioning
 
-The test creates data under a unique test user and therefore runs only by explicit opt-in:
+Guided activation compiles every active profile schema version, groups schemas by scope-key
+signature, and updates the configured Agent Engine with:
 
-```bash
-RUN_GCP_INTEGRATION_TESTS=1 \
-GOOGLE_CLOUD_PROJECT=<PROJECT_ID> \
-GOOGLE_CLOUD_LOCATION=<REGION> \
-AGENT_PLATFORM_MEMORY_BANK_ID=<REASONING_ENGINE_ID> \
-PYTHONPATH=apps/memory-api/app:. pytest -q \
-  apps/memory-api/tests/test_vertex_memory_store_gcp.py
+```text
+context_spec.memory_bank_config.structured_memory_configs
 ```
 
-Provider generation is asynchronous. The immediate assertion validates submission and exact-scope
-retrieval; profile population should be polled by the Phase 9 acceptance runner.
+Success returns `PROVISIONED`. This changes schema configuration only; it does not create any user
+profile instance.
 
-## Known provider constraints
+## Runtime reads
 
-- Memory Profile definitions are part of Agent Runtime context configuration rather than an
-  independent per-schema CRUD surface.
-- `retrieve_profiles` requires an exact, case-sensitive scope match.
-- Event-driven profile generation is asynchronous and may be eventually consistent.
-- The adapter keeps Google SDK objects behind `MemoryBankClient`; platform domain models remain
-  provider-neutral and unit tests use a fake client.
+For each readable grant, the adapter retrieves structured profiles and memories at exact scope:
+
+```text
+user_id + app_name + owner domain
+```
+
+Provider fields are admitted only when they exist in the active schema mapping. The runtime then
+normalizes them to canonical attributes and applies resolution policy.
+
+## Runtime writes
+
+The provider currently lacks a direct field-level structured-profile update API. The platform
+therefore stores an explicit preference as a typed JSON memory fact containing schema, version,
+domain, field, value, and timestamp. On read, this explicit fact overlays the managed profile.
+
+For natural-language event writes, the adapter also calls event ingestion. Memory Bank may then
+extract and consolidate structured profile data asynchronously.
+
+## Lazy profiles
+
+`profileInstancesCreated: 0` after activation is correct. A profile/value appears only after an
+authorized user interaction. Provisioning and population are separate operations.
+
+## Isolation
+
+Automatic write routing happens before the provider call and permits only one same-domain writable
+grant. A shared read grant cannot be used for a write. Scope domain, schema owner, and canonical
+attribute owner remain aligned.
+
+## Verification
+
+1. activate a new schema and confirm `PROVISIONED`;
+2. resolve the agent snapshot and inspect `writablePreferences`;
+3. write from ADK Web without a schema ID;
+4. resolve again and in a later Session;
+5. inspect provider state only as a diagnostic, allowing for asynchronous consolidation;
+6. verify another user and another domain cannot see or update the value.
+
+Do not treat unit tests or a `REGISTERED_LOCAL` activation as proof of a live Memory Bank flow.

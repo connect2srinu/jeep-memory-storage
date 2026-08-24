@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -136,3 +136,85 @@ class AdminRecord(AdminModel):
 
 class AdminRecordList(AdminModel):
     items: list[dict[str, Any]]
+
+
+class GuidedUseCase(AdminModel):
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    owning_team: str = Field(alias="owningTeam", min_length=1)
+    domain: str = Field(pattern=r"^[a-z][a-z0-9-]*$")
+    environment: str = Field(min_length=1)
+
+
+class GuidedCustomPreference(AdminModel):
+    attribute_id: str = Field(alias="attributeId", min_length=3)
+    display_name: str = Field(alias="displayName", min_length=1)
+    description: str = Field(min_length=1)
+    data_type: Literal["string", "boolean", "integer", "number"] = Field(alias="dataType")
+    allowed_values: list[Any] = Field(default_factory=list, alias="allowedValues")
+    sensitivity: Literal["normal", "sensitive", "restricted"] = "normal"
+
+
+class GuidedScope(AdminModel):
+    type: Literal["USER", "HOUSEHOLD", "USER_STORE", "CUSTOM"]
+    custom_keys: list[str] = Field(default_factory=list, alias="customKeys")
+
+
+class GuidedMemoryBehavior(AdminModel):
+    canonical: bool = True
+    dynamic_enabled: bool = Field(default=True, alias="dynamicEnabled")
+    confidence_threshold: float = Field(default=0.85, alias="confidenceThreshold", ge=0, le=1)
+    confirmation_required: bool = Field(default=True, alias="confirmationRequired")
+    retention_days: int = Field(default=365, alias="retentionDays", ge=1, le=3650)
+    memory_topics: list[str] = Field(default_factory=list, alias="memoryTopics")
+
+
+class GuidedAgent(AdminModel):
+    id: str = Field(min_length=1)
+    display_name: str = Field(alias="displayName", min_length=1)
+    existing: bool = False
+    runtime_type: str = Field(default="ADK_LOCAL", alias="runtimeType", min_length=1)
+    identity_type: str = Field(default="LOCAL_POC", alias="identityType", min_length=1)
+    principal: str | None = None
+    owned_schema_permission: Literal["READ", "WRITE", "READ_WRITE"] = Field(
+        default="READ_WRITE", alias="ownedSchemaPermission"
+    )
+
+
+class GuidedSharedSchema(AdminModel):
+    schema_id: str = Field(alias="schemaId", min_length=1)
+    permission: Literal["READ", "WRITE", "READ_WRITE"] = "READ"
+
+
+class GuidedResolution(AdminModel):
+    schema_precedence: list[str] = Field(default_factory=list, alias="schemaPrecedence")
+    attribute_overrides: list[ResolutionAttributeOverride] = Field(
+        default_factory=list, alias="attributeOverrides"
+    )
+
+
+class GuidedMemorySetupRequest(AdminModel):
+    use_case: GuidedUseCase = Field(alias="useCase")
+    selected_preferences: list[str] = Field(default_factory=list, alias="selectedPreferences")
+    custom_preferences: list[GuidedCustomPreference] = Field(
+        default_factory=list, alias="customPreferences"
+    )
+    scope: GuidedScope
+    memory: GuidedMemoryBehavior
+    agent: GuidedAgent
+    shared_schemas: list[GuidedSharedSchema] = Field(default_factory=list, alias="sharedSchemas")
+    resolution: GuidedResolution | None = None
+
+
+class GuidedMemorySetupPreview(AdminModel):
+    summary: dict[str, Any]
+    generated_contract: dict[str, Any] = Field(alias="generatedContract")
+    generated_yaml: str = Field(alias="generatedYaml")
+    warnings: list[str] = Field(default_factory=list)
+
+
+class GuidedMemorySetupActivation(GuidedMemorySetupPreview):
+    status: str
+    resources: dict[str, Any]
+    pending_approvals: list[str] = Field(default_factory=list, alias="pendingApprovals")
+    provisioning: dict[str, Any]

@@ -397,5 +397,7 @@ def test_openapi_exposes_versioned_admin_resources() -> None:
         "/api/v1/admin/resolution-policies",
         "/api/v1/admin/dynamic-memory-policies",
         "/api/v1/admin/audit",
+        "/api/v1/admin/memory-setups/preview",
+        "/api/v1/admin/memory-setups/activate",
     }
     assert expected <= set(paths)

@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shared_memory
+      POSTGRES_USER: shared_memory
+      POSTGRES_PASSWORD: local-development-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shared_memory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # PostgreSQL is consumed only by containers on the Compose network. Keeping it internal avoids
+    # collisions with an existing host PostgreSQL installation on port 5432.
+    expose:
+      - "5432"
+    volumes:
+      - shared-memory-postgres:/var/lib/postgresql/data
+
+  memory-api:
+    build:
+      context: .
+      dockerfile: apps/memory-api/Dockerfile
+    environment:
+      MEMORY_BACKEND: vertex
+      AUTH_ENABLED: "false"
+      INCLUDE_LEGACY_ROUTES: "false"
+      DATABASE_URL: postgresql+asyncpg://shared_memory:local-development-only@postgres:5432/shared_memory
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-e2eml-222003}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+      AGENT_PLATFORM_MEMORY_BANK_ID: ${AGENT_PLATFORM_MEMORY_BANK_ID:-5362284673558904832}
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/gcp/application_default_credentials.json
+    volumes:
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/var/run/gcp/application_default_credentials.json:ro
+    command:
+      - sh
+      - -c
+      - >-
+        python apps/memory-api/scripts/wait_for_database.py &&
+        alembic -c apps/memory-api/alembic.ini upgrade head &&
+        PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/bootstrap_contracts.py &&
+        uvicorn memory_api.main:app --host 0.0.0.0 --port 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "8080:8080"
+
+  admin-console:
+    build:
+      context: .
+      dockerfile: apps/admin-console/Dockerfile
+    depends_on:
+      memory-api:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+
+  reference-agent:
+    profiles: ["agent"]
+    build:
+      context: .
+      dockerfile: apps/reference-agent/Dockerfile
+    environment:
+      MEMORY_API_URL: http://memory-api:8080
+      REFERENCE_AGENT_ID: grocery-agent
+      ADK_APP_NAME: grocery_shared_preferences
+      PREFERENCE_DOMAIN: grocery
+      GOOGLE_GENAI_USE_VERTEXAI: "true"
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+    depends_on:
+      memory-api:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  shared-memory-postgres:

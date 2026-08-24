@@ -37,11 +37,12 @@ class EffectivePreferenceSnapshot(ApiModel):
     snapshot_version: str = Field(alias="snapshotVersion")
     policy_version: str = Field(alias="policyVersion")
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
+    writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
     generated_at: str = Field(alias="generatedAt")
 
 
 class PreferenceCandidate(ApiModel):
-    schema_id: str = Field(alias="schemaId")
+    schema_id: str | None = Field(default=None, alias="schemaId")
     attribute: str
     value: Any
 
@@ -201,19 +202,21 @@ class MemoryApiClient:
         app_name: str,
         consumer_domain: str,
         agent_id: str,
-        schema_id: str,
         attribute: str,
         value: Any,
+        schema_id: str | None = None,
     ) -> RuntimeMutation:
+        body = {
+            "scope": self._scope(user_id, app_name, consumer_domain),
+            "value": value,
+        }
+        if schema_id is not None:
+            body["schemaId"] = schema_id
         payload = await self._request(
             "PUT",
             f"/api/v1/runtime/preferences/{quote(attribute, safe='.')}",
             agent_id=agent_id,
-            payload={
-                "scope": self._scope(user_id, app_name, consumer_domain),
-                "schemaId": schema_id,
-                "value": value,
-            },
+            payload=body,
         )
         return RuntimeMutation.model_validate(payload)
 
@@ -235,7 +238,8 @@ class MemoryApiClient:
                 "scope": self._scope(user_id, app_name, consumer_domain),
                 "text": text,
                 "candidates": [
-                    candidate.model_dump(by_alias=True, mode="json") for candidate in candidates
+                    candidate.model_dump(by_alias=True, mode="json", exclude_none=True)
+                    for candidate in candidates
                 ],
             },
         )

@@ -14,6 +14,9 @@ from memory_api.api.admin.models import (
     AgentCreate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
+    GuidedMemorySetupActivation,
+    GuidedMemorySetupPreview,
+    GuidedMemorySetupRequest,
     PreferenceCreate,
     ResolutionPolicyCreate,
     ResourceUpdate,
@@ -23,19 +26,42 @@ from memory_api.api.admin.models import (
 from memory_api.domain import AccessRequestStatus
 from memory_api.security.admin import AdminAuthenticator, AdminPrincipal
 from memory_api.services.admin_service import AdminControlPlaneService
+from memory_api.services.guided_setup import GuidedMemorySetupService
 
 ServiceDependency = Callable[[], AsyncIterator[AdminControlPlaneService]]
+GuidedServiceDependency = Callable[[], AsyncIterator[GuidedMemorySetupService]]
 
 
 def create_admin_router(
     *,
     authenticator: AdminAuthenticator,
     service_dependency: ServiceDependency,
+    guided_service_dependency: GuidedServiceDependency,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
     async def principal(request: Request) -> AdminPrincipal:
         return await authenticator.authenticate(request)
+
+    @router.post("/memory-setups/preview", response_model=GuidedMemorySetupPreview)
+    async def preview_memory_setup(
+        payload: GuidedMemorySetupRequest,
+        identity: AdminPrincipal = Depends(principal),
+        service: GuidedMemorySetupService = Depends(guided_service_dependency),
+    ) -> GuidedMemorySetupPreview:
+        return await service.preview(identity, payload)
+
+    @router.post(
+        "/memory-setups/activate",
+        response_model=GuidedMemorySetupActivation,
+        status_code=201,
+    )
+    async def activate_memory_setup(
+        payload: GuidedMemorySetupRequest,
+        identity: AdminPrincipal = Depends(principal),
+        service: GuidedMemorySetupService = Depends(guided_service_dependency),
+    ) -> GuidedMemorySetupActivation:
+        return await service.activate(identity, payload)
 
     async def listed(
         resource: str, identity: AdminPrincipal, service: AdminControlPlaneService

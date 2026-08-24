@@ -19,6 +19,8 @@ describe("Admin Console components", () => {
       <ConsoleShell identity={platform} section="dashboard" status="connected" onSection={() => {}} />,
     );
     expect(html).toContain("Memory Admin");
+    expect(html).toContain("Create Memory Setup");
+    expect(html).toContain("Manage / Advanced");
     expect(html).toContain("Resolution Policies");
     expect(html).toContain("Dynamic Memory Policies");
     expect(html).toContain("admin@example.com");

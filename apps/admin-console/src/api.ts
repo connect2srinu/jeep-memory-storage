@@ -71,6 +71,20 @@ export class AdminApiClient {
     ).data;
   }
 
+  async previewMemorySetup(payload: AdminRecord): Promise<AdminRecord> {
+    return await this.request<AdminRecord>("/memory-setups/preview", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async activateMemorySetup(payload: AdminRecord): Promise<AdminRecord> {
+    return await this.request<AdminRecord>("/memory-setups/activate", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
   async update(resource: string, id: string, payload: AdminRecord): Promise<AdminRecord> {
     return (
       await this.request<AdminRecordEnvelope>(`/${resource}/${encodeURIComponent(id)}`, {

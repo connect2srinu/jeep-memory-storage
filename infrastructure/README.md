@@ -1,15 +1,17 @@
-# Development deployment
+# Infrastructure
 
-`terraform/environments/dev` composes the reusable `modules/platform` module. It defines required
-APIs, four least-privilege service accounts, Artifact Registry, private networking, private Cloud
-SQL PostgreSQL, Secret Manager values, three Cloud Run services, a migration job, HTTPS load
-balancing with IAP, alerts, and a dashboard.
+Infrastructure code provisions the deployable platform foundation: network/IAM integration,
+database, Memory API, Admin Console, and related runtime configuration. Domain schemas and grants
+are control-plane resources activated after the application is healthy.
 
-Terraform is declarative only. Nothing in this directory applies itself. Copy
-`terraform.tfvars.example` to an ignored `terraform.tfvars`, fill the documented placeholders, and
-follow `docs/deployment-operations.md`.
+Before applying changes, complete `docs/deployment-placeholders.md`, validate contracts and tests,
+and review the exact project and region.
 
-The external HTTPS load balancer serves the Admin Console by default and routes `/api/*`,
-`/healthz`, and `/internal/*` to the Memory API. Both backends require IAP. The Reference Agent uses
-the authenticated direct Memory API Cloud Run URL and has `roles/run.invoker`; it receives no
-Memory Bank resource administration role.
+```bash
+terraform -chdir=infrastructure/terraform init
+terraform -chdir=infrastructure/terraform validate
+terraform -chdir=infrastructure/terraform plan -var-file=ENV.tfvars
+```
+
+Apply only after approval. Deployment order is database/migrations, Memory API, Admin Console,
+consumer agents, then schema activation/provisioning. See `docs/deployment-operations.md`.

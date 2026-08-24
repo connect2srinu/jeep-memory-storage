@@ -1,5 +1,10 @@
 # Agent Platform Cost & Architecture Analysis --- 2026 Refresh
 
+> **Status: dated planning reference.** This document preserves the 2026 evaluation assumptions and
+> is not an operating runbook. The current implementation uses the Admin Console guided setup,
+> platform-managed schema resolution, lazy profile creation, and the Memory API runtime boundary.
+> Validate current Google Cloud pricing and product behavior before making a production decision.
+
 ## Overview
 
 This document refreshes the earlier **Agent Platform Cost Analysis**

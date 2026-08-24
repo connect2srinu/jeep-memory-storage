@@ -1,51 +1,54 @@
 # Reference ADK Agent
 
-Grocery Preference Assistant demonstrates consumption of the Shared Memory runtime API without
-importing Vertex AI Memory Bank SDKs or platform service implementations. The Memory API remains
-the only boundary for durable reads and writes.
+This agent demonstrates the thin-consumer pattern. It imports no Memory Bank SDK and delegates
+identity, authorization, schema selection, persistence, and conflict resolution to the Shared
+Memory API.
+
+Before the first model call, the agent resolves an effective snapshot and stores it in ADK Session
+state. The snapshot is injected into Gemini context and includes `writablePreferences`, the complete
+allowlist of canonical attributes the agent may update.
+
+Tools:
+
+- `get_user_preferences`: return the cached snapshot;
+- `refresh_user_preferences`: refresh it explicitly;
+- `update_user_preference(attribute, value)`: save an explicit value;
+- `submit_preference_event(text, attribute, value)`: ingest natural language and a candidate.
+
+Neither write tool exposes `schemaId`. The agent selects an attribute from `writablePreferences`;
+the Memory API resolves the correct same-domain writable schema.
+
+## Run for a registered domain
 
 ```bash
 cd apps/reference-agent
-python -m pip install -e '.[dev]'
 export MEMORY_API_URL=http://localhost:8080
-export REFERENCE_AGENT_ID=grocery-agent
-adk web app
+export MEMORY_API_TOKEN=""
+export MEMORY_API_AUDIENCE=""
+export REFERENCE_AGENT_ID=travel-assistant
+export PREFERENCE_DOMAIN=travel
+export ADK_APP_NAME=travel_preferences
+
+adk web --host 0.0.0.0 --port 8000 app
 ```
 
-Open `http://127.0.0.1:8000/dev-ui/`, select the reference agent, and create a Session. Before the
-first Gemini call, the agent resolves an Effective Preference Snapshot and stores it under
-`shared_memory:effective_snapshot` in ADK Session state. A before-model callback adds that
-authorized snapshot to Gemini context. Subsequent turns reuse it without another read.
+Restart ADK Web whenever these settings or Python tool signatures change. Open
+`http://localhost:8000/dev-ui/?app=reference_agent` and say:
 
-The tools have deliberately different behavior:
+```text
+I always prefer a window seat.
+```
 
-- `get_user_preferences` returns the cached Session snapshot.
-- `refresh_user_preferences` explicitly calls the refresh endpoint and replaces the cache.
-- `update_user_preference` sends an explicit canonical update and refreshes only after success.
-- `submit_preference_event` submits a natural-language event with one candidate and refreshes only
-  after success.
+The agent should call a write tool with `travel.seat_preference` and `window`, without a schema ID.
 
-For a local Memory API, omit both token variables; the client sends `REFERENCE_AGENT_ID` through
-`X-Agent-ID`. For a temporary development token, set `MEMORY_API_TOKEN`.
+For an authenticated API, set `MEMORY_API_AUDIENCE` to the service audience. Application Default
+Credentials mint the Google ID token; the API maps its verified principal to the registered agent.
 
-For Cloud Run or another Google-authenticated Memory API, configure the service URL as the token
-audience. Application Default Credentials for the agent workload mint a fresh Google ID token for
-each request:
+## Validation
 
 ```bash
-export MEMORY_API_URL=https://memory-api.example.run.app
-export MEMORY_API_AUDIENCE=https://memory-api.example.run.app
-export REFERENCE_AGENT_ID=grocery-agent
+PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
+.venv/bin/ruff check apps/reference-agent/app apps/reference-agent/tests
 ```
 
-The API maps the verified service-account email to the registered agent. The `agentId` request field
-is informational and cannot establish identity. The registered agent also needs the relevant scope,
-schema grants, and capabilities (`resolve_context` for reads and `submit_candidates` for writes).
-
-Run the deterministic Phase 5 gate with:
-
-```bash
-cd apps/reference-agent
-.venv/bin/ruff check app tests
-.venv/bin/pytest -q
-```
+See `docs/adk-web-demo.md` for the complete multi-session demonstration.

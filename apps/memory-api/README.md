@@ -1,48 +1,12 @@
 # Shared Memory API
 
-This application is the runtime-independent API boundary for agents and the Admin Console. It owns
-runtime authorization and resolution, normalized PostgreSQL control-plane records, governed admin
-workflows, transactional audit, and the provider-neutral memory-store boundary.
+The FastAPI service is the only memory boundary used by agents and the Admin Console. It owns
+identity mapping, capabilities, schema grants, deterministic preference resolution, write routing,
+PostgreSQL control-plane state, audit, and the provider-neutral `MemoryStore` adapter.
 
-Run from the repository root:
+## Runtime API
 
-```bash
-PYTHONPATH=apps/memory-api/app uvicorn memory_api.main:app --reload --port 8080
-```
-
-Health check:
-
-```bash
-curl http://localhost:8080/healthz
-```
-
-Create or upgrade the control-plane schema and import the validated YAML contracts:
-
-```bash
-docker compose exec memory-api alembic -c apps/memory-api/alembic.ini upgrade head
-docker compose exec memory-api \
-  sh -c 'PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/bootstrap_contracts.py'
-```
-
-The Docker image runs Alembic before starting Uvicorn. The importer is idempotent and preserves the
-YAML contracts as the initial GitOps source. Runtime resolution continues to use the compatibility
-core until the database-backed authorization and policy repositories pass their later migration
-gates.
-
-The provider-neutral `MemoryStore` protocol and strict scope registry now define the next runtime
-boundary. `MockMemoryStore` supplies deterministic offline schemas, lazy profile creation, natural
-memories, event ingestion, explicit writes, and scope isolation while the Vertex implementation is
-being moved behind the same contract.
-
-The Memory API package also owns a pure deterministic resolver and default-deny authorization
-service. Offline tests cover precedence, expiration, confidence thresholds, provenance, capability
-checks, schema grants, cross-domain access rules, and cross-user scope isolation. This completes the
-Phase 3 offline gate; the versioned HTTP routes and verified workload identity are introduced in
-Phase 4.
-
-## Phase 4 runtime API
-
-Runtime operations are available below `/api/v1/runtime`:
+Routes under `/api/v1/runtime`:
 
 - `POST /preferences/resolve`
 - `POST /preferences/refresh`
@@ -50,13 +14,17 @@ Runtime operations are available below `/api/v1/runtime`:
 - `POST /memory/events`
 - `PUT /preferences/{canonical_attribute}`
 
-With `AUTH_ENABLED=false`, callers must send `X-Agent-ID`; this mode is only for local development.
-With `AUTH_ENABLED=true`, callers must send a Google-signed bearer ID token whose audience equals
-`GOOGLE_ID_TOKEN_AUDIENCE`. The verified service-account email is mapped to one active agent in the
-PostgreSQL registry. Request-body agent IDs are diagnostic only and cannot establish identity.
+Resolve responses contain `writablePreferences`. An agent maps natural language to one attribute
+from that allowlist. Write requests normally omit `schemaId`; the API resolves the schema by
+matching the attribute against active same-domain `WRITE` or `READ_WRITE` grants.
 
-Legacy `/v1/memory/*` routes are disabled by default. Set `INCLUDE_LEGACY_ROUTES=true` only during a
-controlled compatibility window. Production deployments must keep it false.
+Routing outcomes:
+
+- one writable match: use it;
+- matching shared/read-only schema: `403 PERMISSION_DENIED`;
+- no match: `400 INVALID_ARGUMENT`;
+- multiple writable matches: `400 INVALID_ARGUMENT`;
+- explicit legacy `schemaId`: retain exact authorization checks.
 
 Example local update:
 
@@ -66,31 +34,60 @@ curl -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.preferred_s
   -H 'X-Agent-ID: grocery-agent' \
   -d '{
     "scope": {"userId": "demo-user", "appName": "grocery-app", "domain": "grocery"},
-    "schemaId": "grocery-preferences-v1",
     "value": "mango chips"
   }'
 ```
 
-## Phase 6 Admin API
+## Guided setup API
 
-Governed resources are available below `/api/v1/admin`: domains, scopes, schemas, preference
-catalog entries, agents, resolution policies, dynamic-memory policies, access requests, approvals,
-and audit events. Records are lifecycle-managed; use `PATCH` transitions through `DRAFT`,
-`PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `DEPRECATED`, and `RETIRED` instead of physical deletion.
+- `POST /api/v1/admin/memory-setups/preview` performs validation and returns generated YAML without
+  changing state.
+- `POST /api/v1/admin/memory-setups/activate` transactionally creates the control-plane resources
+  and provisions the configured backend.
 
-Local development requires trusted simulation headers:
+Activation never creates user profile instances. With `MEMORY_BACKEND=mock`, it returns
+`REGISTERED_LOCAL`. With `MEMORY_BACKEND=vertex`, it applies every active schema version to the
+configured Agent Engine `context_spec` and returns `PROVISIONED`.
 
-```bash
-curl http://localhost:8080/api/v1/admin/domains \
-  -H 'X-Admin-User: local-admin@example.com' \
-  -H 'X-Admin-Roles: PLATFORM_ADMIN'
-```
+## Admin API
+
+Governed resources under `/api/v1/admin` include domains, scopes, schemas, preference catalog,
+agents, resolution policies, dynamic-memory policies, access requests, approvals, and audit.
+Records use lifecycle transitions instead of physical deletion.
 
 Supported roles are `PLATFORM_ADMIN`, `DOMAIN_ADMIN`, `SCHEMA_OWNER`, `AGENT_OWNER`, and `VIEWER`.
-Domain-scoped roles must also send `X-Admin-Domains` locally. These headers are ignored as an
-identity source when `AUTH_ENABLED=true`; production uses a verified Google ID token and the
-server-controlled `ADMIN_ROLE_BINDINGS_JSON` map.
+Domain-scoped roles also require an assigned domain.
 
-Access approval creates or updates an `agent_schema_grant` in the same transaction as the request
-and audit events. Rejecting creates no grant. Revoking or expiring disables the grant without
-copying or deleting memory. See `docs/admin-api.md` for request examples and authorization rules.
+## Backends
+
+- `MockMemoryStore`: deterministic, process-local testing.
+- `VertexMemoryBankStore`: retrieves structured profiles and dynamic memories from Agent Platform
+  Memory Bank. Explicit preference writes are stored as typed exact-scope memory facts and overlaid
+  on provider profiles; natural-language events are also ingested for lazy provider generation.
+
+The provider currently has no direct field-level structured-profile update method, so the explicit
+overlay is the authoritative immediate-write mechanism used by this platform.
+
+## Run directly
+
+```bash
+PYTHONPATH=apps/memory-api/app uvicorn memory_api.main:app --reload --port 8080
+curl http://localhost:8080/healthz
+```
+
+Compose runs Alembic and the idempotent contract bootstrap before Uvicorn.
+
+## Authentication
+
+`AUTH_ENABLED=false` accepts `X-Agent-ID` for local development only. With authentication enabled,
+the API verifies a Google ID token audience and maps the verified principal to one active agent.
+Request-body agent IDs cannot establish identity.
+
+## Validation
+
+```bash
+PYTHONPATH=apps/memory-api/app:. .venv/bin/python -m pytest -q apps/memory-api/tests
+.venv/bin/ruff check apps/memory-api/app apps/memory-api/tests
+```
+
+See `docs/admin-api.md`, `docs/vertex-memory-bank.md`, and `docs/agent-memory-setup.md`.

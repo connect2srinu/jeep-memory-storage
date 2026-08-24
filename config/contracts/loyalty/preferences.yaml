@@ -1,0 +1,25 @@
+apiVersion: memory.platform/v1alpha1
+kind: PreferenceCatalog
+metadata:
+  domain: replace_me
+  version: "1.0"
+preferences:
+  - key: replace_me.example_preference
+    type: string
+    description: Explain the business meaning, not the storage implementation
+    ownerDomain: replace_me
+    canonical: true
+    sensitivity: normal
+    scopes: [SESSION, LONG_TERM]
+    schemaVersion: "1"
+    allowedReaders: [replace_me]
+    allowedWriters: [replace_me]
+    resolutionPolicy: example_preference
+    profile: replace-me-preferences-v1
+    allowedValues: [first_value, second_value]
+    aliases: [example_preference]
+    lifecycle:
+      sessionTtlSeconds: 86400
+      longTermRetentionDays: 365
+    confirmation:
+      requiredForLongTerm: true

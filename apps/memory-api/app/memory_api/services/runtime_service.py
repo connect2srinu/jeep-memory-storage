@@ -102,6 +102,14 @@ class RuntimeMemoryService:
             for key, item in snapshot.preferences.items()
         }
         schema_versions = {grant.schema_id: grant.schema_version for grant in readable}
+        writable_preferences = tuple(
+            dict.fromkeys(
+                attribute
+                for grant in grants
+                if grant.domain_id == agent.domain_id and self._allows(grant.permission, write=True)
+                for attribute in grant.field_to_attribute.values()
+            )
+        )
         generated_at = datetime.now(UTC)
         version_payload = json.dumps(
             {
@@ -125,6 +133,7 @@ class RuntimeMemoryService:
             snapshot_version=hashlib.sha256(version_payload.encode()).hexdigest()[:24],
             policy_version=policies.version,
             schema_versions=schema_versions,
+            writable_preferences=writable_preferences,
             generated_at=generated_at,
         )
 
@@ -134,12 +143,16 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.INSPECT_PROVENANCE)
         self._require_consumer_scope(agent, request.scope)
-        grants = {item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)}
+        grants = {
+            item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)
+        }
         profiles = []
         for schema_id in request.schema_ids:
             grant = grants.get(schema_id)
             if grant is None or not self._allows(grant.permission, write=False):
-                raise PermissionError(f"agent {agent.id!r} lacks READ access to schema {schema_id!r}")
+                raise PermissionError(
+                    f"agent {agent.id!r} lacks READ access to schema {schema_id!r}"
+                )
             await self._register_schema(grant)
             scope = self._owner_scope(request.scope, grant.domain_id, grant.scope_keys)
             profiles.extend(await self.store.get_profiles(scope, (schema_id,)))
@@ -163,14 +176,20 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        grants = {item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)}
+        grants = await self.repository.list_schema_grants(agent.id)
         writes = []
         for candidate in request.candidates:
-            grant = self._require_write_grant(agent, grants, candidate.schema_id, request.scope.domain)
+            grant = self._resolve_write_grant(
+                agent,
+                grants,
+                candidate.attribute,
+                request.scope.domain,
+                candidate.schema_id,
+            )
             await self._register_schema(grant)
             writes.append(
                 PreferenceWrite(
-                    candidate.schema_id,
+                    grant.schema_id,
                     self._profile_field(grant, candidate.attribute),
                     candidate.value,
                 )
@@ -188,13 +207,19 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        grants = {item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)}
-        grant = self._require_write_grant(agent, grants, request.schema_id, request.scope.domain)
+        grants = await self.repository.list_schema_grants(agent.id)
+        grant = self._resolve_write_grant(
+            agent,
+            grants,
+            attribute,
+            request.scope.domain,
+            request.schema_id,
+        )
         profile_field = self._profile_field(grant, attribute)
         await self._register_schema(grant)
         profile = await self.store.write_preference(
             self._memory_scope(request.scope),
-            schema_id=request.schema_id,
+            schema_id=grant.schema_id,
             attribute=profile_field,
             value=request.value,
         )
@@ -250,6 +275,51 @@ class RuntimeMemoryService:
             raise PermissionError("cross-domain profile writes are not allowed")
         return grant
 
+    def _resolve_write_grant(
+        self,
+        agent: RuntimeAgent,
+        grants: tuple[RuntimeSchemaGrant, ...],
+        attribute: str,
+        scope_domain: str,
+        schema_id: str | None,
+    ) -> RuntimeSchemaGrant:
+        """Resolve a schema only from active, same-domain writable grants."""
+        if schema_id is not None:
+            return self._require_write_grant(
+                agent,
+                {grant.schema_id: grant for grant in grants},
+                schema_id,
+                scope_domain,
+            )
+
+        matching = tuple(
+            grant
+            for grant in grants
+            if attribute in grant.field_to_attribute
+            or attribute in grant.field_to_attribute.values()
+        )
+        writable = tuple(
+            grant
+            for grant in matching
+            if grant.domain_id == scope_domain and self._allows(grant.permission, write=True)
+        )
+        if len(writable) == 1:
+            return writable[0]
+        if len(writable) > 1:
+            schema_ids = ", ".join(sorted(grant.schema_id for grant in writable))
+            raise ValueError(
+                f"attribute {attribute!r} maps to multiple writable schemas ({schema_ids}); "
+                "fix the active schema mappings before retrying"
+            )
+        if matching:
+            raise PermissionError(
+                f"agent {agent.id!r} has no same-domain WRITE access for attribute {attribute!r}"
+            )
+        raise ValueError(
+            f"attribute {attribute!r} is not registered in a writable schema for "
+            f"domain {scope_domain!r}"
+        )
+
     @staticmethod
     def _profile_field(grant: RuntimeSchemaGrant, attribute: str) -> str:
         if attribute in grant.field_to_attribute:
@@ -286,10 +356,18 @@ class RuntimeMemoryService:
         config: RuntimeResolutionConfig | None,
     ) -> tuple[PreferenceCatalog, ResolutionPolicyRegistry]:
         readable_domains = tuple(
-            dict.fromkeys(item.domain_id for item in grants if RuntimeMemoryService._allows(item.permission, write=False))
+            dict.fromkeys(
+                item.domain_id
+                for item in grants
+                if RuntimeMemoryService._allows(item.permission, write=False)
+            )
         )
         writable_domains = tuple(
-            dict.fromkeys(item.domain_id for item in grants if RuntimeMemoryService._allows(item.permission, write=True))
+            dict.fromkeys(
+                item.domain_id
+                for item in grants
+                if RuntimeMemoryService._allows(item.permission, write=True)
+            )
         )
         rule_map = config.attribute_rules if config else {}
         definitions = []
@@ -341,9 +419,7 @@ class RuntimeMemoryService:
                 id=f"{default_policy.id}:{logical_key}",
                 source_priority=tuple(
                     PreferenceSource(item)
-                    for item in (
-                        rules.get("source_priority") or default_policy.source_priority
-                    )
+                    for item in (rules.get("source_priority") or default_policy.source_priority)
                 ),
                 domain_priority=tuple(
                     schema_domains[item]
