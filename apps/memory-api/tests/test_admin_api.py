@@ -99,6 +99,7 @@ async def test_organization_project_hierarchy_is_enforced(admin_environment) -> 
         json={"id": "healthcare", "name": "Healthcare"},
     )
     assert created_organization.status_code == 201
+    assert created_organization.json()["data"]["status"] == "ACTIVE"
     created_project = await client.post(
         "/api/v1/admin/projects",
         headers=PLATFORM,

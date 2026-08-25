@@ -219,7 +219,11 @@ function records(record: AdminRecord, key: string): AdminRecord[] {
   return Array.isArray(record[key]) ? record[key] as AdminRecord[] : [];
 }
 
-function MemberForm({ title, onSave }: { title: string; onSave: (payload: AdminRecord) => Promise<void> }) {
+type OrganizationTab = "overview" | "projects" | "members";
+type ProjectTab = "overview" | "domains" | "agents" | "members";
+type ContextSelection = { id: string; name: string } | null;
+
+function MemberForm({ title, onSave, onCancel }: { title: string; onSave: (payload: AdminRecord) => Promise<void>; onCancel?: () => void }) {
   const [principal, setPrincipal] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState("VIEWER");
@@ -240,10 +244,10 @@ function MemberForm({ title, onSave }: { title: string; onSave: (payload: AdminR
     } finally { setSaving(false); }
   }
 
-  return <div className="compact-form"><h5>{title}</h5><label>Member email or principal<input value={principal} onChange={(event) => setPrincipal(event.target.value)} placeholder="owner@example.com" /></label><label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Optional" /></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value)}><option>OWNER</option><option>ADMIN</option><option>VIEWER</option></select></label>{error && <div className="alert error">{error}</div>}<button className="primary" type="button" disabled={saving} onClick={submit}>{saving ? "Adding…" : "Add member"}</button></div>;
+  return <div className="compact-form"><h5>{title}</h5><label>Member email or principal<input value={principal} onChange={(event) => setPrincipal(event.target.value)} placeholder="owner@example.com" /></label><label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Optional" /></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value)}><option>OWNER</option><option>ADMIN</option><option>VIEWER</option></select></label>{error && <div className="alert error wide">{error}</div>}<div className="form-actions wide">{onCancel && <button className="secondary" type="button" onClick={onCancel}>Cancel</button>}<button className="primary" type="button" disabled={saving} onClick={submit}>{saving ? "Adding…" : "Add member"}</button></div></div>;
 }
 
-function ProjectForm({ organizationId, onSave }: { organizationId: string; onSave: (payload: AdminRecord) => Promise<void> }) {
+function ProjectForm({ organizationId, onSave, onCancel }: { organizationId: string; onSave: (payload: AdminRecord) => Promise<void>; onCancel?: () => void }) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -256,10 +260,10 @@ function ProjectForm({ organizationId, onSave }: { organizationId: string; onSav
       setId(""); setName(""); setDescription(""); setOwnerTeam(""); setError("");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to create project"); }
   }
-  return <div className="compact-form project-form"><h5>Create project</h5><label>Project ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="grocery-online" /></label><label>Project name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owning team<input value={ownerTeam} onChange={(event) => setOwnerTeam(event.target.value)} /></label><label className="wide">Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<button className="primary" type="button" onClick={submit}>Create project</button></div>;
+  return <div className="compact-form project-form"><h5>Create project</h5><label>Project ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="grocery-online" /></label><label>Project name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owning team<input value={ownerTeam} onChange={(event) => setOwnerTeam(event.target.value)} /></label><label className="wide">Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<div className="form-actions wide">{onCancel && <button className="secondary" type="button" onClick={onCancel}>Cancel</button>}<button className="primary" type="button" onClick={submit}>Create project</button></div></div>;
 }
 
-function OrganizationForm({ onSave }: { onSave: (payload: AdminRecord) => Promise<void> }) {
+function OrganizationForm({ onSave, onCancel }: { onSave: (payload: AdminRecord) => Promise<void>; onCancel?: () => void }) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -272,54 +276,121 @@ function OrganizationForm({ onSave }: { onSave: (payload: AdminRecord) => Promis
       setId(""); setName(""); setDescription(""); setOwnerContact(""); setError("");
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to create organization"); }
   }
-  return <div className="organization-create"><div><span className="eyebrow">New line of business</span><h3>Create organization</h3><p>Organizations are the top-level tenant and Memory Bank scope boundary.</p></div><div className="compact-form"><label>Organization ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="retail" /></label><label>Name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owner contact<input value={ownerContact} onChange={(event) => setOwnerContact(event.target.value)} /></label><label>Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<button className="primary" type="button" onClick={submit}>Create organization</button></div></div>;
+  return <div className="organization-create"><div><span className="eyebrow">New line of business</span><h3>Create organization</h3><p>Organizations are immediately active in this POC and become the top-level Memory Bank scope boundary.</p></div><div className="compact-form"><label>Organization ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="retail" /></label><label>Name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owner contact<input value={ownerContact} onChange={(event) => setOwnerContact(event.target.value)} /></label><label>Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<div className="form-actions wide">{onCancel && <button className="secondary" type="button" onClick={onCancel}>Cancel</button>}<button className="primary" type="button" onClick={submit}>Create organization</button></div></div></div>;
 }
 
-export function OrganizationHierarchyView({ hierarchy, writable, api, reload }: { hierarchy: AdminRecord; writable: boolean; api: AdminApiClient; reload: () => void }) {
+function ContextTabs<T extends string>({ tabs, selected, onSelect }: { tabs: Array<[T, string]>; selected: T; onSelect: (tab: T) => void }) {
+  return <div className="context-tabs" role="tablist">{tabs.map(([id, label]) => <button type="button" role="tab" aria-selected={selected === id} className={selected === id ? "active" : ""} key={id} onClick={() => onSelect(id)}>{label}</button>)}</div>;
+}
+
+type OrganizationHierarchyViewProps = {
+  hierarchy: AdminRecord;
+  writable: boolean;
+  api: AdminApiClient;
+  reload: () => Promise<void> | void;
+  selectedOrganization?: ContextSelection;
+  selectedProject?: ContextSelection;
+  organizationTab?: OrganizationTab;
+  projectTab?: ProjectTab;
+  onSelectOrganization?: (organization: ContextSelection) => void;
+  onSelectProject?: (project: ContextSelection) => void;
+  onOrganizationTab?: (tab: OrganizationTab) => void;
+  onProjectTab?: (tab: ProjectTab) => void;
+};
+
+export function OrganizationHierarchyView({ hierarchy, writable, api, reload, selectedOrganization = null, selectedProject = null, organizationTab = "projects", projectTab = "overview", onSelectOrganization = () => {}, onSelectProject = () => {}, onOrganizationTab = () => {}, onProjectTab = () => {} }: OrganizationHierarchyViewProps) {
   const organizations = records(hierarchy, "organizations");
-  if (!organizations.length) return <div><p className="empty">No organizations have been created.</p>{writable && <OrganizationForm onSave={async (payload) => { await api.create("organizations", payload); reload(); }} />}</div>;
-  return <div className="organization-workspace">{writable && <OrganizationForm onSave={async (payload) => { await api.create("organizations", payload); reload(); }} />}<div className="organization-list">{organizations.map((organization) => {
-    const organizationProjects = records(organization, "projects");
-    const organizationMembers = records(organization, "members");
-    return <article className="organization-card" key={value(organization, "id")}><header><div className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</div><div><span className="eyebrow">Organization</span><h3>{value(organization, "name")}</h3><p>{value(organization, "description") || "No description provided"}</p></div><span className={`pill ${value(organization, "status").toLowerCase()}`}>{value(organization, "status")}</span></header><div className="organization-meta"><span><b>{organizationProjects.length}</b> projects</span><span><b>{organizationMembers.length}</b> members</span><span><b>{organizationProjects.reduce((count, project) => count + records(project, "domains").length, 0)}</b> domains</span></div><section className="member-strip"><strong>Organization members</strong><div>{organizationMembers.length ? organizationMembers.map((member) => <span className="member-chip" key={value(member, "id")}><b>{value(member, "display_name") || value(member, "member_principal")}</b><small>{value(member, "role")}</small></span>) : <span className="empty">No members assigned</span>}</div></section><div className="project-group"><div className="group-heading"><div><span className="eyebrow">Project groups</span><h4>Projects in {value(organization, "name")}</h4></div></div>{organizationProjects.length ? organizationProjects.map((project) => <article className="project-card" key={value(project, "id")}><div className="project-summary"><div><h4>{value(project, "name")}</h4><p>{value(project, "description") || value(project, "id")}</p></div><span className="project-team">{value(project, "owner_team")}</span></div><div className="project-columns"><div><h5>Domains</h5><div className="domain-tags">{records(project, "domains").length ? records(project, "domains").map((domain) => <span key={value(domain, "id")}>{value(domain, "name")}</span>) : <small className="empty">No domains yet</small>}</div></div><div><h5>Project members</h5><div className="project-members">{records(project, "members").length ? records(project, "members").map((member) => <span key={value(member, "id")}><b>{value(member, "display_name") || value(member, "member_principal")}</b><small>{value(member, "role")}</small></span>) : <small className="empty">No direct project members</small>}</div></div></div>{writable && <details className="inline-action"><summary>+ Add project member</summary><MemberForm title={`Add member to ${value(project, "name")}`} onSave={async (payload) => { await api.addProjectMember(value(project, "id"), payload); reload(); }} /></details>}</article>) : <p className="empty project-empty">No projects in this organization.</p>}</div>{writable && <div className="organization-actions"><details><summary>+ Create project</summary><ProjectForm organizationId={value(organization, "id")} onSave={async (payload) => { await api.create("projects", payload); reload(); }} /></details><details><summary>+ Add organization member</summary><MemberForm title={`Add member to ${value(organization, "name")}`} onSave={async (payload) => { await api.addOrganizationMember(value(organization, "id"), payload); reload(); }} /></details></div>}</article>;
-  })}</div></div>;
+  const [showOrganizationForm, setShowOrganizationForm] = useState(false);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showMemberForm, setShowMemberForm] = useState(false);
+
+  if (!selectedOrganization) {
+    return <div className="organization-directory"><div className="section-heading"><div><span className="eyebrow">Organizations</span><h2>Organizations</h2><p>Choose a line of business to manage its projects, members, domains, and agents.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowOrganizationForm(true)}>+ Create organization</button>}</div>{showOrganizationForm && <OrganizationForm onCancel={() => setShowOrganizationForm(false)} onSave={async (payload) => { const created = await api.create("organizations", payload); await reload(); setShowOrganizationForm(false); onSelectOrganization({ id: value(created, "id"), name: value(created, "name") }); }} />}{organizations.length ? <div className="organization-directory-grid">{organizations.map((organization) => { const projects = records(organization, "projects"); const members = records(organization, "members"); return <button className="organization-directory-card" type="button" key={value(organization, "id")} onClick={() => onSelectOrganization({ id: value(organization, "id"), name: value(organization, "name") })}><span className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</span><span className="directory-card-body"><strong>{value(organization, "name")}</strong><small>{value(organization, "id")}</small><span><b>{projects.length}</b> projects <b>{members.length}</b> members</span></span><span className="directory-arrow">›</span></button>; })}</div> : <div className="empty-state"><strong>No organizations yet</strong><p>Create the first organization to establish a project and Memory Bank governance boundary.</p></div>}</div>;
+  }
+
+  const organization = organizations.find((item) => value(item, "id") === selectedOrganization.id);
+  if (!organization) return <div className="empty-state"><strong>Organization not found</strong><button type="button" className="secondary" onClick={() => onSelectOrganization(null)}>Return to organizations</button></div>;
+  const organizationProjects = records(organization, "projects");
+  const organizationMembers = records(organization, "members");
+  const project = selectedProject ? organizationProjects.find((item) => value(item, "id") === selectedProject.id) : undefined;
+
+  if (project) {
+    const projectDomains = records(project, "domains");
+    const projectMembers = records(project, "members");
+    const projectAgents = records(project, "agents");
+    return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectProject(null)}>← {value(organization, "name")}</button><div className="context-header"><div className="organization-monogram project-monogram">P</div><div><span className="eyebrow">Project</span><h2>{value(project, "name")}</h2><p>{value(project, "description") || value(project, "id")}</p></div><span className="project-team">{value(project, "owner_team")}</span></div><ContextTabs tabs={[["overview", "Overview"], ["domains", "Domains"], ["agents", "Agents"], ["members", "Members & Roles"]]} selected={projectTab} onSelect={onProjectTab} />{projectTab === "overview" && <div className="overview-grid"><article><span>Domains</span><strong>{projectDomains.length}</strong><p>Preference ownership boundaries</p></article><article><span>Agents</span><strong>{projectAgents.length}</strong><p>Registered project consumers</p></article><article><span>Members</span><strong>{projectMembers.length}</strong><p>Direct project assignments</p></article></div>}{projectTab === "domains" && <div className="resource-card-grid">{projectDomains.length ? projectDomains.map((domain) => <article key={value(domain, "id")}><span className="resource-icon">D</span><div><strong>{value(domain, "name")}</strong><small>{value(domain, "id")}</small></div></article>) : <p className="empty">No domains have been created in this project.</p>}</div>}{projectTab === "agents" && <div className="resource-card-grid">{projectAgents.length ? projectAgents.map((agent) => <article key={value(agent, "id")}><span className="resource-icon">A</span><div><strong>{value(agent, "display_name")}</strong><small>{value(agent, "id")}</small></div></article>) : <p className="empty">No agents are registered in this project.</p>}</div>}{projectTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Project members</h3><p>Direct roles apply only inside this project.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(project, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addProjectMember(value(project, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{projectMembers.length ? projectMembers.map((member) => <div key={value(member, "id")}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></div>) : <p className="empty">No direct project members.</p>}</div></div>}</div>;
+  }
+
+  return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectOrganization(null)}>← Organizations</button><div className="context-header"><div className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</div><div><span className="eyebrow">Organization</span><h2>{value(organization, "name")}</h2><p>{value(organization, "description") || value(organization, "id")}</p></div><span className="role-badge">Organization active</span></div><ContextTabs tabs={[["overview", "Overview"], ["projects", "Projects"], ["members", "Members & Roles"]]} selected={organizationTab} onSelect={onOrganizationTab} />{organizationTab === "overview" && <div className="overview-grid"><article><span>Projects</span><strong>{organizationProjects.length}</strong><p>Collaboration boundaries</p></article><article><span>Members</span><strong>{organizationMembers.length}</strong><p>Organization-level access</p></article><article><span>Domains</span><strong>{organizationProjects.reduce((count, item) => count + records(item, "domains").length, 0)}</strong><p>Owned memory domains</p></article></div>}{organizationTab === "projects" && <div className="organization-panel"><div className="panel-heading"><div><h3>Projects</h3><p>Agents in a project collaborate through project-owned domains.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowProjectForm(true)}>+ New project</button>}</div>{showProjectForm && <div className="panel-form"><ProjectForm organizationId={value(organization, "id")} onCancel={() => setShowProjectForm(false)} onSave={async (payload) => { await api.create("projects", payload); await reload(); setShowProjectForm(false); }} /></div>}<div className="project-directory-grid">{organizationProjects.length ? organizationProjects.map((item) => <article className="project-directory-card" key={value(item, "id")}><span className="resource-icon">P</span><div><h4>{value(item, "name")}</h4><p>{value(item, "description") || value(item, "id")}</p><small>{records(item, "domains").length} domains · {records(item, "members").length} members</small></div><button className="primary" type="button" onClick={() => onSelectProject({ id: value(item, "id"), name: value(item, "name") })}>Open project ›</button></article>) : <p className="empty project-empty">No projects in this organization.</p>}</div></div>}{organizationTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Members & Roles</h3><p>Organization members can be assigned to projects in this organization.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(organization, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addOrganizationMember(value(organization, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{organizationMembers.length ? organizationMembers.map((member) => <div key={value(member, "id")}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></div>) : <p className="empty">No members assigned.</p>}</div></div>}</div>;
 }
 
-function OrganizationManagement({ identity, api }: { identity: AdminIdentity; api: AdminApiClient }) {
+function OrganizationManagement({ identity, api, selectedOrganization, selectedProject, organizationTab, projectTab, onSelectOrganization, onSelectProject, onOrganizationTab, onProjectTab }: { identity: AdminIdentity; api: AdminApiClient; selectedOrganization: ContextSelection; selectedProject: ContextSelection; organizationTab: OrganizationTab; projectTab: ProjectTab; onSelectOrganization: (organization: ContextSelection) => void; onSelectProject: (project: ContextSelection) => void; onOrganizationTab: (tab: OrganizationTab) => void; onProjectTab: (tab: ProjectTab) => void }) {
   const [hierarchy, setHierarchy] = useState<AdminRecord>({ organizations: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const reload = useCallback(() => { setLoading(true); api.organizationHierarchy().then(setHierarchy).catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load organization hierarchy")).finally(() => setLoading(false)); }, [api]);
-  useEffect(reload, [reload]);
-  return <section><div className="section-heading"><div><span className="eyebrow">Governance hierarchy</span><h2>Organizations &amp; Projects</h2><p>Manage line-of-business membership and group agents and domains into project boundaries.</p></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading organization hierarchy…</p> : <OrganizationHierarchyView hierarchy={hierarchy} writable={canMutate(identity, "organizations")} api={api} reload={reload} />}</section>;
+  const reload = useCallback(async () => { setLoading(true); try { setHierarchy(await api.organizationHierarchy()); setError(""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to load organization hierarchy"); } finally { setLoading(false); } }, [api]);
+  useEffect(() => { void reload(); }, [reload]);
+  return <section><ErrorBanner error={error} />{loading ? <p>Loading organization hierarchy…</p> : <OrganizationHierarchyView hierarchy={hierarchy} writable={canMutate(identity, "organizations")} api={api} reload={reload} selectedOrganization={selectedOrganization} selectedProject={selectedProject} organizationTab={organizationTab} projectTab={projectTab} onSelectOrganization={onSelectOrganization} onSelectProject={onSelectProject} onOrganizationTab={onOrganizationTab} onProjectTab={onProjectTab} />}</section>;
 }
 
-export function ConsolePage({ section, identity, api }: { section: string; identity: AdminIdentity; api: AdminApiClient }) {
+type OrganizationNavigation = {
+  selectedOrganization: ContextSelection;
+  selectedProject: ContextSelection;
+  organizationTab: OrganizationTab;
+  projectTab: ProjectTab;
+  onSelectOrganization: (organization: ContextSelection) => void;
+  onSelectProject: (project: ContextSelection) => void;
+  onOrganizationTab: (tab: OrganizationTab) => void;
+  onProjectTab: (tab: ProjectTab) => void;
+};
+
+const defaultOrganizationNavigation: OrganizationNavigation = {
+  selectedOrganization: null,
+  selectedProject: null,
+  organizationTab: "projects",
+  projectTab: "overview",
+  onSelectOrganization: () => {},
+  onSelectProject: () => {},
+  onOrganizationTab: () => {},
+  onProjectTab: () => {},
+};
+
+export function ConsolePage({ section, identity, api, organizationNavigation = defaultOrganizationNavigation }: { section: string; identity: AdminIdentity; api: AdminApiClient; organizationNavigation?: OrganizationNavigation }) {
   const resource = section === "approvals" ? "access-requests" : section;
   const [records, setRecords] = useState<AdminRecord[]>([]);
-  const [loading, setLoading] = useState(!["dashboard", "create-setup"].includes(section));
+  const [loading, setLoading] = useState(!["dashboard", "create-setup", "organizations"].includes(section));
   const [error, setError] = useState("");
   const title = sections.find(([id]) => id === section)?.[1] ?? section;
   const reload = useCallback(() => {
-    if (["dashboard", "create-setup"].includes(section)) return;
+    if (["dashboard", "create-setup", "organizations"].includes(section)) return;
     setLoading(true);
     api.list(resource).then(setRecords).catch((caught) => setError(caught instanceof Error ? caught.message : "Request failed")).finally(() => setLoading(false));
   }, [api, resource, section]);
   useEffect(reload, [api, resource, section]);
   if (section === "dashboard") return <section className="dashboard"><span className="eyebrow">Platform overview</span><h2>Governed memory, ready for every shopping journey</h2><p>Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only.</p><div className="metric-grid"><article><span className="metric-icon">O</span><strong>Organization</strong><span>Tenant and policy boundary</span></article><article><span className="metric-icon">P</span><strong>Projects</strong><span>Agent and domain collaboration</span></article><article><span className="metric-icon">M</span><strong>Memory Bank</strong><span>Profiles created lazily per user</span></article></div></section>;
   if (section === "create-setup") return <MemorySetupWizard api={api} />;
-  if (section === "organizations") return <OrganizationManagement identity={identity} api={api} />;
+  if (section === "organizations") return <OrganizationManagement identity={identity} api={api} {...organizationNavigation} />;
   const writable = canMutate(identity, section);
   return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "access-requests" || section === "approvals" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={section === "approvals"} /> : <ResourceTable records={records} />}{writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}</section>;
 }
 
 export function ConsoleShell({ identity, section, status, onSection }: { identity: AdminIdentity; section: string; status: string; onSection: (value: string) => void }) {
   const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_MEMORY_API_URL ?? "/memory-api/api/v1/admin", identity), [identity]);
-  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Shared Memory</strong><small>Control plane</small></div></div><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section)}><summary>Govern &amp; manage</summary>{advancedSections.map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} /></main></div>;
+  const [selectedOrganization, setSelectedOrganization] = useState<ContextSelection>(null);
+  const [selectedProject, setSelectedProject] = useState<ContextSelection>(null);
+  const [organizationTab, setOrganizationTab] = useState<OrganizationTab>("projects");
+  const [projectTab, setProjectTab] = useState<ProjectTab>("overview");
+  function openOrganizations() { setSelectedOrganization(null); setSelectedProject(null); onSection("organizations"); }
+  function selectOrganization(organization: ContextSelection) { setSelectedOrganization(organization); setSelectedProject(null); setOrganizationTab("projects"); onSection("organizations"); }
+  function selectProject(project: ContextSelection) { setSelectedProject(project); setProjectTab("overview"); onSection("organizations"); }
+  function chooseOrganizationTab(tab: OrganizationTab) { setSelectedProject(null); setOrganizationTab(tab); onSection("organizations"); }
+  function chooseProjectTab(tab: ProjectTab) { setProjectTab(tab); onSection("organizations"); }
+  const organizationNavigation = { selectedOrganization, selectedProject, organizationTab, projectTab, onSelectOrganization: selectOrganization, onSelectProject: selectProject, onOrganizationTab: chooseOrganizationTab, onProjectTab: chooseProjectTab };
+  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Shared Memory</strong><small>Control plane</small></div></div><button className="context-switcher" type="button" onClick={openOrganizations}><span>{selectedOrganization ? selectedOrganization.name.slice(0, 1).toUpperCase() : "O"}</span><strong>{selectedOrganization?.name ?? "Organizations"}</strong><b>›</b></button><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}{selectedOrganization && <div className="contextual-nav"><span>Organization</span><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "overview" ? "active" : ""} onClick={() => chooseOrganizationTab("overview")}>Overview</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "projects" ? "active" : ""} onClick={() => chooseOrganizationTab("projects")}>Projects</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "members" ? "active" : ""} onClick={() => chooseOrganizationTab("members")}>Members &amp; Roles</button></div>}{selectedProject && <div className="contextual-nav project-context-nav"><span>Project · {selectedProject.name}</span><button type="button" className={section === "organizations" && projectTab === "overview" ? "active" : ""} onClick={() => chooseProjectTab("overview")}>Overview</button><button type="button" className={section === "organizations" && projectTab === "domains" ? "active" : ""} onClick={() => chooseProjectTab("domains")}>Domains</button><button type="button" className={section === "organizations" && projectTab === "agents" ? "active" : ""} onClick={() => chooseProjectTab("agents")}>Agents</button><button type="button" className={section === "organizations" && projectTab === "members" ? "active" : ""} onClick={() => chooseProjectTab("members")}>Members &amp; Roles</button></div>}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section && id !== "organizations")}><summary>Govern &amp; manage</summary>{advancedSections.filter(([id]) => id !== "organizations").map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} organizationNavigation={organizationNavigation} /></main></div>;
 }
 
 export default function App() {
-  const [section, setSection] = useState("create-setup");
+  const [section, setSection] = useState("organizations");
   const [status, setStatus] = useState("checking");
   const [user, setUser] = useState("platform-admin@example.com");
   const [role, setRole] = useState<AdminRole>("PLATFORM_ADMIN");

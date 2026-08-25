@@ -51,13 +51,20 @@ agents belong to the same organization/project. Cross-project field-level reques
 membership-derived RBAC enforcement, and implicit same-project grants remain subsequent
 governance slices.
 
-The **Organizations & Projects** screen presents this hierarchy as grouped cards instead of raw
-JSON. From an organization card, a platform administrator can:
+The **Organizations** screen presents a directory-first workspace instead of raw JSON. A platform
+administrator selects an organization card to enter that organization's context. The left navigation
+then exposes organization-specific **Overview**, **Projects**, and **Members & Roles** areas. Opening a
+project adds project-specific **Overview**, **Domains**, **Agents**, and **Members & Roles** navigation.
+From this workspace, a platform administrator can:
 
 - add organization members with `OWNER`, `ADMIN`, or `VIEWER` roles;
 - create projects with an owning team and description;
 - see the projects and domains belonging to the organization;
 - add project members and inspect their direct project roles.
+
+Organizations are created as `ACTIVE` immediately in the POC because an organization approval
+workflow is not implemented. Governed resources that use the existing lifecycle workflow continue
+to start in `DRAFT` where applicable.
 
 A principal must be an active organization member before being assigned directly to one of its
 projects. Membership records are now durable and audited. This release still uses the existing

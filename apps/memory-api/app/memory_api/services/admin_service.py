@@ -329,6 +329,13 @@ class AdminControlPlaneService:
                 )
             ).all()
         )
+        agents = list(
+            (
+                await self.session.scalars(
+                    select(RegisteredAgentRecord).order_by(RegisteredAgentRecord.display_name)
+                )
+            ).all()
+        )
 
         projects_by_organization: dict[str, list[dict[str, Any]]] = {}
         for project in projects:
@@ -340,6 +347,9 @@ class AdminControlPlaneService:
             ]
             project_data["domains"] = [
                 _record_data(domain) for domain in domains if domain.project_id == project.id
+            ]
+            project_data["agents"] = [
+                _record_data(agent) for agent in agents if agent.project_id == project.id
             ]
             projects_by_organization.setdefault(project.organization_id, []).append(project_data)
 
@@ -537,7 +547,11 @@ class AdminControlPlaneService:
 
         model = RESOURCE_MODELS[resource]
         if "status" in model.__table__.columns:
-            values["status"] = LifecycleStatus.DRAFT.value
+            values["status"] = (
+                LifecycleStatus.ACTIVE.value
+                if resource == "organizations"
+                else LifecycleStatus.DRAFT.value
+            )
         record = model(**values)
         self.session.add(record)
         await self.session.flush()
