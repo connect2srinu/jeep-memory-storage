@@ -8,9 +8,11 @@ from memory_api.persistence.models import (
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
+    OrganizationRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
+    ProjectRecord,
     RegisteredAgentRecord,
     ResolutionAttributeOverrideRecord,
     ResolutionPolicyRecord,
@@ -78,10 +80,35 @@ async def seed_control_plane(database: Database) -> None:
 
     now = datetime.now(UTC)
     async with database.session() as session:
+        await session.merge(
+            OrganizationRecord(
+                id="retail",
+                name="Retail",
+                description="Test-only retail organization.",
+                status="ACTIVE",
+            )
+        )
+        for project_id, name, team in (
+            ("shopping", "Shopping", "shopping-platform"),
+            ("customer-experience", "Customer Experience", "customer-platform"),
+        ):
+            await session.merge(
+                ProjectRecord(
+                    id=project_id,
+                    organization_id="retail",
+                    name=name,
+                    description=f"Test-only {name} project.",
+                    owner_team=team,
+                    status="ACTIVE",
+                )
+            )
         for domain in (*PREFERENCES, "pharmacy"):
+            project_id = "customer-experience" if domain == "customer" else "shopping"
             await session.merge(
                 MemoryDomainRecord(
                     id=domain,
+                    organization_id="retail",
+                    project_id=project_id,
                     name=domain.title(),
                     description=f"Test-only {domain} memory domain.",
                     owner_team=f"{domain}-platform",
@@ -93,7 +120,7 @@ async def seed_control_plane(database: Database) -> None:
                 ScopeDefinitionRecord(
                     id=f"{domain}:profile-scope",
                     scope_type="DOMAIN_PROFILE",
-                    scope_keys=["user_id", "app_name", "domain"],
+                    scope_keys=["organization_id", "user_id"],
                     description=f"Test-only scope for {domain}.",
                     owner_domain_id=domain,
                     status="ACTIVE",
@@ -126,7 +153,9 @@ async def seed_control_plane(database: Database) -> None:
                         data_type=data_type,
                         allowed_values=[],
                         sensitivity_classification=(
-                            "sensitive" if attribute in {"customer.diet", "customer.fruit"} else "normal"
+                            "sensitive"
+                            if attribute in {"customer.diet", "customer.fruit"}
+                            else "normal"
                         ),
                         canonical_owner_id=domain,
                         validation_rules={"aliases": [field]},
@@ -176,10 +205,13 @@ async def seed_control_plane(database: Database) -> None:
                 )
 
         for agent_id, (domain, submit, provenance) in AGENTS.items():
+            project_id = "customer-experience" if domain == "customer" else "shopping"
             await session.merge(
                 RegisteredAgentRecord(
                     id=agent_id,
                     display_name=agent_id.replace("-", " ").title(),
+                    organization_id="retail",
+                    project_id=project_id,
                     domain_id=domain,
                     runtime_type="OTHER",
                     identity_type="LOCAL_POC",

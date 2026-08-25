@@ -15,7 +15,13 @@ from memory_api.api.runtime.models import (
     RuntimeScope,
 )
 from memory_api.domain.control_plane import AccessPermission
-from memory_api.domain.memory import MemoryEvent, MemoryProfileSchema, MemoryScope, PreferenceWrite
+from memory_api.domain.memory import (
+    MemoryEvent,
+    MemoryProfile,
+    MemoryProfileSchema,
+    MemoryScope,
+    PreferenceWrite,
+)
 from memory_api.domain.preferences import Preference, PreferenceSource
 from memory_api.domain.resolution import (
     DomainAccessPolicy,
@@ -60,7 +66,7 @@ class RuntimeMemoryService:
         candidates: list[Preference] = []
         for grant in readable:
             await self._register_schema(grant)
-            scope = self._owner_scope(request.scope, grant.domain_id, grant.scope_keys)
+            scope = self._owner_scope(request.scope, agent, grant.scope_keys)
             profiles = await self.store.get_profiles(scope, (grant.schema_id,))
             for profile in profiles:
                 candidates.extend(
@@ -146,7 +152,7 @@ class RuntimeMemoryService:
         grants = {
             item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)
         }
-        profiles = []
+        profiles: list[tuple[MemoryProfile, str]] = []
         for schema_id in request.schema_ids:
             grant = grants.get(schema_id)
             if grant is None or not self._allows(grant.permission, write=False):
@@ -154,19 +160,23 @@ class RuntimeMemoryService:
                     f"agent {agent.id!r} lacks READ access to schema {schema_id!r}"
                 )
             await self._register_schema(grant)
-            scope = self._owner_scope(request.scope, grant.domain_id, grant.scope_keys)
-            profiles.extend(await self.store.get_profiles(scope, (schema_id,)))
+            scope = self._owner_scope(request.scope, agent, grant.scope_keys)
+            profiles.extend(
+                (profile, grant.domain_id)
+                for profile in await self.store.get_profiles(scope, (schema_id,))
+            )
         return {
             "agentId": agent.id,
             "profiles": [
                 {
                     "schemaId": profile.schema_id,
-                    "domain": profile.scope.domain,
+                    "domain": owner_domain,
+                    "organizationId": profile.scope.organization_id,
                     "values": profile.values,
                     "version": profile.version,
                     "updatedAt": profile.updated_at.isoformat(),
                 }
-                for profile in profiles
+                for profile, owner_domain in profiles
             ],
         }
 
@@ -183,7 +193,7 @@ class RuntimeMemoryService:
                 agent,
                 grants,
                 candidate.attribute,
-                request.scope.domain,
+                agent.domain_id,
                 candidate.schema_id,
             )
             await self._register_schema(grant)
@@ -194,7 +204,7 @@ class RuntimeMemoryService:
                     candidate.value,
                 )
             )
-        scope = self._memory_scope(request.scope)
+        scope = self._memory_scope(request.scope, agent)
         result = await self.store.ingest_event(scope, MemoryEvent(request.text, tuple(writes)))
         return RuntimeMutationResponse(status="accepted", reference=result.natural_memory.id)
 
@@ -212,13 +222,13 @@ class RuntimeMemoryService:
             agent,
             grants,
             attribute,
-            request.scope.domain,
+            agent.domain_id,
             request.schema_id,
         )
         profile_field = self._profile_field(grant, attribute)
         await self._register_schema(grant)
         profile = await self.store.write_preference(
-            self._memory_scope(request.scope),
+            self._memory_scope(request.scope, agent),
             schema_id=grant.schema_id,
             attribute=profile_field,
             value=request.value,
@@ -249,8 +259,12 @@ class RuntimeMemoryService:
 
     @staticmethod
     def _require_consumer_scope(agent: RuntimeAgent, scope: RuntimeScope) -> None:
-        if scope.domain != agent.domain_id:
+        if scope.domain is not None and scope.domain != agent.domain_id:
             raise PermissionError("request scope domain does not match registered agent domain")
+        if scope.organization_id is not None and scope.organization_id != agent.organization_id:
+            raise PermissionError(
+                "request scope organization does not match registered agent organization"
+            )
 
     @staticmethod
     def _allows(permission: AccessPermission, *, write: bool) -> bool:
@@ -339,15 +353,18 @@ class RuntimeMemoryService:
             )
         )
 
-    def _memory_scope(self, scope: RuntimeScope) -> MemoryScope:
-        return self.scope_registry.resolve("domain-profile", scope.model_dump(by_alias=False))
+    def _memory_scope(self, scope: RuntimeScope, agent: RuntimeAgent) -> MemoryScope:
+        return self.scope_registry.resolve(
+            "organization-user-profile",
+            {"organization_id": agent.organization_id, "user_id": scope.user_id},
+        )
 
     def _owner_scope(
-        self, scope: RuntimeScope, owner_domain: str, required_keys: tuple[str, ...]
+        self, scope: RuntimeScope, agent: RuntimeAgent, required_keys: tuple[str, ...]
     ) -> MemoryScope:
-        if required_keys != ("user_id", "app_name", "domain"):
+        if set(required_keys) != {"organization_id", "user_id"}:
             raise ValueError(f"unsupported runtime scope keys {required_keys!r}")
-        return self._memory_scope(scope.model_copy(update={"domain": owner_domain}))
+        return self._memory_scope(scope, agent)
 
     @staticmethod
     def _resolution_components(

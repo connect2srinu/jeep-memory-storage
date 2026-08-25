@@ -27,8 +27,8 @@ async def store() -> MockMemoryStore:
 
 
 def test_scope_registry_requires_exact_keys(registry: ScopeRegistry) -> None:
-    with pytest.raises(ValueError, match="missing=.*domain"):
-        registry.resolve("domain-profile", {"user_id": "u1", "app_name": "grocery"})
+    with pytest.raises(ValueError, match="missing=.*organization_id"):
+        registry.resolve("organization-user-profile", {"user_id": "u1"})
 
 
 @pytest.mark.asyncio
@@ -36,7 +36,7 @@ async def test_event_lazily_creates_profile_and_natural_memory(
     store: MockMemoryStore, registry: ScopeRegistry
 ) -> None:
     scope = registry.resolve(
-        "domain-profile", {"user_id": "u1", "app_name": "grocery", "domain": "grocery"}
+        "organization-user-profile", {"organization_id": "retail", "user_id": "u1"}
     )
     result = await store.ingest_event(
         scope,
@@ -57,10 +57,10 @@ async def test_explicit_write_updates_version_without_cross_user_leakage(
     store: MockMemoryStore, registry: ScopeRegistry
 ) -> None:
     first = registry.resolve(
-        "domain-profile", {"user_id": "u1", "app_name": "grocery", "domain": "grocery"}
+        "organization-user-profile", {"organization_id": "retail", "user_id": "u1"}
     )
     second = registry.resolve(
-        "domain-profile", {"user_id": "u2", "app_name": "grocery", "domain": "grocery"}
+        "organization-user-profile", {"organization_id": "retail", "user_id": "u2"}
     )
     created = await store.write_preference(
         first,
@@ -81,16 +81,16 @@ async def test_explicit_write_updates_version_without_cross_user_leakage(
 
 
 @pytest.mark.asyncio
-async def test_schema_and_domain_guards_are_default_deny(
+async def test_schema_and_field_guards_are_default_deny(
     store: MockMemoryStore, registry: ScopeRegistry
 ) -> None:
-    customer_scope = registry.resolve(
-        "domain-profile", {"user_id": "u1", "app_name": "grocery", "domain": "customer"}
+    scope = registry.resolve(
+        "organization-user-profile", {"organization_id": "retail", "user_id": "u1"}
     )
-    with pytest.raises(PermissionError, match="domain"):
+    with pytest.raises(ValueError, match="attribute"):
         await store.write_preference(
-            customer_scope,
+            scope,
             schema_id="grocery-preferences-v1",
-            attribute="preferred_snack",
+            attribute="unknown_field",
             value="mango chips",
         )

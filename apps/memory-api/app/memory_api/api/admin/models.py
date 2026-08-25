@@ -10,8 +10,25 @@ class AdminModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True, extra="forbid")
 
 
+class OrganizationCreate(AdminModel):
+    id: str = Field(pattern=r"^[a-z][a-z0-9-]*$", max_length=63)
+    name: str = Field(min_length=1)
+    description: str = ""
+    owner_contact: str | None = Field(default=None, alias="ownerContact")
+
+
+class ProjectCreate(AdminModel):
+    id: str = Field(pattern=r"^[a-z][a-z0-9-]*$", max_length=63)
+    organization_id: str = Field(alias="organizationId", min_length=1)
+    name: str = Field(min_length=1)
+    description: str = ""
+    owner_team: str = Field(alias="ownerTeam", min_length=1)
+
+
 class DomainCreate(AdminModel):
     id: str = Field(min_length=1, max_length=63)
+    organization_id: str = Field(alias="organizationId", min_length=1)
+    project_id: str = Field(alias="projectId", min_length=1)
     name: str = Field(min_length=1)
     description: str = ""
     owner_team: str = Field(alias="ownerTeam", min_length=1)
@@ -63,6 +80,8 @@ class PreferenceCreate(AdminModel):
 class AgentCreate(AdminModel):
     id: str = Field(min_length=1)
     display_name: str = Field(alias="displayName", min_length=1)
+    organization_id: str = Field(alias="organizationId", min_length=1)
+    project_id: str = Field(alias="projectId", min_length=1)
     domain_id: str = Field(alias="domainId", min_length=1)
     runtime_type: str = Field(alias="runtimeType", min_length=1)
     identity_type: str = Field(alias="identityType", min_length=1)
@@ -142,6 +161,8 @@ class GuidedUseCase(AdminModel):
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
     owning_team: str = Field(alias="owningTeam", min_length=1)
+    organization_id: str = Field(alias="organizationId", min_length=1)
+    project_id: str = Field(alias="projectId", min_length=1)
     domain: str = Field(pattern=r"^[a-z][a-z0-9-]*$")
     environment: str = Field(min_length=1)
 

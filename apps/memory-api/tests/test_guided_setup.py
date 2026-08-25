@@ -27,6 +27,8 @@ def setup_payload() -> dict[str, object]:
             "name": "Rewards Personalization",
             "description": "Remember reward choices",
             "owningTeam": "rewards-platform",
+            "organizationId": "retail",
+            "projectId": "shopping",
             "domain": "rewards",
             "environment": "development",
         },
@@ -121,6 +123,8 @@ async def test_guided_setup_previews_activates_and_is_immediately_usable(tmp_pat
             "name": "Grocery Personalization",
             "description": "Guided setup over the existing Grocery profile",
             "owningTeam": "grocery-platform",
+            "organizationId": "retail",
+            "projectId": "shopping",
             "domain": "grocery",
             "environment": "development",
         }

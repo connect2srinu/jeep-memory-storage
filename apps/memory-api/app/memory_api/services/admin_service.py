@@ -12,7 +12,9 @@ from memory_api.api.admin.models import (
     AgentCreate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
+    OrganizationCreate,
     PreferenceCreate,
+    ProjectCreate,
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
@@ -26,9 +28,11 @@ from memory_api.persistence.models import (
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
+    OrganizationRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
+    ProjectRecord,
     RegisteredAgentRecord,
     ResolutionAttributeOverrideRecord,
     ResolutionPolicyRecord,
@@ -48,6 +52,8 @@ class ResourceConflictError(RuntimeError):
 
 
 RESOURCE_MODELS = {
+    "organizations": OrganizationRecord,
+    "projects": ProjectRecord,
     "domains": MemoryDomainRecord,
     "scopes": ScopeDefinitionRecord,
     "schemas": ProfileSchemaRecord,
@@ -58,6 +64,8 @@ RESOURCE_MODELS = {
 }
 
 RESOURCE_IDS = {
+    "organizations": "id",
+    "projects": "id",
     "domains": "id",
     "scopes": "id",
     "schemas": "id",
@@ -68,6 +76,8 @@ RESOURCE_IDS = {
 }
 
 UPDATABLE_FIELDS = {
+    "organizations": {"name", "description", "owner_contact"},
+    "projects": {"name", "description", "owner_team"},
     "domains": {"name", "description", "owner_team", "owner_contact", "contract_version"},
     "scopes": {"scope_type", "scope_keys", "description"},
     "schemas": {"display_name", "description", "owner_team"},
@@ -106,6 +116,8 @@ LIFECYCLE_TRANSITIONS = {
 }
 
 CHANGE_ALIASES = {
+    "organizationId": "organization_id",
+    "projectId": "project_id",
     "ownerTeam": "owner_team",
     "ownerContact": "owner_contact",
     "contractVersion": "contract_version",
@@ -188,6 +200,8 @@ class AdminControlPlaneService:
         return record
 
     async def _domain_for(self, resource: str, record: Any) -> str | None:
+        if resource in {"organizations", "projects"}:
+            return None
         if resource == "domains":
             return record.id
         if resource == "scopes":
@@ -280,6 +294,8 @@ class AdminControlPlaneService:
         principal: AdminPrincipal,
         resource: str,
         payload: DomainCreate
+        | OrganizationCreate
+        | ProjectCreate
         | ScopeCreate
         | SchemaCreate
         | PreferenceCreate
@@ -311,7 +327,7 @@ class AdminControlPlaneService:
             raise ResourceConflictError(f"{resource} resource {resource_id} already exists")
 
         domain_id = values.get("owner_domain_id") or values.get("domain_id")
-        if resource == "domains":
+        if resource in {"organizations", "projects", "domains"}:
             self.authorizer.require_platform(principal)
         elif resource == "resolution-policies":
             agent_id = values.get("agent_id")
@@ -335,6 +351,25 @@ class AdminControlPlaneService:
         if domain_id:
             await self._require_existing_domain(str(domain_id))
             self.authorizer.require_domain(principal, str(domain_id))
+
+        if resource == "projects":
+            await self._require_existing_organization(str(values["organization_id"]))
+        elif resource == "domains":
+            await self._require_project_ownership(
+                str(values["organization_id"]), str(values["project_id"])
+            )
+        elif resource == "agents":
+            await self._require_project_ownership(
+                str(values["organization_id"]), str(values["project_id"])
+            )
+            domain = await self._require_existing_domain(str(values["domain_id"]))
+            if (
+                domain.organization_id != values["organization_id"]
+                or domain.project_id != values["project_id"]
+            ):
+                raise ResourceConflictError(
+                    "agent organization/project must match its primary domain ownership"
+                )
 
         model = RESOURCE_MODELS[resource]
         if "status" in model.__table__.columns:
@@ -443,9 +478,29 @@ class AdminControlPlaneService:
             )
         await self.session.flush()
 
-    async def _require_existing_domain(self, domain_id: str) -> None:
-        if await self.session.get(MemoryDomainRecord, domain_id) is None:
+    async def _require_existing_organization(self, organization_id: str) -> OrganizationRecord:
+        organization = await self.session.get(OrganizationRecord, organization_id)
+        if organization is None:
+            raise ResourceNotFoundError(f"organization {organization_id} was not found")
+        return organization
+
+    async def _require_project_ownership(
+        self, organization_id: str, project_id: str
+    ) -> ProjectRecord:
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {project_id} was not found")
+        if project.organization_id != organization_id:
+            raise ResourceConflictError(
+                f"project {project_id} does not belong to organization {organization_id}"
+            )
+        return project
+
+    async def _require_existing_domain(self, domain_id: str) -> MemoryDomainRecord:
+        domain = await self.session.get(MemoryDomainRecord, domain_id)
+        if domain is None:
             raise ResourceNotFoundError(f"domain {domain_id} was not found")
+        return domain
 
     async def update_resource(
         self,

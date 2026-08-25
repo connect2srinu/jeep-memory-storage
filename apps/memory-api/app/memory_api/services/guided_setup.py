@@ -15,7 +15,9 @@ from memory_api.api.admin.models import (
     GuidedMemorySetupActivation,
     GuidedMemorySetupPreview,
     GuidedMemorySetupRequest,
+    OrganizationCreate,
     PreferenceCreate,
+    ProjectCreate,
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
@@ -25,9 +27,11 @@ from memory_api.domain.control_plane import AccessRequestStatus
 from memory_api.domain.memory import MemoryProfileSchema
 from memory_api.persistence.models import (
     MemoryDomainRecord,
+    OrganizationRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
+    ProjectRecord,
     RegisteredAgentRecord,
     SchemaPreferenceMappingRecord,
     ScopeDefinitionRecord,
@@ -38,9 +42,9 @@ from memory_api.services.admin_service import AdminControlPlaneService, Resource
 from memory_api.services.vertex_provisioning import VertexContextProvisioner
 
 SCOPE_KEYS = {
-    "USER": ["user_id", "app_name", "domain"],
-    "HOUSEHOLD": ["household_id", "app_name", "domain"],
-    "USER_STORE": ["user_id", "store_id", "app_name", "domain"],
+    "USER": ["organization_id", "user_id"],
+    "HOUSEHOLD": ["organization_id", "household_id"],
+    "USER_STORE": ["organization_id", "user_id", "store_id"],
 }
 
 
@@ -81,6 +85,40 @@ class GuidedMemorySetupService:
         policy_id = f"{domain}:guided-policy:1"
         dynamic_id = f"{domain}:guided-dynamic:1"
 
+        organization_id = request.use_case.organization_id
+        project_id = request.use_case.project_id
+        organization = await self.session.get(OrganizationRecord, organization_id)
+        if organization is None:
+            await self.admin.create_resource(
+                principal,
+                "organizations",
+                OrganizationCreate(
+                    id=organization_id,
+                    name=organization_id.replace("-", " ").title(),
+                    description=f"Organization for {request.use_case.name}",
+                ),
+            )
+            await self._activate_resource(principal, "organizations", organization_id)
+
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            await self.admin.create_resource(
+                principal,
+                "projects",
+                ProjectCreate(
+                    id=project_id,
+                    organizationId=organization_id,
+                    name=project_id.replace("-", " ").title(),
+                    description=request.use_case.description,
+                    ownerTeam=request.use_case.owning_team,
+                ),
+            )
+            await self._activate_resource(principal, "projects", project_id)
+        elif project.organization_id != organization_id:
+            raise ResourceConflictError(
+                f"project {project_id!r} does not belong to organization {organization_id!r}"
+            )
+
         existing_schema = await self.session.get(ProfileSchemaRecord, schema_id)
 
         if not await self.session.get(MemoryDomainRecord, domain):
@@ -89,6 +127,8 @@ class GuidedMemorySetupService:
                 "domains",
                 DomainCreate(
                     id=domain,
+                    organizationId=organization_id,
+                    projectId=project_id,
                     name=request.use_case.name,
                     description=request.use_case.description,
                     ownerTeam=request.use_case.owning_team,
@@ -119,7 +159,9 @@ class GuidedMemorySetupService:
 
         for item in request.custom_preferences:
             if not item.attribute_id.startswith(f"{domain}."):
-                raise ValueError("custom preference attribute IDs must use the selected domain prefix")
+                raise ValueError(
+                    "custom preference attribute IDs must use the selected domain prefix"
+                )
             if not await self.session.get(PreferenceDefinitionRecord, item.attribute_id):
                 await self.admin.create_resource(
                     principal,
@@ -225,8 +267,15 @@ class GuidedMemorySetupService:
         if request.agent.existing:
             if agent is None:
                 raise ValueError(f"selected agent {request.agent.id!r} does not exist")
-            if agent.domain_id != domain:
-                raise ValueError("selected existing agent must belong to the use-case domain")
+            if (
+                agent.domain_id != domain
+                or agent.organization_id != organization_id
+                or agent.project_id != project_id
+            ):
+                raise ValueError(
+                    "selected existing agent must belong to the use-case organization, project, "
+                    "and primary domain"
+                )
         elif agent is not None:
             raise ResourceConflictError(f"agent {request.agent.id!r} already exists")
         else:
@@ -236,6 +285,8 @@ class GuidedMemorySetupService:
                 AgentCreate(
                     id=request.agent.id,
                     displayName=request.agent.display_name,
+                    organizationId=organization_id,
+                    projectId=project_id,
                     domainId=domain,
                     runtimeType=request.agent.runtime_type,
                     identityType=request.agent.identity_type,
@@ -286,7 +337,9 @@ class GuidedMemorySetupService:
             chosen = request.resolution.schema_precedence if request.resolution else []
             if chosen:
                 if len(chosen) != len(set(chosen)) or set(chosen) != set(schema_precedence):
-                    raise ValueError("resolution precedence must contain every available schema once")
+                    raise ValueError(
+                        "resolution precedence must contain every available schema once"
+                    )
                 schema_precedence = chosen
             await self.admin.create_resource(
                 principal,
@@ -378,6 +431,8 @@ class GuidedMemorySetupService:
             **preview.model_dump(by_alias=True),
             status="ACTIVE_WITH_PENDING_ACCESS" if pending else "ACTIVE",
             resources={
+                "organizationId": organization_id,
+                "projectId": project_id,
                 "domainId": domain,
                 "scopeId": scope_id,
                 "schemaId": schema_id,
@@ -396,11 +451,15 @@ class GuidedMemorySetupService:
         preferences = await self._preference_specs(request)
         owned = [item for item in preferences if item["owner"] == request.use_case.domain]
         if not owned:
-            raise ValueError("select or create at least one preference owned by the use-case domain")
+            raise ValueError(
+                "select or create at least one preference owned by the use-case domain"
+            )
         schema_id = f"{request.use_case.domain}-preferences-v1"
         available_schemas = [schema_id, *[item.schema_id for item in request.shared_schemas]]
         warnings = []
-        external = [item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain]
+        external = [
+            item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain
+        ]
         if external:
             warnings.append(
                 "Externally owned preferences are consumed through shared schema access, not copied "
@@ -418,6 +477,11 @@ class GuidedMemorySetupService:
                 "environment": request.use_case.environment,
                 "generatedAt": datetime.now(UTC).isoformat(),
             },
+            "organization": {"id": request.use_case.organization_id},
+            "project": {
+                "id": request.use_case.project_id,
+                "organizationId": request.use_case.organization_id,
+            },
             "domain": {
                 "id": request.use_case.domain,
                 "description": request.use_case.description,
@@ -429,7 +493,11 @@ class GuidedMemorySetupService:
                 "preferences": {
                     item["attributeId"]: {
                         "type": item["dataType"],
-                        **({"allowedValues": item["allowedValues"]} if item["allowedValues"] else {}),
+                        **(
+                            {"allowedValues": item["allowedValues"]}
+                            if item["allowedValues"]
+                            else {}
+                        ),
                     }
                     for item in owned
                 },
@@ -451,7 +519,10 @@ class GuidedMemorySetupService:
                             else available_schemas
                         ),
                         "attributeOverrides": (
-                            [item.model_dump(by_alias=True) for item in request.resolution.attribute_overrides]
+                            [
+                                item.model_dump(by_alias=True)
+                                for item in request.resolution.attribute_overrides
+                            ]
                             if request.resolution
                             else []
                         ),
@@ -463,6 +534,8 @@ class GuidedMemorySetupService:
         }
         summary = {
             "useCase": request.use_case.name,
+            "organization": request.use_case.organization_id,
+            "project": request.use_case.project_id,
             "domain": request.use_case.domain,
             "environment": request.use_case.environment,
             "ownedPreferenceCount": len(owned),
@@ -479,7 +552,7 @@ class GuidedMemorySetupService:
             keys = list(dict.fromkeys(request.scope.custom_keys))
             if not keys:
                 raise ValueError("custom scope requires at least one key")
-            for required in ("app_name", "domain"):
+            for required in ("organization_id",):
                 if required not in keys:
                     keys.append(required)
             return keys
@@ -539,6 +612,4 @@ class GuidedMemorySetupService:
 
     @staticmethod
     def _json_type(value: str) -> str:
-        return {"integer": "integer", "number": "number", "boolean": "boolean"}.get(
-            value, "string"
-        )
+        return {"integer": "integer", "number": "number", "boolean": "boolean"}.get(value, "string")

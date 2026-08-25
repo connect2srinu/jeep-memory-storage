@@ -50,6 +50,8 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             return None
         return RuntimeAgent(
             id=record.id,
+            organization_id=record.organization_id,
+            project_id=record.project_id,
             domain_id=record.domain_id,
             principal=record.principal,
             capabilities=frozenset(

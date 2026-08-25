@@ -20,8 +20,8 @@ class MockMemoryStore:
 
     def __init__(self) -> None:
         self._schemas: dict[str, MemoryProfileSchema] = {}
-        self._profiles: dict[tuple[tuple[str, str, str], str], MemoryProfile] = {}
-        self._natural_memories: dict[tuple[str, str, str], list[NaturalMemory]] = {}
+        self._profiles: dict[tuple[tuple[str, str], str], MemoryProfile] = {}
+        self._natural_memories: dict[tuple[str, str], list[NaturalMemory]] = {}
         self._lock = asyncio.Lock()
 
     async def register_schema(self, schema: MemoryProfileSchema) -> None:
@@ -119,12 +119,8 @@ class MockMemoryStore:
         self._profiles[key] = profile
         return profile
 
-    def _require_schema_for_scope(
-        self, schema_id: str, scope: MemoryScope
-    ) -> MemoryProfileSchema:
+    def _require_schema_for_scope(self, schema_id: str, scope: MemoryScope) -> MemoryProfileSchema:
         schema = self._schemas.get(schema_id)
         if schema is None:
             raise KeyError(f"unknown profile schema {schema_id!r}")
-        if schema.domain != scope.domain:
-            raise PermissionError("profile schema domain does not match memory scope domain")
         return schema

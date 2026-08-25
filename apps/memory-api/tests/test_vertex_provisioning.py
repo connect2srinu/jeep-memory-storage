@@ -26,7 +26,7 @@ async def test_only_active_approved_schema_versions_are_exported(tmp_path: Path)
 
     configs = spec["memory_bank_config"]["structured_memory_configs"]
     assert configs
-    assert configs[0]["scope_keys"] == ["user_id", "app_name", "domain"]
+    assert configs[0]["scope_keys"] == ["organization_id", "user_id"]
     schema_ids = {item["id"] for group in configs for item in group["schema_configs"]}
     assert {"customer-preferences-v1", "grocery-preferences-v1"} <= schema_ids
 

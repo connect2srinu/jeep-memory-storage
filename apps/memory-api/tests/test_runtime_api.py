@@ -230,6 +230,8 @@ def test_schema_less_write_rejects_ambiguous_owned_mappings() -> None:
     service = RuntimeMemoryService(None, MockMemoryStore(), None)  # type: ignore[arg-type]
     agent = RuntimeAgent(
         id="grocery-agent",
+        organization_id="retail",
+        project_id="shopping",
         domain_id="grocery",
         principal=None,
         capabilities=frozenset({"submit_candidates"}),
@@ -240,7 +242,7 @@ def test_schema_less_write_rejects_ambiguous_owned_mappings() -> None:
             domain_id="grocery",
             schema_version="1",
             permission=AccessPermission.READ_WRITE,
-            scope_keys=("user_id", "app_name", "domain"),
+            scope_keys=("organization_id", "user_id"),
             field_to_attribute={"preferred_snack": "grocery.preferred_snack"},
         )
         for schema_id in ("grocery-preferences-v1", "grocery-preferences-v2")

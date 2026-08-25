@@ -17,7 +17,9 @@ from memory_api.api.admin.models import (
     GuidedMemorySetupActivation,
     GuidedMemorySetupPreview,
     GuidedMemorySetupRequest,
+    OrganizationCreate,
     PreferenceCreate,
+    ProjectCreate,
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
@@ -86,6 +88,70 @@ def create_admin_router(
         return AdminRecord(
             data=await service.update_resource(identity, resource, resource_id, payload)
         )
+
+    @router.get("/organizations", response_model=AdminRecordList)
+    async def list_organizations(
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return await listed("organizations", identity, service)
+
+    @router.post("/organizations", response_model=AdminRecord, status_code=201)
+    async def create_organization(
+        payload: OrganizationCreate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.create_resource(identity, "organizations", payload))
+
+    @router.get("/organizations/{resource_id}", response_model=AdminRecord)
+    async def get_organization(
+        resource_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await fetched("organizations", resource_id, identity, service)
+
+    @router.patch("/organizations/{resource_id}", response_model=AdminRecord)
+    async def update_organization(
+        resource_id: str,
+        payload: ResourceUpdate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await updated("organizations", resource_id, payload, identity, service)
+
+    @router.get("/projects", response_model=AdminRecordList)
+    async def list_projects(
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return await listed("projects", identity, service)
+
+    @router.post("/projects", response_model=AdminRecord, status_code=201)
+    async def create_project(
+        payload: ProjectCreate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.create_resource(identity, "projects", payload))
+
+    @router.get("/projects/{resource_id}", response_model=AdminRecord)
+    async def get_project(
+        resource_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await fetched("projects", resource_id, identity, service)
+
+    @router.patch("/projects/{resource_id}", response_model=AdminRecord)
+    async def update_project(
+        resource_id: str,
+        payload: ResourceUpdate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await updated("projects", resource_id, payload, identity, service)
 
     @router.get("/domains", response_model=AdminRecordList)
     async def list_domains(

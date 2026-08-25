@@ -10,6 +10,7 @@ conflict-resolution logic.
 ```text
 Platform admin
   -> Admin Console: Create Memory Setup
+  -> select organization and project
   -> preview and activate domain, preferences, schema, agent, grants, policies
   -> Memory API applies active schemas to Agent Engine context_spec
   -> profile instances remain lazy
@@ -23,8 +24,31 @@ User
 ```
 
 The model and user do not provide a schema ID. The platform derives it from the authenticated
-agent, its domain, active grants, and schema mappings. Unknown, read-only, cross-domain, and
+agent, its organization/project/domain ownership, active grants, and schema mappings. Unknown, read-only, cross-domain, and
 ambiguous writes fail closed.
+
+## Governance and Memory Bank scope
+
+The control-plane hierarchy is:
+
+```text
+Organization (line of business)
+└── Project
+    ├── Agents
+    └── Domains
+        └── Schemas and preference fields
+```
+
+Projects and domains are authorization metadata in PostgreSQL; they are not Memory Bank partition
+keys. The runtime authenticates the agent, derives its organization, and uses the exact Memory Bank
+scope `organization_id + user_id`. This gives one canonical user profile per schema within an
+organization while allowing the API to filter which project-owned schemas and fields an agent may
+read or write. Legacy `appName` and `domain` request fields remain accepted for reference-agent
+compatibility, but they do not determine the provider scope.
+
+The initial implementation persists organizations/projects and validates that a domain and its
+agents belong to the same organization/project. Cross-project field-level requests, persisted
+membership RBAC, and implicit same-project grants remain subsequent governance slices.
 
 ## Applications
 
@@ -105,6 +129,15 @@ docker compose down
 Use `docker compose down -v` only when intentionally deleting the local PostgreSQL volume and all
 local control-plane data.
 
+The `0002_org_project_governance` migration backfills an existing database into `default-org` and
+`default-project`. For a disposable POC environment, reset the volume before testing the new
+hierarchy if you prefer an empty control plane:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
 ## Run locally with Vertex Memory Bank
 
 ```bash
@@ -136,15 +169,17 @@ see [Deployment and operations](docs/deployment-operations.md).
 
 1. Open `http://localhost:3000`.
 2. Select **Create Memory Setup**.
-3. Define the use case and a DNS-style domain such as `travel`.
-4. Select catalog preferences and add custom preferences such as
+3. Create or select an **Organization** and a **Project** from the advanced governance screens.
+4. Define the use case, choose that organization/project, and enter a DNS-style domain such as `travel`.
+5. Select catalog preferences and add custom preferences such as
    `travel.seat_preference`.
-5. Select the profile scope and memory behavior.
-6. Register an agent such as `travel-assistant`.
-7. Set owned schema permission to `READ_WRITE` when the agent must save preferences.
-8. Request shared schemas only for data owned by other domains; those requests remain pending.
-9. Preview the generated contract and activate.
-10. Verify the result names `travel-preferences-v1` and shows the expected backend.
+6. Select the profile scope and memory behavior. Per-user scope compiles to
+   `organization_id + user_id`.
+7. Register an agent such as `travel-assistant`.
+8. Set owned schema permission to `READ_WRITE` when the agent must save preferences.
+9. Request shared schemas only for data owned by other domains; those requests remain pending.
+10. Preview the generated contract and activate.
+11. Verify the result names `travel-preferences-v1` and shows the expected backend.
 
 Activation creates the schema configuration, not a profile for every user. User-scoped profiles are
 created lazily by the first authorized write or provider generation event.

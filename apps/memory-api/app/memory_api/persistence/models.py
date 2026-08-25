@@ -40,10 +40,40 @@ class TimestampMixin:
     )
 
 
+class OrganizationRecord(TimestampMixin, Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(63), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    owner_contact: Mapped[str | None] = mapped_column(String(320))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
+class ProjectRecord(TimestampMixin, Base):
+    __tablename__ = "projects"
+    __table_args__ = (UniqueConstraint("organization_id", "name"),)
+
+    id: Mapped[str] = mapped_column(String(63), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    owner_team: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
 class MemoryDomainRecord(TimestampMixin, Base):
     __tablename__ = "memory_domains"
 
     id: Mapped[str] = mapped_column(String(63), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     owner_team: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -144,6 +174,12 @@ class RegisteredAgentRecord(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String(127), primary_key=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False
+    )
     domain_id: Mapped[str] = mapped_column(
         ForeignKey("memory_domains.id", ondelete="RESTRICT"), nullable=False
     )
@@ -252,7 +288,9 @@ class DynamicMemoryPolicyRecord(TimestampMixin, Base):
     memory_topics: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     retention_policy: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     confirmation_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    allowed_dynamic_categories: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    allowed_dynamic_categories: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
     version: Mapped[str] = mapped_column(String(64), nullable=False, default="1")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
 

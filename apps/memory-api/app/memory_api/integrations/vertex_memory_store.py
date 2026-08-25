@@ -78,7 +78,9 @@ class VertexMemoryBankStore:
     @classmethod
     def from_config(cls, *, project: str, location: str, resource_id: str) -> VertexMemoryBankStore:
         if not project.strip() or not resource_id.strip():
-            raise ValueError("Vertex backend requires GOOGLE_CLOUD_PROJECT and AGENT_PLATFORM_MEMORY_BANK_ID")
+            raise ValueError(
+                "Vertex backend requires GOOGLE_CLOUD_PROJECT and AGENT_PLATFORM_MEMORY_BANK_ID"
+            )
         return cls(
             AgentPlatformMemoryBankClient(
                 project=project,
@@ -178,7 +180,7 @@ class VertexMemoryBankStore:
                 self._client.ingest_event,
                 text=event.text,
                 scope=self._scope(scope),
-                stream_id=f"{scope.domain}-{scope.user_id}",
+                stream_id=f"{scope.organization_id}-{scope.user_id}",
             ),
         )
         natural = NaturalMemory(
@@ -211,7 +213,7 @@ class VertexMemoryBankStore:
                     "schema": self._EXPLICIT_SCHEMA,
                     "schema_id": schema_id,
                     "schema_version": schema.version,
-                    "domain": scope.domain,
+                    "domain": schema.domain,
                     "attribute": attribute,
                     "value": value,
                     "version": version,
@@ -269,7 +271,7 @@ class VertexMemoryBankStore:
             if schema_id not in schema_ids:
                 continue
             schema = self._require_schema_for_scope(schema_id, scope)
-            if payload.get("domain") != scope.domain:
+            if payload.get("domain") != schema.domain:
                 continue
             attribute = str(payload.get("attribute", ""))
             if attribute not in schema.fields:
@@ -291,19 +293,15 @@ class VertexMemoryBankStore:
             for schema_id, values in by_schema.items()
         )
 
-    def _require_schema_for_scope(
-        self, schema_id: str, scope: MemoryScope
-    ) -> MemoryProfileSchema:
+    def _require_schema_for_scope(self, schema_id: str, scope: MemoryScope) -> MemoryProfileSchema:
         schema = self._schemas.get(schema_id)
         if schema is None:
             raise KeyError(f"unknown profile schema {schema_id!r}")
-        if schema.domain != scope.domain:
-            raise PermissionError("profile schema domain does not match memory scope domain")
         return schema
 
     @staticmethod
     def _scope(scope: MemoryScope) -> dict[str, str]:
-        return {"user_id": scope.user_id, "app_name": scope.app_name, "domain": scope.domain}
+        return {"organization_id": scope.organization_id, "user_id": scope.user_id}
 
     @staticmethod
     def _json_object(value: Any) -> dict[str, Any] | None:

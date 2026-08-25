@@ -9,6 +9,8 @@ from memory_api.domain.control_plane import AccessPermission
 @dataclass(frozen=True, slots=True)
 class RuntimeAgent:
     id: str
+    organization_id: str
+    project_id: str
     domain_id: str
     principal: str | None
     capabilities: frozenset[str]

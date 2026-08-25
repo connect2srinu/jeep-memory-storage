@@ -67,6 +67,8 @@ export function wizardSteps(sharingEnabled: boolean, schemaCount: number): Wizar
 
 export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [catalog, setCatalog] = useState<AdminRecord[]>([]);
+  const [organizations, setOrganizations] = useState<AdminRecord[]>([]);
+  const [projects, setProjects] = useState<AdminRecord[]>([]);
   const [schemas, setSchemas] = useState<AdminRecord[]>([]);
   const [agents, setAgents] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [name, setName] = useState("Grocery Personalization");
   const [description, setDescription] = useState("Shared grocery shopping preferences");
   const [team, setTeam] = useState("grocery-platform");
+  const [organizationId, setOrganizationId] = useState("retail");
+  const [projectId, setProjectId] = useState("shopping");
   const [domain, setDomain] = useState("grocery");
   const [environment, setEnvironment] = useState("development");
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
@@ -88,7 +92,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     sensitivity: "normal",
   });
   const [scopeType, setScopeType] = useState("USER");
-  const [customScopeKeys, setCustomScopeKeys] = useState("user_id,app_name,domain");
+  const [customScopeKeys, setCustomScopeKeys] = useState("organization_id,user_id");
   const [canonical, setCanonical] = useState(true);
   const [dynamicEnabled, setDynamicEnabled] = useState(true);
   const [confidence, setConfidence] = useState(0.85);
@@ -109,11 +113,19 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.list("preference-catalog"), api.list("schemas"), api.list("agents")])
-      .then(([preferences, profileSchemas, registeredAgents]) => {
+    Promise.all([
+      api.list("preference-catalog"),
+      api.list("schemas"),
+      api.list("agents"),
+      api.list("organizations"),
+      api.list("projects"),
+    ])
+      .then(([preferences, profileSchemas, registeredAgents, organizationRows, projectRows]) => {
         setCatalog(preferences);
         setSchemas(profileSchemas);
         setAgents(registeredAgents);
+        setOrganizations(organizationRows);
+        setProjects(projectRows);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load catalog"))
       .finally(() => setLoading(false));
@@ -186,7 +198,15 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   }
 
   const payload = useMemo<AdminRecord>(() => ({
-    useCase: { name, description, owningTeam: team, domain, environment },
+    useCase: {
+      name,
+      description,
+      owningTeam: team,
+      organizationId,
+      projectId,
+      domain,
+      environment,
+    },
     selectedPreferences,
     customPreferences,
     scope: {
@@ -219,7 +239,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   }), [
     agentId, agentMode, agentName, availableSchemas.length, canonical, confidence,
     confirmation, customPreferences, customScopeKeys, description, domain, dynamicEnabled,
-    environment, name, permission, precedence, retention, scopeType, selectedPreferences,
+    environment, name, organizationId, permission, precedence, projectId, retention, scopeType, selectedPreferences,
     sharedSchemaIds, team, topics,
   ]);
 
@@ -249,7 +269,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
 
   function next() {
     setError("");
-    if (step === "Use Case" && (!name || !description || !team || !domain)) {
+    if (step === "Use Case" && (!name || !description || !team || !organizationId || !projectId || !domain)) {
       setError("Complete every use-case field before continuing.");
       return;
     }
@@ -280,6 +300,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         <h3>Define the business use case</h3><p>These values establish ownership and naming for the generated resources.</p>
         <div className="form-grid">
           <label>Use case name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label>Organization<select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setProjectId(""); }}><option value="">Select organization</option>{organizations.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Line-of-business and tenant boundary</small></label>
+          <label>Project<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Select project</option>{projects.filter((item) => text(item, "organization_id") === organizationId).map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Agents share project-owned domains</small></label>
           <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options"><option value="grocery" /><option value="customer" /><option value="delivery" /></datalist></label>
           <label className="wide">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <label>Owning team<input value={team} onChange={(event) => setTeam(event.target.value)} /></label>
@@ -303,7 +325,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       {step === "Scope" && <>
         <h3>Choose who the memory belongs to</h3><p>The platform generates provider scope keys from this business-level selection.</p>
         <div className="choice-grid">{[["USER", "Per User", "One profile per user"], ["HOUSEHOLD", "Per Household", "Shared household profile"], ["USER_STORE", "Per User + Store", "Different values per store"], ["CUSTOM", "Custom", "Advanced scope keys"]].map(([value, title, detail]) => <label className={scopeType === value ? "choice selected" : "choice"} key={value}><input type="radio" name="scope" checked={scopeType === value} onChange={() => setScopeType(value)} /><strong>{title}</strong><span>{detail}</span></label>)}</div>
-        {scopeType === "CUSTOM" && <label className="advanced-field">Custom keys<input value={customScopeKeys} onChange={(event) => setCustomScopeKeys(event.target.value)} /><small>Comma separated. app_name and domain are added automatically.</small></label>}
+        <div className="scope-callout"><strong>Organization isolation</strong><span>Memory Bank profiles use organization_id + user_id. Projects and domains are enforced by the control-plane authorization layer.</span></div>
+        {scopeType === "CUSTOM" && <label className="advanced-field">Custom keys<input value={customScopeKeys} onChange={(event) => setCustomScopeKeys(event.target.value)} /><small>Comma separated. organization_id is always included.</small></label>}
       </>}
       {step === "Memory" && <>
         <h3>Configure memory behavior</h3>

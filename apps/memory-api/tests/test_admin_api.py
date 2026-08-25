@@ -71,9 +71,59 @@ async def test_admin_authentication_and_viewer_read_only(admin_environment) -> N
     denied = await client.post(
         "/api/v1/admin/domains",
         headers=VIEWER,
-        json={"id": "rewards", "name": "Rewards", "ownerTeam": "rewards-team"},
+        json={
+            "id": "rewards",
+            "organizationId": "retail",
+            "projectId": "shopping",
+            "name": "Rewards",
+            "ownerTeam": "rewards-team",
+        },
     )
     assert denied.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_organization_project_hierarchy_is_enforced(admin_environment) -> None:
+    client, _ = admin_environment
+    organizations = await client.get("/api/v1/admin/organizations", headers=VIEWER)
+    projects = await client.get("/api/v1/admin/projects", headers=VIEWER)
+    assert {item["id"] for item in organizations.json()["items"]} == {"retail"}
+    assert {item["id"] for item in projects.json()["items"]} >= {
+        "shopping",
+        "customer-experience",
+    }
+
+    created_organization = await client.post(
+        "/api/v1/admin/organizations",
+        headers=PLATFORM,
+        json={"id": "healthcare", "name": "Healthcare"},
+    )
+    assert created_organization.status_code == 201
+    created_project = await client.post(
+        "/api/v1/admin/projects",
+        headers=PLATFORM,
+        json={
+            "id": "patient-experience",
+            "organizationId": "healthcare",
+            "name": "Patient Experience",
+            "ownerTeam": "patient-platform",
+        },
+    )
+    assert created_project.status_code == 201
+
+    mismatched = await client.post(
+        "/api/v1/admin/domains",
+        headers=PLATFORM,
+        json={
+            "id": "invalid-domain",
+            "organizationId": "retail",
+            "projectId": "patient-experience",
+            "name": "Invalid Domain",
+            "ownerTeam": "invalid-team",
+        },
+    )
+    assert mismatched.status_code == 409
+    assert "does not belong" in mismatched.json()["message"]
 
 
 @pytest.mark.asyncio
@@ -84,6 +134,8 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
         headers=PLATFORM,
         json={
             "id": "rewards",
+            "organizationId": "retail",
+            "projectId": "shopping",
             "name": "Rewards",
             "description": "Rewards preferences",
             "ownerTeam": "rewards-team",
@@ -128,6 +180,8 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
             {
                 "id": "rewards-agent",
                 "displayName": "Rewards Agent",
+                "organizationId": "retail",
+                "projectId": "shopping",
                 "domainId": "rewards",
                 "runtimeType": "ADK_CLOUD_RUN",
                 "identityType": "GOOGLE_SERVICE_ACCOUNT",
@@ -240,7 +294,13 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
     duplicate = await client.post(
         "/api/v1/admin/domains",
         headers=PLATFORM,
-        json={"id": "rewards", "name": "Duplicate", "ownerTeam": "team"},
+        json={
+            "id": "rewards",
+            "organizationId": "retail",
+            "projectId": "shopping",
+            "name": "Duplicate",
+            "ownerTeam": "team",
+        },
     )
     assert duplicate.status_code == 409
 

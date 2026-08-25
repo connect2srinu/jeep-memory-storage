@@ -11,6 +11,8 @@ const primarySections = [
 ] as const;
 
 const advancedSections = [
+  ["organizations", "Organizations"],
+  ["projects", "Projects"],
   ["domains", "Domains"],
   ["scopes", "Scopes"],
   ["schemas", "Schemas"],
@@ -26,11 +28,31 @@ const advancedSections = [
 const sections = [...primarySections, ...advancedSections] as const;
 
 const templates: Record<string, AdminRecord> = {
-  domains: { id: "rewards", name: "Rewards", description: "", ownerTeam: "rewards-team" },
+  organizations: {
+    id: "retail",
+    name: "Retail",
+    description: "Retail line of business",
+    ownerContact: "retail-platform@example.com",
+  },
+  projects: {
+    id: "rewards-experience",
+    organizationId: "retail",
+    name: "Rewards Experience",
+    description: "Rewards personalization agents and domains",
+    ownerTeam: "rewards-team",
+  },
+  domains: {
+    id: "rewards",
+    organizationId: "retail",
+    projectId: "rewards-experience",
+    name: "Rewards",
+    description: "",
+    ownerTeam: "rewards-team",
+  },
   scopes: {
     id: "rewards:profile-scope",
     scopeType: "DOMAIN_PROFILE",
-    scopeKeys: ["user_id", "app_name"],
+    scopeKeys: ["organization_id", "user_id"],
     ownerDomainId: "rewards",
   },
   "preference-catalog": {
@@ -60,6 +82,8 @@ const templates: Record<string, AdminRecord> = {
   agents: {
     id: "rewards-agent",
     displayName: "Rewards Agent",
+    organizationId: "retail",
+    projectId: "rewards-experience",
     domainId: "rewards",
     runtimeType: "ADK_CLOUD_RUN",
     identityType: "GOOGLE_SERVICE_ACCOUNT",
@@ -200,7 +224,7 @@ export function ConsolePage({ section, identity, api }: { section: string; ident
     api.list(resource).then(setRecords).catch((caught) => setError(caught instanceof Error ? caught.message : "Request failed")).finally(() => setLoading(false));
   }, [api, resource, section]);
   useEffect(reload, [api, resource, section]);
-  if (section === "dashboard") return <section><h2>Governed memory control plane</h2><p>Use the guided setup to create a domain profile, register an agent, and submit any required sharing approvals.</p><div className="metric-grid"><article><strong>9</strong><span>Guided decisions</span></article><article><strong>5</strong><span>RBAC roles</span></article><article><strong>0</strong><span>Profiles pre-created</span></article></div></section>;
+  if (section === "dashboard") return <section className="dashboard"><span className="eyebrow">Platform overview</span><h2>Governed memory, ready for every shopping journey</h2><p>Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only.</p><div className="metric-grid"><article><span className="metric-icon">O</span><strong>Organization</strong><span>Tenant and policy boundary</span></article><article><span className="metric-icon">P</span><strong>Projects</strong><span>Agent and domain collaboration</span></article><article><span className="metric-icon">M</span><strong>Memory Bank</strong><span>Profiles created lazily per user</span></article></div></section>;
   if (section === "create-setup") return <MemorySetupWizard api={api} />;
   const writable = canMutate(identity, section);
   return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "access-requests" || section === "approvals" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={section === "approvals"} /> : <ResourceTable records={records} />}{writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}</section>;
@@ -208,7 +232,7 @@ export function ConsolePage({ section, identity, api }: { section: string; ident
 
 export function ConsoleShell({ identity, section, status, onSection }: { identity: AdminIdentity; section: string; status: string; onSection: (value: string) => void }) {
   const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_MEMORY_API_URL ?? "/memory-api/api/v1/admin", identity), [identity]);
-  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><strong>Memory Admin</strong></div><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section)}><summary>Manage / Advanced</summary>{advancedSections.map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} /></main></div>;
+  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Shared Memory</strong><small>Control plane</small></div></div><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section)}><summary>Govern &amp; manage</summary>{advancedSections.map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} /></main></div>;
 }
 
 export default function App() {

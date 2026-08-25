@@ -12,8 +12,9 @@ class ApiModel(BaseModel):
 
 class RuntimeScope(ApiModel):
     user_id: str = Field(alias="userId", min_length=1)
-    app_name: str = Field(alias="appName", min_length=1)
-    domain: str = Field(min_length=1)
+    organization_id: str | None = Field(default=None, alias="organizationId", min_length=1)
+    app_name: str | None = Field(default=None, alias="appName", min_length=1)
+    domain: str | None = Field(default=None, min_length=1)
 
 
 class ResolvePreferencesRequest(ApiModel):

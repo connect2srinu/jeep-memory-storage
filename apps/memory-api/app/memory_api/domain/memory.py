@@ -7,17 +7,16 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class MemoryScope:
+    organization_id: str
     user_id: str
-    app_name: str
-    domain: str
 
     def __post_init__(self) -> None:
-        if not all(value.strip() for value in (self.user_id, self.app_name, self.domain)):
+        if not all(value.strip() for value in (self.organization_id, self.user_id)):
             raise ValueError("memory scope values must be non-empty")
 
     @property
-    def identity(self) -> tuple[str, str, str]:
-        return self.user_id, self.app_name, self.domain
+    def identity(self) -> tuple[str, str]:
+        return self.organization_id, self.user_id
 
 
 @dataclass(frozen=True, slots=True)

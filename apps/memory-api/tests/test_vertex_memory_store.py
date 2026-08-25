@@ -50,8 +50,8 @@ class FakeMemoryBankClient:
 @pytest.fixture
 def scope():
     return ScopeRegistry().resolve(
-        "domain-profile",
-        {"user_id": "1001", "app_name": "grocery", "domain": "grocery"},
+        "organization-user-profile",
+        {"organization_id": "retail", "user_id": "1001"},
     )
 
 
@@ -83,11 +83,13 @@ async def test_retrieve_profiles_uses_exact_scope_and_filters_schema(store, scop
     profiles = await backend.get_profiles(scope, ("grocery-preferences-v1",))
 
     assert profiles[0].values == {"preferred_snack": "mango chips"}
-    assert all(set(item) == {"user_id", "app_name", "domain"} for item in client.scopes)
+    assert all(set(item) == {"organization_id", "user_id"} for item in client.scopes)
 
 
 @pytest.mark.asyncio
-async def test_explicit_write_overlays_provider_profile_and_increments_version(store, scope) -> None:
+async def test_explicit_write_overlays_provider_profile_and_increments_version(
+    store, scope
+) -> None:
     backend, client = store
     first = await backend.write_preference(
         scope,
@@ -106,7 +108,9 @@ async def test_explicit_write_overlays_provider_profile_and_increments_version(s
     assert first.version == 1
     assert second.version == 2
     assert profiles[0].values == {"preferred_snack": "potato chips"}
-    facts = [json.loads(item.memory.fact) for item in client.memories[client.key(backend._scope(scope))]]
+    facts = [
+        json.loads(item.memory.fact) for item in client.memories[client.key(backend._scope(scope))]
+    ]
     assert {item["schema"] for item in facts} == {backend._EXPLICIT_SCHEMA}
 
 
@@ -124,22 +128,22 @@ async def test_event_preserves_candidate_write_and_triggers_lazy_generation(stor
     )
 
     assert result.updated_profiles[0].values == {"preferred_snack": "mango chips"}
-    assert client.ingested == ["grocery-1001:I prefer mango chips."]
+    assert client.ingested == ["retail-1001:I prefer mango chips."]
     natural = await backend.get_natural_memories(scope)
     assert natural[0].text == "I prefer mango chips."
 
 
 @pytest.mark.asyncio
-async def test_cross_domain_write_is_rejected(store) -> None:
+async def test_cross_organization_profiles_are_isolated(store, scope) -> None:
     backend, _ = store
-    customer_scope = ScopeRegistry().resolve(
-        "domain-profile",
-        {"user_id": "1001", "app_name": "grocery", "domain": "customer"},
+    await backend.write_preference(
+        scope,
+        schema_id="grocery-preferences-v1",
+        attribute="preferred_snack",
+        value="mango chips",
     )
-    with pytest.raises(PermissionError, match="domain"):
-        await backend.write_preference(
-            customer_scope,
-            schema_id="grocery-preferences-v1",
-            attribute="preferred_snack",
-            value="mango chips",
-        )
+    other_organization_scope = ScopeRegistry().resolve(
+        "organization-user-profile",
+        {"organization_id": "healthcare", "user_id": "1001"},
+    )
+    assert await backend.get_profiles(other_organization_scope, ("grocery-preferences-v1",)) == ()

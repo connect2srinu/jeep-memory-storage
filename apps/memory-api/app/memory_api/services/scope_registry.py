@@ -17,7 +17,7 @@ class ScopeRegistry:
 
     def __init__(self, contracts: tuple[ScopeContract, ...] | None = None) -> None:
         configured = contracts or (
-            ScopeContract("domain-profile", ("user_id", "app_name", "domain")),
+            ScopeContract("organization-user-profile", ("organization_id", "user_id")),
         )
         self._contracts = {contract.name: contract for contract in configured}
 
@@ -32,7 +32,6 @@ class ScopeRegistry:
             unexpected = sorted(supplied - expected)
             raise ValueError(f"invalid scope keys; missing={missing}, unexpected={unexpected}")
         return MemoryScope(
+            organization_id=values["organization_id"],
             user_id=values["user_id"],
-            app_name=values["app_name"],
-            domain=values["domain"],
         )
