@@ -25,6 +25,12 @@ class ProjectCreate(AdminModel):
     owner_team: str = Field(alias="ownerTeam", min_length=1)
 
 
+class MembershipCreate(AdminModel):
+    member_principal: str = Field(alias="memberPrincipal", min_length=3, max_length=320)
+    display_name: str | None = Field(default=None, alias="displayName", max_length=255)
+    role: Literal["OWNER", "ADMIN", "VIEWER"]
+
+
 class DomainCreate(AdminModel):
     id: str = Field(min_length=1, max_length=63)
     organization_id: str = Field(alias="organizationId", min_length=1)

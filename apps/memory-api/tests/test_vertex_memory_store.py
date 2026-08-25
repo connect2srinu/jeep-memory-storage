@@ -87,9 +87,7 @@ async def test_retrieve_profiles_uses_exact_scope_and_filters_schema(store, scop
 
 
 @pytest.mark.asyncio
-async def test_explicit_write_overlays_provider_profile_and_increments_version(
-    store, scope
-) -> None:
+async def test_explicit_write_overlays_provider_profile_and_increments_version(store, scope) -> None:
     backend, client = store
     first = await backend.write_preference(
         scope,
@@ -108,9 +106,7 @@ async def test_explicit_write_overlays_provider_profile_and_increments_version(
     assert first.version == 1
     assert second.version == 2
     assert profiles[0].values == {"preferred_snack": "potato chips"}
-    facts = [
-        json.loads(item.memory.fact) for item in client.memories[client.key(backend._scope(scope))]
-    ]
+    facts = [json.loads(item.memory.fact) for item in client.memories[client.key(backend._scope(scope))]]
     assert {item["schema"] for item in facts} == {backend._EXPLICIT_SCHEMA}
 
 
@@ -146,4 +142,6 @@ async def test_cross_organization_profiles_are_isolated(store, scope) -> None:
         "organization-user-profile",
         {"organization_id": "healthcare", "user_id": "1001"},
     )
-    assert await backend.get_profiles(other_organization_scope, ("grocery-preferences-v1",)) == ()
+    assert await backend.get_profiles(
+        other_organization_scope, ("grocery-preferences-v1",)
+    ) == ()

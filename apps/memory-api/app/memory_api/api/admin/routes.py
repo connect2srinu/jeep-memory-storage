@@ -17,6 +17,7 @@ from memory_api.api.admin.models import (
     GuidedMemorySetupActivation,
     GuidedMemorySetupPreview,
     GuidedMemorySetupRequest,
+    MembershipCreate,
     OrganizationCreate,
     PreferenceCreate,
     ProjectCreate,
@@ -88,6 +89,41 @@ def create_admin_router(
         return AdminRecord(
             data=await service.update_resource(identity, resource, resource_id, payload)
         )
+
+    @router.get("/organization-hierarchy", response_model=AdminRecord)
+    async def get_organization_hierarchy(
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.organization_hierarchy(identity))
+
+    @router.post(
+        "/organizations/{organization_id}/members",
+        response_model=AdminRecord,
+        status_code=201,
+    )
+    async def add_organization_member(
+        organization_id: str,
+        payload: MembershipCreate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.add_organization_member(identity, organization_id, payload)
+        )
+
+    @router.post(
+        "/projects/{project_id}/members",
+        response_model=AdminRecord,
+        status_code=201,
+    )
+    async def add_project_member(
+        project_id: str,
+        payload: MembershipCreate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.add_project_member(identity, project_id, payload))
 
     @router.get("/organizations", response_model=AdminRecordList)
     async def list_organizations(

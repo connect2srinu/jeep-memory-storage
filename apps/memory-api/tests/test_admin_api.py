@@ -111,6 +111,47 @@ async def test_organization_project_hierarchy_is_enforced(admin_environment) -> 
     )
     assert created_project.status_code == 201
 
+    project_member_without_organization = await client.post(
+        "/api/v1/admin/projects/patient-experience/members",
+        headers=PLATFORM,
+        json={
+            "memberPrincipal": "patient-owner@example.com",
+            "displayName": "Patient Owner",
+            "role": "OWNER",
+        },
+    )
+    assert project_member_without_organization.status_code == 409
+
+    organization_member = await client.post(
+        "/api/v1/admin/organizations/healthcare/members",
+        headers=PLATFORM,
+        json={
+            "memberPrincipal": "Patient-Owner@Example.com",
+            "displayName": "Patient Owner",
+            "role": "OWNER",
+        },
+    )
+    assert organization_member.status_code == 201
+    assert organization_member.json()["data"]["member_principal"] == ("patient-owner@example.com")
+    project_member = await client.post(
+        "/api/v1/admin/projects/patient-experience/members",
+        headers=PLATFORM,
+        json={
+            "memberPrincipal": "patient-owner@example.com",
+            "displayName": "Patient Owner",
+            "role": "ADMIN",
+        },
+    )
+    assert project_member.status_code == 201
+
+    hierarchy = await client.get("/api/v1/admin/organization-hierarchy", headers=VIEWER)
+    assert hierarchy.status_code == 200
+    healthcare = next(
+        item for item in hierarchy.json()["data"]["organizations"] if item["id"] == "healthcare"
+    )
+    assert healthcare["members"][0]["role"] == "OWNER"
+    assert healthcare["projects"][0]["members"][0]["role"] == "ADMIN"
+
     mismatched = await client.post(
         "/api/v1/admin/domains",
         headers=PLATFORM,

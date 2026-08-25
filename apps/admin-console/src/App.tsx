@@ -11,8 +11,7 @@ const primarySections = [
 ] as const;
 
 const advancedSections = [
-  ["organizations", "Organizations"],
-  ["projects", "Projects"],
+  ["organizations", "Organizations & Projects"],
   ["domains", "Domains"],
   ["scopes", "Scopes"],
   ["schemas", "Schemas"],
@@ -212,6 +211,89 @@ function AccessActions({ records, api, reload, approvalsOnly }: { records: Admin
   </article>)}</div>;
 }
 
+function value(record: AdminRecord, key: string): string {
+  return String(record[key] ?? "");
+}
+
+function records(record: AdminRecord, key: string): AdminRecord[] {
+  return Array.isArray(record[key]) ? record[key] as AdminRecord[] : [];
+}
+
+function MemberForm({ title, onSave }: { title: string; onSave: (payload: AdminRecord) => Promise<void> }) {
+  const [principal, setPrincipal] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState("VIEWER");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!principal.trim()) { setError("Member email or principal is required."); return; }
+    setSaving(true);
+    try {
+      await onSave({ memberPrincipal: principal, displayName: displayName || undefined, role });
+      setPrincipal("");
+      setDisplayName("");
+      setRole("VIEWER");
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to add member");
+    } finally { setSaving(false); }
+  }
+
+  return <div className="compact-form"><h5>{title}</h5><label>Member email or principal<input value={principal} onChange={(event) => setPrincipal(event.target.value)} placeholder="owner@example.com" /></label><label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Optional" /></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value)}><option>OWNER</option><option>ADMIN</option><option>VIEWER</option></select></label>{error && <div className="alert error">{error}</div>}<button className="primary" type="button" disabled={saving} onClick={submit}>{saving ? "Adding…" : "Add member"}</button></div>;
+}
+
+function ProjectForm({ organizationId, onSave }: { organizationId: string; onSave: (payload: AdminRecord) => Promise<void> }) {
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [ownerTeam, setOwnerTeam] = useState("");
+  const [error, setError] = useState("");
+  async function submit() {
+    if (!id || !name || !ownerTeam) { setError("Project ID, name, and owning team are required."); return; }
+    try {
+      await onSave({ id, organizationId, name, description, ownerTeam });
+      setId(""); setName(""); setDescription(""); setOwnerTeam(""); setError("");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to create project"); }
+  }
+  return <div className="compact-form project-form"><h5>Create project</h5><label>Project ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="grocery-online" /></label><label>Project name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owning team<input value={ownerTeam} onChange={(event) => setOwnerTeam(event.target.value)} /></label><label className="wide">Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<button className="primary" type="button" onClick={submit}>Create project</button></div>;
+}
+
+function OrganizationForm({ onSave }: { onSave: (payload: AdminRecord) => Promise<void> }) {
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [ownerContact, setOwnerContact] = useState("");
+  const [error, setError] = useState("");
+  async function submit() {
+    if (!id || !name) { setError("Organization ID and name are required."); return; }
+    try {
+      await onSave({ id, name, description, ownerContact: ownerContact || undefined });
+      setId(""); setName(""); setDescription(""); setOwnerContact(""); setError("");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to create organization"); }
+  }
+  return <div className="organization-create"><div><span className="eyebrow">New line of business</span><h3>Create organization</h3><p>Organizations are the top-level tenant and Memory Bank scope boundary.</p></div><div className="compact-form"><label>Organization ID<input value={id} onChange={(event) => setId(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="retail" /></label><label>Name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Owner contact<input value={ownerContact} onChange={(event) => setOwnerContact(event.target.value)} /></label><label>Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>{error && <div className="alert error wide">{error}</div>}<button className="primary" type="button" onClick={submit}>Create organization</button></div></div>;
+}
+
+export function OrganizationHierarchyView({ hierarchy, writable, api, reload }: { hierarchy: AdminRecord; writable: boolean; api: AdminApiClient; reload: () => void }) {
+  const organizations = records(hierarchy, "organizations");
+  if (!organizations.length) return <div><p className="empty">No organizations have been created.</p>{writable && <OrganizationForm onSave={async (payload) => { await api.create("organizations", payload); reload(); }} />}</div>;
+  return <div className="organization-workspace">{writable && <OrganizationForm onSave={async (payload) => { await api.create("organizations", payload); reload(); }} />}<div className="organization-list">{organizations.map((organization) => {
+    const organizationProjects = records(organization, "projects");
+    const organizationMembers = records(organization, "members");
+    return <article className="organization-card" key={value(organization, "id")}><header><div className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</div><div><span className="eyebrow">Organization</span><h3>{value(organization, "name")}</h3><p>{value(organization, "description") || "No description provided"}</p></div><span className={`pill ${value(organization, "status").toLowerCase()}`}>{value(organization, "status")}</span></header><div className="organization-meta"><span><b>{organizationProjects.length}</b> projects</span><span><b>{organizationMembers.length}</b> members</span><span><b>{organizationProjects.reduce((count, project) => count + records(project, "domains").length, 0)}</b> domains</span></div><section className="member-strip"><strong>Organization members</strong><div>{organizationMembers.length ? organizationMembers.map((member) => <span className="member-chip" key={value(member, "id")}><b>{value(member, "display_name") || value(member, "member_principal")}</b><small>{value(member, "role")}</small></span>) : <span className="empty">No members assigned</span>}</div></section><div className="project-group"><div className="group-heading"><div><span className="eyebrow">Project groups</span><h4>Projects in {value(organization, "name")}</h4></div></div>{organizationProjects.length ? organizationProjects.map((project) => <article className="project-card" key={value(project, "id")}><div className="project-summary"><div><h4>{value(project, "name")}</h4><p>{value(project, "description") || value(project, "id")}</p></div><span className="project-team">{value(project, "owner_team")}</span></div><div className="project-columns"><div><h5>Domains</h5><div className="domain-tags">{records(project, "domains").length ? records(project, "domains").map((domain) => <span key={value(domain, "id")}>{value(domain, "name")}</span>) : <small className="empty">No domains yet</small>}</div></div><div><h5>Project members</h5><div className="project-members">{records(project, "members").length ? records(project, "members").map((member) => <span key={value(member, "id")}><b>{value(member, "display_name") || value(member, "member_principal")}</b><small>{value(member, "role")}</small></span>) : <small className="empty">No direct project members</small>}</div></div></div>{writable && <details className="inline-action"><summary>+ Add project member</summary><MemberForm title={`Add member to ${value(project, "name")}`} onSave={async (payload) => { await api.addProjectMember(value(project, "id"), payload); reload(); }} /></details>}</article>) : <p className="empty project-empty">No projects in this organization.</p>}</div>{writable && <div className="organization-actions"><details><summary>+ Create project</summary><ProjectForm organizationId={value(organization, "id")} onSave={async (payload) => { await api.create("projects", payload); reload(); }} /></details><details><summary>+ Add organization member</summary><MemberForm title={`Add member to ${value(organization, "name")}`} onSave={async (payload) => { await api.addOrganizationMember(value(organization, "id"), payload); reload(); }} /></details></div>}</article>;
+  })}</div></div>;
+}
+
+function OrganizationManagement({ identity, api }: { identity: AdminIdentity; api: AdminApiClient }) {
+  const [hierarchy, setHierarchy] = useState<AdminRecord>({ organizations: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const reload = useCallback(() => { setLoading(true); api.organizationHierarchy().then(setHierarchy).catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load organization hierarchy")).finally(() => setLoading(false)); }, [api]);
+  useEffect(reload, [reload]);
+  return <section><div className="section-heading"><div><span className="eyebrow">Governance hierarchy</span><h2>Organizations &amp; Projects</h2><p>Manage line-of-business membership and group agents and domains into project boundaries.</p></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading organization hierarchy…</p> : <OrganizationHierarchyView hierarchy={hierarchy} writable={canMutate(identity, "organizations")} api={api} reload={reload} />}</section>;
+}
+
 export function ConsolePage({ section, identity, api }: { section: string; identity: AdminIdentity; api: AdminApiClient }) {
   const resource = section === "approvals" ? "access-requests" : section;
   const [records, setRecords] = useState<AdminRecord[]>([]);
@@ -226,6 +308,7 @@ export function ConsolePage({ section, identity, api }: { section: string; ident
   useEffect(reload, [api, resource, section]);
   if (section === "dashboard") return <section className="dashboard"><span className="eyebrow">Platform overview</span><h2>Governed memory, ready for every shopping journey</h2><p>Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only.</p><div className="metric-grid"><article><span className="metric-icon">O</span><strong>Organization</strong><span>Tenant and policy boundary</span></article><article><span className="metric-icon">P</span><strong>Projects</strong><span>Agent and domain collaboration</span></article><article><span className="metric-icon">M</span><strong>Memory Bank</strong><span>Profiles created lazily per user</span></article></div></section>;
   if (section === "create-setup") return <MemorySetupWizard api={api} />;
+  if (section === "organizations") return <OrganizationManagement identity={identity} api={api} />;
   const writable = canMutate(identity, section);
   return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "access-requests" || section === "approvals" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={section === "approvals"} /> : <ResourceTable records={records} />}{writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}</section>;
 }

@@ -47,8 +47,22 @@ read or write. Legacy `appName` and `domain` request fields remain accepted for 
 compatibility, but they do not determine the provider scope.
 
 The initial implementation persists organizations/projects and validates that a domain and its
-agents belong to the same organization/project. Cross-project field-level requests, persisted
-membership RBAC, and implicit same-project grants remain subsequent governance slices.
+agents belong to the same organization/project. Cross-project field-level requests,
+membership-derived RBAC enforcement, and implicit same-project grants remain subsequent
+governance slices.
+
+The **Organizations & Projects** screen presents this hierarchy as grouped cards instead of raw
+JSON. From an organization card, a platform administrator can:
+
+- add organization members with `OWNER`, `ADMIN`, or `VIEWER` roles;
+- create projects with an owning team and description;
+- see the projects and domains belonging to the organization;
+- add project members and inspect their direct project roles.
+
+A principal must be an active organization member before being assigned directly to one of its
+projects. Membership records are now durable and audited. This release still uses the existing
+platform-admin authorization boundary for mutations; deriving every admin request from persisted
+membership is the next security slice.
 
 ## Applications
 

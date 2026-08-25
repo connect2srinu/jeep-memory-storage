@@ -159,9 +159,7 @@ class GuidedMemorySetupService:
 
         for item in request.custom_preferences:
             if not item.attribute_id.startswith(f"{domain}."):
-                raise ValueError(
-                    "custom preference attribute IDs must use the selected domain prefix"
-                )
+                raise ValueError("custom preference attribute IDs must use the selected domain prefix")
             if not await self.session.get(PreferenceDefinitionRecord, item.attribute_id):
                 await self.admin.create_resource(
                     principal,
@@ -337,9 +335,7 @@ class GuidedMemorySetupService:
             chosen = request.resolution.schema_precedence if request.resolution else []
             if chosen:
                 if len(chosen) != len(set(chosen)) or set(chosen) != set(schema_precedence):
-                    raise ValueError(
-                        "resolution precedence must contain every available schema once"
-                    )
+                    raise ValueError("resolution precedence must contain every available schema once")
                 schema_precedence = chosen
             await self.admin.create_resource(
                 principal,
@@ -451,15 +447,11 @@ class GuidedMemorySetupService:
         preferences = await self._preference_specs(request)
         owned = [item for item in preferences if item["owner"] == request.use_case.domain]
         if not owned:
-            raise ValueError(
-                "select or create at least one preference owned by the use-case domain"
-            )
+            raise ValueError("select or create at least one preference owned by the use-case domain")
         schema_id = f"{request.use_case.domain}-preferences-v1"
         available_schemas = [schema_id, *[item.schema_id for item in request.shared_schemas]]
         warnings = []
-        external = [
-            item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain
-        ]
+        external = [item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain]
         if external:
             warnings.append(
                 "Externally owned preferences are consumed through shared schema access, not copied "
@@ -493,11 +485,7 @@ class GuidedMemorySetupService:
                 "preferences": {
                     item["attributeId"]: {
                         "type": item["dataType"],
-                        **(
-                            {"allowedValues": item["allowedValues"]}
-                            if item["allowedValues"]
-                            else {}
-                        ),
+                        **({"allowedValues": item["allowedValues"]} if item["allowedValues"] else {}),
                     }
                     for item in owned
                 },
@@ -519,10 +507,7 @@ class GuidedMemorySetupService:
                             else available_schemas
                         ),
                         "attributeOverrides": (
-                            [
-                                item.model_dump(by_alias=True)
-                                for item in request.resolution.attribute_overrides
-                            ]
+                            [item.model_dump(by_alias=True) for item in request.resolution.attribute_overrides]
                             if request.resolution
                             else []
                         ),
@@ -612,4 +597,6 @@ class GuidedMemorySetupService:
 
     @staticmethod
     def _json_type(value: str) -> str:
-        return {"integer": "integer", "number": "number", "boolean": "boolean"}.get(value, "string")
+        return {"integer": "integer", "number": "number", "boolean": "boolean"}.get(
+            value, "string"
+        )

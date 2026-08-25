@@ -64,6 +64,34 @@ class ProjectRecord(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
 
 
+class OrganizationMembershipRecord(TimestampMixin, Base):
+    __tablename__ = "organization_memberships"
+    __table_args__ = (UniqueConstraint("organization_id", "member_principal"),)
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    member_principal: Mapped[str] = mapped_column(String(320), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
+class ProjectMembershipRecord(TimestampMixin, Base):
+    __tablename__ = "project_memberships"
+    __table_args__ = (UniqueConstraint("project_id", "member_principal"),)
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    member_principal: Mapped[str] = mapped_column(String(320), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+
+
 class MemoryDomainRecord(TimestampMixin, Base):
     __tablename__ = "memory_domains"
 

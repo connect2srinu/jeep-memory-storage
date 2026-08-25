@@ -8,10 +8,12 @@ from memory_api.persistence.models import (
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
+    OrganizationMembershipRecord,
     OrganizationRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
+    ProjectMembershipRecord,
     ProjectRecord,
     RegisteredAgentRecord,
     ResolutionAttributeOverrideRecord,
@@ -102,6 +104,26 @@ async def seed_control_plane(database: Database) -> None:
                     status="ACTIVE",
                 )
             )
+        await session.merge(
+            OrganizationMembershipRecord(
+                id="retail:platform-admin",
+                organization_id="retail",
+                member_principal="platform@example.com",
+                display_name="Platform Administrator",
+                role="OWNER",
+                status="ACTIVE",
+            )
+        )
+        await session.merge(
+            ProjectMembershipRecord(
+                id="shopping:platform-admin",
+                project_id="shopping",
+                member_principal="platform@example.com",
+                display_name="Platform Administrator",
+                role="OWNER",
+                status="ACTIVE",
+            )
+        )
         for domain in (*PREFERENCES, "pharmacy"):
             project_id = "customer-experience" if domain == "customer" else "shopping"
             await session.merge(

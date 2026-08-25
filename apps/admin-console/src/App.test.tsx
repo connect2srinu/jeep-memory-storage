@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AdminApiClient } from "./api";
-import { ConsolePage, ConsoleShell } from "./App";
+import { ConsolePage, ConsoleShell, OrganizationHierarchyView } from "./App";
 import type { AdminIdentity } from "./types";
 
 const viewer: AdminIdentity = { user: "viewer@example.com", roles: ["VIEWER"], domains: [] };
@@ -45,5 +45,38 @@ describe("Admin Console components", () => {
     expect(html).toContain("Create schemas JSON");
     expect(html).toContain("Schema preview");
     expect(html).toContain("Create governed record");
+  });
+
+  it("groups projects, domains, and membership forms under organizations", () => {
+    const hierarchy = {
+      organizations: [{
+        id: "retail",
+        name: "Retail",
+        description: "Retail line of business",
+        status: "ACTIVE",
+        members: [{ id: "m1", display_name: "Retail Owner", role: "OWNER" }],
+        projects: [{
+          id: "shopping",
+          name: "Shopping",
+          description: "Shopping experiences",
+          owner_team: "shopping-platform",
+          domains: [{ id: "grocery", name: "Grocery" }],
+          members: [{ id: "m2", member_principal: "lead@example.com", role: "ADMIN" }],
+        }],
+      }],
+    };
+    const html = renderToStaticMarkup(
+      <OrganizationHierarchyView
+        hierarchy={hierarchy}
+        writable
+        api={new AdminApiClient("http://memory-api/api/v1/admin", platform)}
+        reload={() => {}}
+      />,
+    );
+    expect(html).toContain("Create organization");
+    expect(html).toContain("Projects in Retail");
+    expect(html).toContain("Grocery");
+    expect(html).toContain("Add organization member");
+    expect(html).toContain("Add project member");
   });
 });

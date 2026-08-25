@@ -71,6 +71,31 @@ export class AdminApiClient {
     ).data;
   }
 
+  async organizationHierarchy(): Promise<AdminRecord> {
+    return (await this.request<AdminRecordEnvelope>("/organization-hierarchy")).data;
+  }
+
+  async addOrganizationMember(
+    organizationId: string,
+    payload: AdminRecord,
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/members`,
+        { method: "POST", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
+  async addProjectMember(projectId: string, payload: AdminRecord): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/projects/${encodeURIComponent(projectId)}/members`,
+        { method: "POST", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
   async previewMemorySetup(payload: AdminRecord): Promise<AdminRecord> {
     return await this.request<AdminRecord>("/memory-setups/preview", {
       method: "POST",

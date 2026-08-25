@@ -119,7 +119,9 @@ class MockMemoryStore:
         self._profiles[key] = profile
         return profile
 
-    def _require_schema_for_scope(self, schema_id: str, scope: MemoryScope) -> MemoryProfileSchema:
+    def _require_schema_for_scope(
+        self, schema_id: str, scope: MemoryScope
+    ) -> MemoryProfileSchema:
         schema = self._schemas.get(schema_id)
         if schema is None:
             raise KeyError(f"unknown profile schema {schema_id!r}")

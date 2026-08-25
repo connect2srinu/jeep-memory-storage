@@ -12,6 +12,7 @@ from memory_api.api.admin.models import (
     AgentCreate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
+    MembershipCreate,
     OrganizationCreate,
     PreferenceCreate,
     ProjectCreate,
@@ -28,10 +29,12 @@ from memory_api.persistence.models import (
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
+    OrganizationMembershipRecord,
     OrganizationRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
+    ProjectMembershipRecord,
     ProjectRecord,
     RegisteredAgentRecord,
     ResolutionAttributeOverrideRecord,
@@ -288,6 +291,167 @@ class AdminControlPlaneService:
         data["schema_priorities"] = [_record_data(item) for item in priorities]
         data["attribute_overrides"] = [_record_data(item) for item in overrides]
         return data
+
+    async def organization_hierarchy(self, principal: AdminPrincipal) -> dict[str, Any]:
+        self.authorizer.require_read(principal)
+        organizations = list(
+            (
+                await self.session.scalars(
+                    select(OrganizationRecord).order_by(OrganizationRecord.name)
+                )
+            ).all()
+        )
+        projects = list(
+            (await self.session.scalars(select(ProjectRecord).order_by(ProjectRecord.name))).all()
+        )
+        organization_members = list(
+            (
+                await self.session.scalars(
+                    select(OrganizationMembershipRecord).order_by(
+                        OrganizationMembershipRecord.member_principal
+                    )
+                )
+            ).all()
+        )
+        project_members = list(
+            (
+                await self.session.scalars(
+                    select(ProjectMembershipRecord).order_by(
+                        ProjectMembershipRecord.member_principal
+                    )
+                )
+            ).all()
+        )
+        domains = list(
+            (
+                await self.session.scalars(
+                    select(MemoryDomainRecord).order_by(MemoryDomainRecord.name)
+                )
+            ).all()
+        )
+
+        projects_by_organization: dict[str, list[dict[str, Any]]] = {}
+        for project in projects:
+            project_data = _record_data(project)
+            project_data["members"] = [
+                _record_data(member)
+                for member in project_members
+                if member.project_id == project.id
+            ]
+            project_data["domains"] = [
+                _record_data(domain) for domain in domains if domain.project_id == project.id
+            ]
+            projects_by_organization.setdefault(project.organization_id, []).append(project_data)
+
+        return {
+            "organizations": [
+                {
+                    **_record_data(organization),
+                    "members": [
+                        _record_data(member)
+                        for member in organization_members
+                        if member.organization_id == organization.id
+                    ],
+                    "projects": projects_by_organization.get(organization.id, []),
+                }
+                for organization in organizations
+            ]
+        }
+
+    async def add_organization_member(
+        self,
+        principal: AdminPrincipal,
+        organization_id: str,
+        payload: MembershipCreate,
+    ) -> dict[str, Any]:
+        self.authorizer.require_platform(principal)
+        await self._require_existing_organization(organization_id)
+        member_principal = payload.member_principal.strip().casefold()
+        existing = await self.session.scalar(
+            select(OrganizationMembershipRecord).where(
+                OrganizationMembershipRecord.organization_id == organization_id,
+                OrganizationMembershipRecord.member_principal == member_principal,
+            )
+        )
+        if existing is not None:
+            raise ResourceConflictError(
+                f"member {member_principal} already belongs to organization {organization_id}"
+            )
+        record = OrganizationMembershipRecord(
+            id=str(uuid4()),
+            organization_id=organization_id,
+            member_principal=member_principal,
+            display_name=payload.display_name,
+            role=payload.role,
+            status="ACTIVE",
+        )
+        self.session.add(record)
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "organization.member_added",
+            "organization-membership",
+            record.id,
+            None,
+            after,
+        )
+        return after
+
+    async def add_project_member(
+        self,
+        principal: AdminPrincipal,
+        project_id: str,
+        payload: MembershipCreate,
+    ) -> dict[str, Any]:
+        self.authorizer.require_platform(principal)
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {project_id} was not found")
+        member_principal = payload.member_principal.strip().casefold()
+        organization_member = await self.session.scalar(
+            select(OrganizationMembershipRecord).where(
+                OrganizationMembershipRecord.organization_id == project.organization_id,
+                OrganizationMembershipRecord.member_principal == member_principal,
+                OrganizationMembershipRecord.status == "ACTIVE",
+            )
+        )
+        if organization_member is None:
+            raise ResourceConflictError(
+                "project members must first be active members of the parent organization"
+            )
+        existing = await self.session.scalar(
+            select(ProjectMembershipRecord).where(
+                ProjectMembershipRecord.project_id == project_id,
+                ProjectMembershipRecord.member_principal == member_principal,
+            )
+        )
+        if existing is not None:
+            raise ResourceConflictError(
+                f"member {member_principal} already belongs to project {project_id}"
+            )
+        record = ProjectMembershipRecord(
+            id=str(uuid4()),
+            project_id=project_id,
+            member_principal=member_principal,
+            display_name=payload.display_name,
+            role=payload.role,
+            status="ACTIVE",
+        )
+        self.session.add(record)
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "project.member_added",
+            "project-membership",
+            record.id,
+            None,
+            after,
+        )
+        return after
 
     async def create_resource(
         self,

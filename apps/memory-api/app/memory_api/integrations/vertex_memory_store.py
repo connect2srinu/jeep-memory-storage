@@ -78,9 +78,7 @@ class VertexMemoryBankStore:
     @classmethod
     def from_config(cls, *, project: str, location: str, resource_id: str) -> VertexMemoryBankStore:
         if not project.strip() or not resource_id.strip():
-            raise ValueError(
-                "Vertex backend requires GOOGLE_CLOUD_PROJECT and AGENT_PLATFORM_MEMORY_BANK_ID"
-            )
+            raise ValueError("Vertex backend requires GOOGLE_CLOUD_PROJECT and AGENT_PLATFORM_MEMORY_BANK_ID")
         return cls(
             AgentPlatformMemoryBankClient(
                 project=project,
@@ -293,7 +291,9 @@ class VertexMemoryBankStore:
             for schema_id, values in by_schema.items()
         )
 
-    def _require_schema_for_scope(self, schema_id: str, scope: MemoryScope) -> MemoryProfileSchema:
+    def _require_schema_for_scope(
+        self, schema_id: str, scope: MemoryScope
+    ) -> MemoryProfileSchema:
         schema = self._schemas.get(schema_id)
         if schema is None:
             raise KeyError(f"unknown profile schema {schema_id!r}")

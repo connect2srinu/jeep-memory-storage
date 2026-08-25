@@ -121,11 +121,11 @@ async def test_guided_setup_previews_activates_and_is_immediately_usable(tmp_pat
         grocery = setup_payload()
         grocery["useCase"] = {
             "name": "Grocery Personalization",
-            "description": "Guided setup over the existing Grocery profile",
-            "owningTeam": "grocery-platform",
-            "organizationId": "retail",
-            "projectId": "shopping",
-            "domain": "grocery",
+                "description": "Guided setup over the existing Grocery profile",
+                "owningTeam": "grocery-platform",
+                "organizationId": "retail",
+                "projectId": "shopping",
+                "domain": "grocery",
             "environment": "development",
         }
         grocery["selectedPreferences"] = [

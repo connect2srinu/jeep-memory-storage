@@ -15,12 +15,8 @@ depends_on = None
 
 def timestamps() -> list[sa.Column]:
     return [
-        sa.Column(
-            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
-        ),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     ]
 
 
@@ -90,13 +86,18 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         )
 
-    op.execute('UPDATE scope_definitions SET scope_keys = \'["organization_id", "user_id"]\'')
+    op.execute(
+        "UPDATE scope_definitions "
+        "SET scope_keys = '[\"organization_id\", \"user_id\"]'"
+    )
 
 
 def downgrade() -> None:
     for table in ("registered_agents", "memory_domains"):
         op.drop_constraint(f"fk_{table}_project_id_projects", table, type_="foreignkey")
-        op.drop_constraint(f"fk_{table}_organization_id_organizations", table, type_="foreignkey")
+        op.drop_constraint(
+            f"fk_{table}_organization_id_organizations", table, type_="foreignkey"
+        )
         op.drop_column(table, "project_id")
         op.drop_column(table, "organization_id")
     op.drop_table("projects")
