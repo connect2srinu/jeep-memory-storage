@@ -150,8 +150,4 @@ def create_app(
     async def metric_snapshot() -> dict[str, int]:
         return metrics.snapshot()
 
-    if configured.include_legacy_routes:
-        from app.api import api as legacy_api
-
-        api.include_router(legacy_api.router)
     return api

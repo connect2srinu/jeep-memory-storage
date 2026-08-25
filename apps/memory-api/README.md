@@ -75,7 +75,8 @@ PYTHONPATH=apps/memory-api/app uvicorn memory_api.main:app --reload --port 8080
 curl http://localhost:8080/healthz
 ```
 
-Compose runs Alembic and the idempotent contract bootstrap before Uvicorn.
+Compose runs Alembic before Uvicorn. A new database contains no business-domain configuration;
+create it through the Admin Console or Admin API.
 
 ## Authentication
 
@@ -86,7 +87,7 @@ Request-body agent IDs cannot establish identity.
 ## Validation
 
 ```bash
-PYTHONPATH=apps/memory-api/app:. .venv/bin/python -m pytest -q apps/memory-api/tests
+PYTHONPATH=apps/memory-api/app:apps/memory-api/tests .venv/bin/python -m pytest -q apps/memory-api/tests
 .venv/bin/ruff check apps/memory-api/app apps/memory-api/tests
 ```
 

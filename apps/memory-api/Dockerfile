@@ -6,12 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /workspace
 
-COPY pyproject.toml README.md ./
-COPY app ./app
-COPY config ./config
 COPY apps/memory-api ./apps/memory-api
 
-RUN python -m pip install --no-cache-dir -e . -e 'apps/memory-api'
+RUN python -m pip install --no-cache-dir -e 'apps/memory-api'
 
 EXPOSE 8080
 

@@ -33,7 +33,7 @@ POST /api/v1/admin/memory-setups/activate
 ```
 
 Preview validates cross-references and returns a summary plus exportable YAML without changing
-state. Activate transactionally:
+database state. Activate transactionally:
 
 1. creates or reuses the domain and scope;
 2. creates custom catalog preferences;
@@ -69,7 +69,7 @@ value, and never asks for a schema ID. See [ADK Web Demo](adk-web-demo.md).
 
 The wizard safely reuses an active schema only when the requested scope and mappings already match.
 It does not mutate an active schema to add fields. Create and approve a new schema version through
-the advanced administration/GitOps process before adding attributes.
+the advanced Admin API process before adding attributes.
 
 ## Validation
 

@@ -24,7 +24,6 @@ services:
     environment:
       MEMORY_BACKEND: mock
       AUTH_ENABLED: "false"
-      INCLUDE_LEGACY_ROUTES: "false"
       DATABASE_URL: postgresql+asyncpg://shared_memory:local-development-only@postgres:5432/shared_memory
     command:
       - sh
@@ -32,7 +31,6 @@ services:
       - >-
         python apps/memory-api/scripts/wait_for_database.py &&
         alembic -c apps/memory-api/alembic.ini upgrade head &&
-        PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/bootstrap_contracts.py &&
         uvicorn memory_api.main:app --host 0.0.0.0 --port 8080
     depends_on:
       postgres:

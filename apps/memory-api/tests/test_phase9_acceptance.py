@@ -5,13 +5,12 @@ from pathlib import Path
 
 import httpx
 import pytest
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.application import create_app
 from memory_api.config import MemoryApiSettings
 from memory_api.integrations import MockMemoryStore
 from memory_api.persistence import Database
 from memory_api.persistence.models import AgentSchemaGrantRecord
-from memory_api.services import ContractBootstrapService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = json.loads(
@@ -41,10 +40,8 @@ def scope(domain: str) -> dict[str, str]:
 async def test_user_1001_approval_resolution_update_and_refresh(tmp_path: Path) -> None:
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'phase9.db'}")
     await database.create_schema()
+    await seed_control_plane(database)
     async with database.session() as session:
-        await ContractBootstrapService(session).import_bundle(
-            load_contracts(PROJECT_ROOT / "config" / "contracts")
-        )
         customer_grant = await session.get(
             AgentSchemaGrantRecord, "grocery-agent:customer-preferences-v1"
         )

@@ -29,7 +29,6 @@ class MemoryApiSettings:
     database_url: str
     auth_enabled: bool
     google_id_token_audience: str | None
-    include_legacy_routes: bool = False
     admin_role_bindings_json: str = "{}"
     memory_backend: str = "mock"
     google_cloud_project: str | None = None
@@ -46,7 +45,6 @@ class MemoryApiSettings:
             ),
             auth_enabled=environment_bool("AUTH_ENABLED", False),
             google_id_token_audience=os.getenv("GOOGLE_ID_TOKEN_AUDIENCE"),
-            include_legacy_routes=environment_bool("INCLUDE_LEGACY_ROUTES", False),
             admin_role_bindings_json=os.getenv("ADMIN_ROLE_BINDINGS_JSON", "{}"),
             memory_backend=os.getenv("MEMORY_BACKEND", "mock").strip().lower(),
             google_cloud_project=os.getenv("GOOGLE_CLOUD_PROJECT"),

@@ -86,9 +86,6 @@ port mapping; do not expose the Compose PostgreSQL service unless an external cl
 ## 2. Validate before deployment
 
 ```bash
-.venv/bin/python scripts/validate_memory_contract.py --contracts-dir config/contracts
-.venv/bin/python scripts/compile_memory_contract.py --contracts-dir config/contracts --project-root . --check
-
 PYTHONPATH=apps/memory-api/app:. .venv/bin/python -m pytest -q apps/memory-api/tests
 PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
 
@@ -199,7 +196,7 @@ After Terraform completes:
 5. verify Admin Console access through the HTTPS load balancer and IAP;
 6. deploy or configure additional consumer agents in Cloud Run or Agent Runtime;
 7. map each deployed agent identity in `AGENT_PRINCIPAL_OVERRIDES_JSON`;
-8. bootstrap reviewed contracts and activate/provision domain schemas;
+8. create or promote approved control-plane records through the Admin API and activate/provision domain schemas;
 9. approve only the required cross-domain shared-schema access;
 10. run the smoke test below before directing production traffic.
 

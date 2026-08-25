@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.application import create_app
 from memory_api.config import MemoryApiSettings
 from memory_api.integrations import MockMemoryStore
@@ -16,10 +16,8 @@ from memory_api.persistence.models import (
     RegisteredAgentRecord,
     ScopeDefinitionRecord,
 )
-from memory_api.services import ContractBootstrapService
 from sqlalchemy import select
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PLATFORM = {"X-Admin-User": "platform@example.com", "X-Admin-Roles": "PLATFORM_ADMIN"}
 
 
@@ -72,10 +70,7 @@ def setup_payload() -> dict[str, object]:
 async def test_guided_setup_previews_activates_and_is_immediately_usable(tmp_path: Path) -> None:
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'guided.db'}")
     await database.create_schema()
-    async with database.session() as session:
-        await ContractBootstrapService(session).import_bundle(
-            load_contracts(PROJECT_ROOT / "config" / "contracts")
-        )
+    await seed_control_plane(database)
     store = MockMemoryStore()
     app = create_app(
         MemoryApiSettings(

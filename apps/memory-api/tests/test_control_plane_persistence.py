@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from app.shared_memory.contracts import load_contracts
+from db_seed import PREFERENCES, seed_control_plane
 from memory_api.persistence import Database, SqlAlchemyControlPlaneRepository
 from memory_api.persistence.models import (
     AgentSchemaGrantRecord,
@@ -15,10 +15,7 @@ from memory_api.persistence.models import (
     ProfileSchemaRecord,
     RegisteredAgentRecord,
 )
-from memory_api.services import ContractBootstrapService
 from sqlalchemy import func, select
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_normalized_control_plane_tables_are_declared() -> None:
@@ -52,20 +49,12 @@ def test_database_constraint_names_are_globally_unique() -> None:
 
 
 @pytest.mark.asyncio
-async def test_yaml_contract_bootstrap_is_normalized_and_idempotent(tmp_path: Path) -> None:
+async def test_db_native_fixture_is_normalized_and_idempotent(tmp_path: Path) -> None:
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'control-plane.db'}")
     await database.create_schema()
-    bundle = load_contracts(PROJECT_ROOT / "config" / "contracts")
     try:
-        async with database.session() as session:
-            first = await ContractBootstrapService(session).import_bundle(bundle)
-        async with database.session() as session:
-            second = await ContractBootstrapService(session).import_bundle(bundle)
-        assert first == second
-        assert first.domains == len(bundle.domains)
-        assert first.preferences == sum(len(item.preferences) for item in bundle.catalogs)
-        assert first.schemas == sum(len(item.profiles) for item in bundle.profiles)
-        assert first.agents == sum(len(item.consumers) for item in bundle.consumers)
+        await seed_control_plane(database)
+        await seed_control_plane(database)
 
         async with database.session() as session:
             counts = {
@@ -84,11 +73,11 @@ async def test_yaml_contract_bootstrap_is_normalized_and_idempotent(tmp_path: Pa
             grocery = await repository.get_domain("grocery")
             domains = await repository.list_domains()
         assert counts == {
-            "domains": first.domains,
-            "preferences": first.preferences,
-            "schemas": first.schemas,
-            "agents": first.agents,
-            "grants": first.grants,
+            "domains": len(PREFERENCES) + 1,
+            "preferences": sum(len(fields) for fields in PREFERENCES.values()),
+            "schemas": len(PREFERENCES),
+            "agents": 6,
+            "grants": 15,
             "audits": 1,
         }
         assert grocery is not None

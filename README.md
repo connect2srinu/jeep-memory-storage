@@ -1,8 +1,8 @@
 # Shared Memory Platform for Google ADK
 
 This repository implements a governed preference-memory service between ADK agents and Google
-Vertex AI Memory Bank. Domain teams define preferences through the Admin Console or reviewed YAML
-contracts. Agents consume one stable runtime API and never need Memory Bank SDKs, schema IDs, or
+Vertex AI Memory Bank. Domain teams define preferences through the Admin Console and Admin API;
+PostgreSQL is the control-plane source of truth. Agents consume one stable runtime API and never need Memory Bank SDKs, schema IDs, or
 conflict-resolution logic.
 
 ## Current end-to-end flow
@@ -43,14 +43,10 @@ geap-memory/
 │   ├── admin-console/        React guided setup and administration UI
 │   ├── memory-api/           FastAPI runtime and admin service
 │   └── reference-agent/      ADK example consumer
-├── config/
-│   ├── contracts/            Reviewed domain contract bundles
-│   ├── generated/            Deterministically compiled artifacts
-│   └── templates/            Optional GitOps onboarding templates
 ├── docs/                     Current architecture, onboarding, demo, and operations guides
 ├── infrastructure/           Terraform and deployment support
-├── packages/                 Shared contracts and test fixtures
-├── scripts/                  Contract, deployment, and diagnostic utilities
+├── packages/                 Cross-application test fixtures
+├── scripts/                  Deployment, acceptance, and security utilities
 ├── docker-compose.yml        Local mock-backed stack
 └── docker-compose.vertex.yml Vertex-backed local override
 ```
@@ -152,6 +148,10 @@ see [Deployment and operations](docs/deployment-operations.md).
 
 Activation creates the schema configuration, not a profile for every user. User-scoped profiles are
 created lazily by the first authorized write or provider generation event.
+
+The database starts without preloaded business domains. Create each environment's domains,
+preferences, schemas, agents, grants, and policies through the Admin Console or versioned Admin API
+automation. File-based YAML contract bootstrap and generated runtime JSON are no longer used.
 
 The wizard creates a new version-1 schema. Adding fields to an existing active schema requires a
 reviewed schema-version workflow and is intentionally rejected by the wizard.

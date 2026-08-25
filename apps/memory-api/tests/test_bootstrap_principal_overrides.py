@@ -3,13 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.persistence import Database
 from memory_api.persistence.models import RegisteredAgentRecord
-from memory_api.services import ContractBootstrapService
 from memory_api.services.principal_overrides import apply_principal_overrides
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.asyncio
@@ -17,10 +14,8 @@ async def test_deployment_principal_overrides_are_validated_and_persisted(tmp_pa
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'principals.db'}")
     await database.create_schema()
     try:
+        await seed_control_plane(database)
         async with database.session() as session:
-            await ContractBootstrapService(session).import_bundle(
-                load_contracts(PROJECT_ROOT / "config" / "contracts")
-            )
             count = await apply_principal_overrides(
                 session,
                 '{"grocery-agent":"grocery-agent@example.iam.gserviceaccount.com"}',

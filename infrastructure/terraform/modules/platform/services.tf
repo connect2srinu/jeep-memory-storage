@@ -256,7 +256,7 @@ resource "google_cloud_run_v2_job" "migration" {
         image   = var.memory_api_image
         command = ["/bin/sh", "-c"]
         args = [
-          "alembic -c apps/memory-api/alembic.ini upgrade head && PYTHONPATH=apps/memory-api/app:. python apps/memory-api/scripts/bootstrap_contracts.py"
+          "alembic -c apps/memory-api/alembic.ini upgrade head"
         ]
         volume_mounts {
           name       = "cloudsql"

@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 import pytest_asyncio
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.application import create_app
 from memory_api.config import MemoryApiSettings
 from memory_api.integrations import MockMemoryStore
@@ -16,10 +16,7 @@ from memory_api.persistence.models import (
     AgentSchemaGrantRecord,
     AuditEventRecord,
 )
-from memory_api.services import ContractBootstrapService
 from sqlalchemy import func, select
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 PLATFORM = {"X-Admin-User": "platform@example.com", "X-Admin-Roles": "PLATFORM_ADMIN"}
 GROCERY_AGENT_OWNER = {
@@ -44,16 +41,12 @@ VIEWER = {"X-Admin-User": "viewer@example.com", "X-Admin-Roles": "VIEWER"}
 async def admin_environment(tmp_path: Path):
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'admin.db'}")
     await database.create_schema()
-    async with database.session() as session:
-        await ContractBootstrapService(session).import_bundle(
-            load_contracts(PROJECT_ROOT / "config" / "contracts")
-        )
+    await seed_control_plane(database)
     app = create_app(
         MemoryApiSettings(
             database_url="unused",
             auth_enabled=False,
             google_id_token_audience=None,
-            include_legacy_routes=False,
         ),
         database=database,
         store=MockMemoryStore(),

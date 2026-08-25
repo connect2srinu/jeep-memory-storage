@@ -9,7 +9,7 @@ steps:
     entrypoint: bash
     args:
       - -c
-      - pip install -e '.[dev]' -e 'apps/memory-api[dev]' && PYTHONPATH=apps/memory-api/app:. pytest -q apps/memory-api/tests
+      - pip install -e 'apps/memory-api[dev]' && PYTHONPATH=apps/memory-api/app:apps/memory-api/tests pytest -q apps/memory-api/tests
   - id: build-memory-api
     name: gcr.io/cloud-builders/docker
     args: [build, -f, apps/memory-api/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/memory-api:${_TAG}', .]

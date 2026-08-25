@@ -8,7 +8,7 @@
 | Agent Platform | Existing Agent Engine with Memory Bank | Platform provisioning |
 | Data | PostgreSQL/Cloud SQL | Application deployment |
 | Runtime | Memory API and Admin Console | Application deployment |
-| Control plane | Domains, schemas, agents, grants, policies | Admin activation or GitOps bootstrap |
+| Control plane | Domains, schemas, agents, grants, policies | Admin Console or authorized Admin API activation |
 | Memory | User-scoped memories/profiles | First authorized interaction; lazy |
 
 ## Local modes
@@ -61,12 +61,12 @@ Use Secret Manager/workload identity in production; do not package credentials i
 
 ## Release pipeline
 
-1. validate contracts and generated artifacts;
-2. run Python and frontend tests;
-3. build immutable images;
-4. plan infrastructure changes;
-5. deploy database migrations;
-6. deploy Memory API, then Admin Console and agents;
+1. run Python and frontend tests;
+2. build immutable images;
+3. plan infrastructure changes;
+4. deploy database migrations;
+5. deploy Memory API, then Admin Console and agents;
+6. apply approved control-plane setup through the Admin API;
 7. activate/provision approved schemas;
 8. run health and authorization smoke tests;
 9. run one environment-gated Vertex write/recall scenario;

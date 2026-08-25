@@ -1,0 +1,6 @@
+services:
+  postgres:
+    # Optional host mapping for database tools such as pgAdmin.
+    # Port 15432 avoids the native Windows PostgreSQL listeners on 5432/5433.
+    ports:
+      - "127.0.0.1:15432:5432"

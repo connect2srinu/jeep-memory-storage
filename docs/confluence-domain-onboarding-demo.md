@@ -87,11 +87,12 @@ value is absent.
 - profile generation may be asynchronous;
 - the explicit platform overlay provides immediate platform read-after-write behavior.
 
-## GitOps alternative
+## Automated alternative
 
-Regulated or bulk onboarding can use `config/templates/domain-onboarding`, contract validation, and
-deterministic compilation. The UI and GitOps paths represent the same resource model; do not run a
-separate command-line profile-generation script as the normal onboarding path.
+Regulated or bulk onboarding uses the same preview and activation Admin APIs as the console. The
+automation identity must have platform-admin authorization, retain the reviewed request/response as
+change evidence, and wait for a successful provisioning result. PostgreSQL remains the only
+control-plane source of truth; repository YAML and generated runtime JSON are not part of onboarding.
 
 ## Completion checklist
 

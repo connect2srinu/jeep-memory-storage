@@ -5,33 +5,26 @@ from pathlib import Path
 import httpx
 import pytest
 import pytest_asyncio
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.application import create_app
 from memory_api.config import MemoryApiSettings
 from memory_api.domain.control_plane import AccessPermission
 from memory_api.domain.runtime import RuntimeAgent, RuntimeSchemaGrant
 from memory_api.integrations import MockMemoryStore
 from memory_api.persistence import Database
-from memory_api.services import ContractBootstrapService
 from memory_api.services.runtime_service import RuntimeMemoryService
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest_asyncio.fixture
 async def runtime_client(tmp_path: Path):
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'runtime.db'}")
     await database.create_schema()
-    async with database.session() as session:
-        await ContractBootstrapService(session).import_bundle(
-            load_contracts(PROJECT_ROOT / "config" / "contracts")
-        )
+    await seed_control_plane(database)
     app = create_app(
         MemoryApiSettings(
             database_url="unused",
             auth_enabled=False,
             google_id_token_audience=None,
-            include_legacy_routes=False,
         ),
         database=database,
         store=MockMemoryStore(),

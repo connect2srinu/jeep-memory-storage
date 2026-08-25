@@ -13,7 +13,7 @@ This guide is for a domain owner adding governed preferences and connecting an A
 7. Register the agent and give its owned schema `READ_WRITE` if it saves preferences.
 8. Request `READ` access to shared schemas instead of copying foreign attributes.
 9. Order schemas when resolution is required.
-10. review the generated contract and activate.
+10. review the generated preview and activate.
 
 Example:
 
@@ -41,27 +41,13 @@ The schema name is generated and remains an internal platform detail.
 
 Profiles are user-scoped and lazy. Onboarding never creates an empty profile for every user.
 
-## Optional GitOps path
+## Automated onboarding
 
-For reviewed bulk onboarding, copy `config/templates/domain-onboarding` to
-`config/contracts/<domain>` and complete the five contract kinds:
-
-- domain;
-- preferences;
-- resolution policy;
-- memory profiles;
-- consumers.
-
-Then run:
-
-```bash
-python scripts/validate_memory_contract.py --source config/contracts/<domain>
-python scripts/compile_memory_contract.py --source config/contracts --output config/generated
-python scripts/compile_memory_contract.py --source config/contracts --output config/generated --check
-```
-
-The UI and YAML paths produce the same control-plane concepts. The UI is the default demonstration;
-YAML remains the reviewable source for GitOps and schema evolution.
+PostgreSQL is the source of truth. Automation must call the versioned Admin API using an authorized
+platform identity; it must not insert directly into tables or generate repository files. Use
+`POST /api/v1/admin/memory-setups/preview` as the validation gate and
+`POST /api/v1/admin/memory-setups/activate` to apply the same transaction used by the UI. Store the
+reviewed request and response in the deployment system if an approval artifact is required.
 
 ## Connect the agent
 
@@ -92,4 +78,4 @@ invent a schema ID.
 ## Current limitation
 
 Adding fields to an already-active schema is not a wizard operation. Publish a reviewed new schema
-version and update the Agent Engine context before using the new field.
+version through the advanced Admin API and update the Agent Engine context before using the field.

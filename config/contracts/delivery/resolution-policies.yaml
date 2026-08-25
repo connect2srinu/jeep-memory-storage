@@ -1,9 +1,0 @@
-apiVersion: memory.platform/v1alpha1
-kind: PreferenceResolutionPolicies
-metadata:
-  domain: delivery
-  version: "1.0"
-policies:
-  - id: preferred_window
-    appliesTo: [delivery.preferred_window]
-    domainPriority: [delivery, customer, grocery]

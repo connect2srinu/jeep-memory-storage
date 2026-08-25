@@ -5,15 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from app.shared_memory.contracts import load_contracts
+from db_seed import seed_control_plane
 from memory_api.persistence import Database
-from memory_api.services.contract_bootstrap import ContractBootstrapService
 from memory_api.services.vertex_provisioning import (
     VertexContextProvisioner,
     build_vertex_context_spec,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.asyncio
@@ -21,10 +18,7 @@ async def test_only_active_approved_schema_versions_are_exported(tmp_path: Path)
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'provisioning.db'}")
     await database.create_schema()
     try:
-        async with database.session() as session:
-            await ContractBootstrapService(session).import_bundle(
-                load_contracts(PROJECT_ROOT / "config" / "contracts")
-            )
+        await seed_control_plane(database)
         async with database.session() as session:
             spec = await build_vertex_context_spec(session)
     finally:
@@ -43,10 +37,7 @@ async def test_context_provisioner_performs_context_only_update(
 ) -> None:
     database = Database(f"sqlite+aiosqlite:///{tmp_path / 'vertex-update.db'}")
     await database.create_schema()
-    async with database.session() as session:
-        await ContractBootstrapService(session).import_bundle(
-            load_contracts(PROJECT_ROOT / "config" / "contracts")
-        )
+    await seed_control_plane(database)
 
     calls: list[dict[str, object]] = []
 

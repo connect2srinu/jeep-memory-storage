@@ -2,9 +2,10 @@
 
 Infrastructure code provisions the deployable platform foundation: network/IAM integration,
 database, Memory API, Admin Console, and related runtime configuration. Domain schemas and grants
-are control-plane resources activated after the application is healthy.
+are database-backed control-plane resources created through the Admin Console or Admin API after
+the application is healthy.
 
-Before applying changes, complete `docs/deployment-placeholders.md`, validate contracts and tests,
+Before applying changes, complete `docs/deployment-placeholders.md`, validate tests,
 and review the exact project and region.
 
 ```bash
