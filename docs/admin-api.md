@@ -6,6 +6,9 @@ All administrative routes are under `/api/v1/admin`. The Admin Console uses the 
 
 Local mode accepts development-only `X-Admin-User`, `X-Admin-Roles`, and `X-Admin-Domains` headers.
 Authenticated environments verify a Google token and load roles from server-controlled bindings.
+Organization and project memberships are persisted and audited, but this POC still requires
+`PLATFORM_ADMIN` for organization/project membership mutations. Membership-derived authorization is
+the next governance slice.
 
 Roles:
 
@@ -33,6 +36,7 @@ write-capable agents require `WRITE` or `READ_WRITE` permission.
 
 CRUD/lifecycle endpoints cover:
 
+- organizations and projects;
 - domains and scopes;
 - preference catalog;
 - schemas and versions;
@@ -40,6 +44,19 @@ CRUD/lifecycle endpoints cover:
 - resolution and dynamic-memory policies;
 - access requests and approvals;
 - audit events.
+
+Organization workspace endpoints:
+
+```text
+GET  /organization-hierarchy
+POST /organizations/{organization_id}/members
+POST /projects/{project_id}/members
+```
+
+The hierarchy response groups organization members, projects, project members, domains, and agents.
+A principal must be an active member of the parent organization before receiving a direct project
+role. Organizations are created as `ACTIVE` immediately in this POC; other governed resources use
+their existing lifecycle transitions.
 
 Use lifecycle transitions instead of deleting governed records. Access approval creates or updates
 the active agent-schema grant in the same transaction. Rejection creates no grant; revocation or

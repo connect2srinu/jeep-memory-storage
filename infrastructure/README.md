@@ -5,8 +5,8 @@ database, Memory API, Admin Console, and related runtime configuration. Domain s
 are database-backed control-plane resources created through the Admin Console or Admin API after
 the application is healthy.
 
-Before applying changes, complete `docs/deployment-placeholders.md`, validate tests,
-and review the exact project and region.
+Before applying changes, complete the deployment-input checklist in
+`docs/deployment-operations.md`, validate tests, and review the exact project and region.
 
 ```bash
 cp infrastructure/terraform/environments/dev/terraform.tfvars.example \

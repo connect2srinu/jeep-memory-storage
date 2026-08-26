@@ -20,6 +20,14 @@ Verify `http://localhost:8080/healthz` and open `http://localhost:3000`.
 
 ## 2. Onboard a demo domain in the Admin Console
 
+From **Organizations**, create or open an organization, create a project, and then start **Create
+Memory Setup**. Example ownership:
+
+```text
+Organization: retail-demo
+Project: travel-experiences
+```
+
 Create:
 
 ```text
@@ -42,6 +50,8 @@ Profile instances created: 0
 ```
 
 `profileInstancesCreated: 0` is normal because user profiles are lazy.
+The default provider scope is `organization_id + user_id`; the project/domain registration controls
+which schemas the agent may resolve or update.
 
 ## 3. Start ADK Web
 

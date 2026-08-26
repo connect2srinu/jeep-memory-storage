@@ -189,8 +189,9 @@ see [Deployment and operations](docs/deployment-operations.md).
 ## Create a domain and schema from the UI
 
 1. Open `http://localhost:3000`.
-2. Select **Create Memory Setup**.
-3. Create or select an **Organization** and a **Project** from the advanced governance screens.
+2. Open **Organizations** from the left context switcher, then create or select an organization and
+   project.
+3. Select **Create Memory Setup**.
 4. Define the use case, choose that organization/project, and enter a DNS-style domain such as `travel`.
 5. Select catalog preferences and add custom preferences such as
    `travel.seat_preference`.
@@ -199,7 +200,7 @@ see [Deployment and operations](docs/deployment-operations.md).
 7. Register an agent such as `travel-assistant`.
 8. Set owned schema permission to `READ_WRITE` when the agent must save preferences.
 9. Request shared schemas only for data owned by other domains; those requests remain pending.
-10. Preview the generated contract and activate.
+10. Preview the non-mutating activation plan and activate.
 11. Verify the result names `travel-preferences-v1` and shows the expected backend.
 
 Activation creates the schema configuration, not a profile for every user. User-scoped profiles are
@@ -289,6 +290,6 @@ Start with [docs/README.md](docs/README.md). The canonical guides are:
 - [Deployment and operations](docs/deployment-operations.md)
 - [Admin API](docs/admin-api.md)
 
-Draw.io sources are [agent-memory-flows.drawio](docs/agent-memory-flows.drawio),
-[shared-memory-platform.drawio](docs/shared-memory-platform.drawio), and the Google service view
+Draw.io sources are the runtime/onboarding view
+[agent-memory-flows.drawio](docs/agent-memory-flows.drawio) and the deployable Google service view
 [google-cloud-services-architecture.drawio](docs/google-cloud-services-architecture.drawio).

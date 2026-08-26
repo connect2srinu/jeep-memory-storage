@@ -1,7 +1,8 @@
 # Guided Memory Setup
 
 The Admin Console provides the preferred onboarding path for a new domain. Open
-`http://localhost:3000`, choose **Create Memory Setup**, and follow:
+`http://localhost:3000`, create or select the owning organization and project, choose **Create
+Memory Setup**, and follow:
 
 ```text
 Use Case -> Preferences -> Scope -> Memory -> Agent -> Sharing -> Resolution -> Review -> Activate
@@ -11,6 +12,7 @@ Sharing and Resolution appear only when external schemas are selected.
 
 ## Information to prepare
 
+- organization and project IDs; create them from the **Organizations** directory if needed;
 - domain ID, name, description, and owning team;
 - canonical preferences owned by the domain;
 - data type, allowed values, sensitivity, and description for each custom preference;
@@ -32,10 +34,11 @@ POST /api/v1/admin/memory-setups/preview
 POST /api/v1/admin/memory-setups/activate
 ```
 
-Preview validates cross-references and returns a summary plus exportable YAML without changing
-database state. Activate transactionally:
+Preview validates cross-references and returns a summary plus an exportable review representation
+without changing database state. It does not create repository contracts or generated runtime
+files. Activate transactionally:
 
-1. creates or reuses the domain and scope;
+1. validates the active organization/project relationship and creates or reuses the domain/scope;
 2. creates custom catalog preferences;
 3. creates and activates `<domain>-preferences-v1`;
 4. registers or selects the domain agent;
@@ -45,6 +48,9 @@ database state. Activate transactionally:
 8. creates a dynamic-memory policy when enabled;
 9. registers the schema with the selected backend;
 10. writes audit metadata.
+
+Organizations are immediately `ACTIVE` in the current POC. The organization directory and its
+project/member forms are control-plane operations separate from Memory Setup activation.
 
 Choose `READ_WRITE` for the owned schema if the agent must save preferences. `READ` permits resolve
 but makes the schema ineligible for automatic write routing.

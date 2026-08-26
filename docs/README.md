@@ -14,18 +14,16 @@ longer represent the running system.
 | DevOps/SRE | [Deployment and Operations](deployment-operations.md) |
 | Vertex integrator | [Vertex Memory Bank](vertex-memory-bank.md) |
 
-Confluence-importable versions:
+Architecture sources:
 
-- [Platform Developer Architecture](confluence-platform-developer-architecture.md)
-- [DevOps Resource Lifecycle](confluence-devops-resource-lifecycle.md)
-- [New Domain Onboarding Demo](confluence-domain-onboarding-demo.md)
-
-Reference material:
-
-- [Shared Memory Platform](shared-memory-platform.md)
+- [Agent Memory Flows](agent-memory-flows.drawio)
 - [Google Cloud Services Architecture](google-cloud-services-architecture.drawio)
-- [Deployment Placeholders](deployment-placeholders.md)
-- [2026 Cost and Architecture Assessment](geap_runtime_memory_eval_assessment.md)
 
-The cost assessment is a dated planning artifact. Validate current Google Cloud pricing before
-using it for a funding or production decision.
+The Markdown guides are directly importable into Confluence. The former Confluence-specific copies,
+historical governance gap analysis, planning-only cost assessment, duplicate architecture diagrams,
+and standalone deployment placeholder sheet were removed. Their current material is consolidated in
+the guides above.
+
+Google Cloud pricing and service capabilities change. Use current official pricing and product
+documentation for funding or production decisions rather than treating repository documentation as
+a cost estimate.

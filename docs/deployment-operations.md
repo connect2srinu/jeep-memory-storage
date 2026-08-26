@@ -132,8 +132,39 @@ values.
 
 ## 4. Configure the environment
 
-Complete [Deployment Placeholders](deployment-placeholders.md). Confirm the GCP project, region,
-Agent Engine resource, identities, database, image tags, token audiences, and admin role bindings.
+Complete and review these deployment inputs before any cloud mutation:
+
+```text
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=us-central1
+AGENT_PLATFORM_MEMORY_BANK_ID=
+GOOGLE_ID_TOKEN_AUDIENCE=
+MEMORY_API_SERVICE_ACCOUNT=
+ADMIN_CONSOLE_SERVICE_ACCOUNT=
+REFERENCE_AGENT_SERVICE_ACCOUNT=
+DATABASE_INSTANCE=
+DATABASE_NAME=shared_memory
+ARTIFACT_REGISTRY_REPOSITORY=
+MEMORY_API_IMAGE=
+ADMIN_CONSOLE_IMAGE=
+REFERENCE_AGENT_IMAGE=
+ADMIN_ROLE_BINDINGS_JSON=
+```
+
+For an ADK consumer, also record:
+
+```text
+REFERENCE_AGENT_ID=
+PREFERENCE_DOMAIN=
+ADK_APP_NAME=
+MEMORY_API_URL=
+MEMORY_API_AUDIENCE=
+```
+
+Do not add schema IDs to agent environment variables or prompts. The platform derives schema
+selection from the registered agent, ownership, mappings, and active grants. Local Vertex-backed
+Compose also needs Application Default Credentials at the standard gcloud path mounted by
+`docker-compose.vertex.yml`.
 
 Copy and fill the development Terraform inputs:
 
@@ -164,8 +195,8 @@ export IMAGE_TAG=YOUR_IMMUTABLE_COMMIT_SHA
 ./infrastructure/cloud-run/build-images.sh
 ```
 
-Copy the resulting image URIs into `terraform.tfvars`. Review the script and completed placeholders
-before allowing any cloud mutation.
+Copy the resulting image URIs into `terraform.tfvars`. Review the script and completed deployment
+inputs before allowing any cloud mutation.
 
 ## 5. Plan and deploy
 

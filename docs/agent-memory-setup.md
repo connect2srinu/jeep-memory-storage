@@ -13,7 +13,7 @@ user-scoped memory; the Memory API is the enforcement and resolution boundary.
 | Admin Console | Guided onboarding and governed administration |
 | Memory API admin plane | Domains, schemas, agents, grants, policies, audit, provisioning |
 | Memory API runtime plane | Identity, scope checks, reads, writes, resolution, provenance |
-| PostgreSQL | Durable control-plane metadata |
+| PostgreSQL | Organizations, projects, memberships, and durable control-plane metadata |
 | `MemoryStore` | Provider-neutral persistence contract |
 | Vertex adapter | Structured profile retrieval, explicit overlays, event ingestion |
 | Reference ADK agent | Thin tools and Session snapshot injection |
@@ -22,8 +22,9 @@ user-scoped memory; the Memory API is the enforcement and resolution boundary.
 
 ```text
 Admin Console preview
+  -> select an active organization and project
   -> validate domain-prefixed attributes and cross-references
-  -> render generated contract/YAML
+  -> render a non-mutating activation preview
 
 Admin Console activate
   -> create domain, scope, preferences, schema, agent
@@ -35,12 +36,16 @@ Admin Console activate
 
 Schema activation never creates user profile instances. Profiles remain lazy.
 
+Organizations are immediately `ACTIVE` in the POC because no organization approval workflow is
+implemented. Project membership requires active membership in the parent organization. Other
+governed resources retain their documented lifecycle and approval behavior.
+
 ## Read flow
 
 1. Authenticate and map the principal to one active registered agent.
 2. Require `resolve_context` and an exact consumer-domain scope.
 3. Load active readable schema grants and their field mappings.
-4. Retrieve structured profiles and explicit overlays at owner-domain scope.
+4. Retrieve structured profiles and explicit overlays at exact `organization_id + user_id` scope.
 5. Normalize provider fields to canonical preference attributes.
 6. Apply deterministic resolution rules.
 7. Return values, source, owner, reason, schema versions, provenance, and
@@ -114,6 +119,24 @@ Capabilities permit an operation class; schema grants determine the data the ope
 - incompatible active resource: `409`;
 - provider failure: request fails; no fabricated success response;
 - shared approval pending: no active grant until approval.
+
+## Implementation invariants
+
+- PostgreSQL is authoritative for organization/project ownership, schemas, grants, and policy.
+- Memory Bank is authoritative for managed user memory; Session snapshots are derived context.
+- A canonical preference attribute has exactly one owner domain.
+- Schema domain, scope domain, and canonical attribute owner agree.
+- Read access never implies write access, and automatic writes never cross domains.
+- Schema selection, authorization, and conflict resolution are deterministic server operations, not
+  Gemini decisions.
+
+## Validation strategy
+
+Use API/unit tests for identity, grant, mapping, scope, and routing behavior. Use frontend tests for
+directory, organization/project navigation, forms, and wizard validation. A release still requires
+a live multi-Session Vertex scenario for schema provisioning, schema-less write, later-Session
+recall, user isolation, and cross-domain denial. ADK response quality belongs in agent evaluations;
+deterministic platform contracts belong in code tests.
 
 ## Current limitations
 

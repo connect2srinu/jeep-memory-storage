@@ -5,15 +5,19 @@ This guide is for a domain owner adding governed preferences and connecting an A
 ## Recommended path: Admin Console
 
 1. Start the Vertex-backed stack as described in the root README.
-2. Open `http://localhost:3000` and select **Create Memory Setup**.
-3. Enter the use case, domain, and owning team.
-4. Select existing catalog entries owned by the domain.
-5. Add new canonical preferences with complete domain-prefixed IDs.
-6. Choose the scope and memory behavior.
-7. Register the agent and give its owned schema `READ_WRITE` if it saves preferences.
-8. Request `READ` access to shared schemas instead of copying foreign attributes.
-9. Order schemas when resolution is required.
-10. review the generated preview and activate.
+2. Open `http://localhost:3000` and select **Organizations** in the left context switcher.
+3. Create or open the owning organization. New organizations are immediately `ACTIVE` in the POC.
+4. Open **Projects**, create or select the project, and add organization members before assigning
+   any direct project roles.
+5. Select **Create Memory Setup**.
+6. Select the organization and project, then enter the use case, domain, and owning team.
+7. Select existing catalog entries owned by the domain.
+8. Add new canonical preferences with complete domain-prefixed IDs.
+9. Choose the scope and memory behavior.
+10. Register the agent and give its owned schema `READ_WRITE` if it saves preferences.
+11. Request `READ` access to shared schemas instead of copying foreign attributes.
+12. Order schemas when resolution is required.
+13. Review the non-mutating activation preview and activate.
 
 Example:
 
@@ -40,6 +44,8 @@ The schema name is generated and remains an internal platform detail.
 - a Vertex `context_spec` update when the Vertex backend is configured.
 
 Profiles are user-scoped and lazy. Onboarding never creates an empty profile for every user.
+The default user profile scope is exact `organization_id + user_id`; project and domain ownership
+remain authorization metadata in PostgreSQL rather than additional Memory Bank scope keys.
 
 ## Automated onboarding
 
@@ -62,6 +68,9 @@ adk web --host 0.0.0.0 --port 8000 app
 
 The user speaks naturally. The model selects from `writablePreferences`; it does not receive or
 invent a schema ID.
+
+For a complete UI-to-ADK demonstration, including later-Session recall and isolation checks, follow
+[ADK Web End-to-End Demo](adk-web-demo.md).
 
 ## Completion checklist
 

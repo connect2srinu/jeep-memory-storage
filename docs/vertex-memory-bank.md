@@ -30,11 +30,15 @@ profile instance.
 For each readable grant, the adapter retrieves structured profiles and memories at exact scope:
 
 ```text
-user_id + app_name + owner domain
+organization_id + user_id
 ```
 
 Provider fields are admitted only when they exist in the active schema mapping. The runtime then
 normalizes them to canonical attributes and applies resolution policy.
+
+Project and domain IDs are authorization and ownership metadata in PostgreSQL; they are not added to
+the default Memory Bank scope. Legacy runtime request fields such as application name and domain are
+accepted for compatibility but do not select the provider scope.
 
 ## Runtime writes
 
