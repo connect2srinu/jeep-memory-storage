@@ -40,6 +40,7 @@ from memory_api.persistence.models import (
     ResolutionAttributeOverrideRecord,
     ResolutionPolicyRecord,
     ResolutionPolicySchemaPriorityRecord,
+    ResourceChangeRequestRecord,
     SchemaPreferenceMappingRecord,
     ScopeDefinitionRecord,
 )
@@ -764,6 +765,119 @@ class AdminControlPlaneService:
         await self.session.refresh(record)
         after = await self.get_resource(principal, resource, resource_id)
         await self._audit(principal, f"{resource}.updated", resource, resource_id, before, after)
+        return after
+
+    async def submit_domain_change(
+        self,
+        principal: AdminPrincipal,
+        domain_id: str,
+        payload: ResourceUpdate,
+    ) -> dict[str, Any]:
+        domain = await self._require_existing_domain(domain_id)
+        self.authorizer.require_domain(principal, domain.id, AdminRole.DOMAIN_ADMIN)
+        if payload.status is not None:
+            raise ValueError("domain lifecycle changes are not supported by this approval flow")
+        changes = {CHANGE_ALIASES.get(key, key): value for key, value in payload.changes.items()}
+        unknown = set(changes).difference(UPDATABLE_FIELDS["domains"])
+        if unknown:
+            raise ValueError(f"fields cannot be updated for domains: {sorted(unknown)}")
+        before = _record_data(domain)
+        changes = {key: value for key, value in changes.items() if before.get(key) != value}
+        if not changes:
+            raise ValueError("domain change request does not contain any changed values")
+        pending = await self.session.scalar(
+            select(ResourceChangeRequestRecord).where(
+                ResourceChangeRequestRecord.resource_type == "domains",
+                ResourceChangeRequestRecord.resource_id == domain.id,
+                ResourceChangeRequestRecord.status == "PENDING",
+            )
+        )
+        if pending is not None:
+            raise ResourceConflictError("a pending domain change request already exists")
+        record = ResourceChangeRequestRecord(
+            id=str(uuid4()),
+            resource_type="domains",
+            resource_id=domain.id,
+            organization_id=domain.organization_id,
+            project_id=domain.project_id,
+            domain_id=domain.id,
+            before_values=_audit_metadata(before) or {},
+            proposed_changes=changes,
+            requested_by=principal.principal,
+            requested_at=datetime.now(UTC),
+            status="PENDING",
+        )
+        self.session.add(record)
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal, "domain.change_requested", "resource_change_request", record.id, None, after
+        )
+        return after
+
+    async def list_resource_change_requests(
+        self, principal: AdminPrincipal
+    ) -> list[dict[str, Any]]:
+        self.authorizer.require_read(principal)
+        result = await self.session.scalars(
+            select(ResourceChangeRequestRecord).order_by(
+                ResourceChangeRequestRecord.requested_at.desc()
+            )
+        )
+        return [_record_data(record) for record in result]
+
+    async def decide_resource_change(
+        self,
+        principal: AdminPrincipal,
+        request_id: str,
+        decision: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        self.authorizer.require_platform(principal)
+        record = await self.session.get(ResourceChangeRequestRecord, request_id)
+        if record is None:
+            raise ResourceNotFoundError(f"resource change request {request_id} was not found")
+        if record.status != "PENDING":
+            raise ResourceConflictError("only a pending resource change request can be decided")
+        if decision not in {"APPROVED", "REJECTED"}:
+            raise ValueError(f"unsupported resource change decision {decision}")
+        before = _record_data(record)
+        if decision == "APPROVED":
+            domain = await self._require_existing_domain(record.domain_id)
+            for field in record.proposed_changes:
+                if record.before_values.get(field) != getattr(domain, field):
+                    raise ResourceConflictError(
+                        "domain changed after this request was submitted; reject it and submit a new edit"
+                    )
+            for field, value in record.proposed_changes.items():
+                setattr(domain, field, value)
+            domain_after = _record_data(domain)
+            await self.session.flush()
+            await self._audit(
+                principal,
+                "domains.updated",
+                "domains",
+                domain.id,
+                record.before_values,
+                domain_after,
+            )
+        record.status = decision
+        record.decided_by = principal.principal
+        record.decided_at = datetime.now(UTC)
+        record.decision_reason = reason
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            f"domain.change_{decision.lower()}",
+            "resource_change_request",
+            record.id,
+            before,
+            after,
+        )
         return after
 
     async def create_access_request(

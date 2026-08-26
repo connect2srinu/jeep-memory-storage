@@ -117,5 +117,20 @@ describe("Admin Console components", () => {
       />,
     );
     expect(projectAgents).toContain("Grocery Assistant");
+    expect(projectAgents).toContain("resource-card");
+
+    const projectDomains = renderToStaticMarkup(
+      <OrganizationHierarchyView
+        hierarchy={hierarchy}
+        writable
+        api={new AdminApiClient("http://memory-api/api/v1/admin", platform)}
+        reload={() => {}}
+        selectedOrganization={{ id: "retail", name: "Retail" }}
+        selectedProject={{ id: "shopping", name: "Shopping" }}
+        projectTab="domains"
+      />,
+    );
+    expect(projectDomains).toContain("Grocery");
+    expect(projectDomains).toContain("resource-card");
   });
 });

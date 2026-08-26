@@ -219,7 +219,7 @@ def create_admin_router(
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecord:
-        return await updated("domains", resource_id, payload, identity, service)
+        return AdminRecord(data=await service.submit_domain_change(identity, resource_id, payload))
 
     @router.get("/scopes", response_model=AdminRecordList)
     async def list_scopes(
@@ -433,6 +433,44 @@ def create_admin_router(
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecord:
         return AdminRecord(data=await service.create_access_request(identity, payload))
+
+    @router.get("/resource-change-requests", response_model=AdminRecordList)
+    async def list_resource_change_requests(
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(items=await service.list_resource_change_requests(identity))
+
+    async def change_decision(
+        request_id: str,
+        decision: str,
+        payload: AccessDecision,
+        identity: AdminPrincipal,
+        service: AdminControlPlaneService,
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.decide_resource_change(
+                identity, request_id, decision, reason=payload.reason
+            )
+        )
+
+    @router.post("/resource-change-requests/{request_id}/approve", response_model=AdminRecord)
+    async def approve_resource_change(
+        request_id: str,
+        payload: AccessDecision,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await change_decision(request_id, "APPROVED", payload, identity, service)
+
+    @router.post("/resource-change-requests/{request_id}/reject", response_model=AdminRecord)
+    async def reject_resource_change(
+        request_id: str,
+        payload: AccessDecision,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return await change_decision(request_id, "REJECTED", payload, identity, service)
 
     async def decision(
         request_id: str,

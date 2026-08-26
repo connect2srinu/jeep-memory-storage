@@ -119,6 +119,27 @@ export class AdminApiClient {
     ).data;
   }
 
+  async requestDomainChange(id: string, changes: AdminRecord): Promise<AdminRecord> {
+    return await this.update("domains", id, { changes });
+  }
+
+  async listResourceChanges(): Promise<AdminRecord[]> {
+    return await this.list("resource-change-requests");
+  }
+
+  async decideResourceChange(
+    requestId: string,
+    action: "approve" | "reject",
+    reason: string,
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/resource-change-requests/${encodeURIComponent(requestId)}/${action}`,
+        { method: "POST", body: JSON.stringify({ reason: reason || undefined }) },
+      )
+    ).data;
+  }
+
   async decideAccess(
     requestId: string,
     action: "approve" | "reject" | "revoke" | "expire",

@@ -348,6 +348,48 @@ async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> N
 
 
 @pytest.mark.asyncio
+async def test_domain_edits_remain_inactive_until_approved(admin_environment) -> None:
+    client, _ = admin_environment
+    original = await client.get("/api/v1/admin/domains/grocery", headers=VIEWER)
+    original_description = original.json()["data"]["description"]
+
+    requested = await client.patch(
+        "/api/v1/admin/domains/grocery",
+        headers=PLATFORM,
+        json={"changes": {"description": "Approved grocery domain description"}},
+    )
+    assert requested.status_code == 200, requested.text
+    request = requested.json()["data"]
+    assert request["status"] == "PENDING"
+    assert request["proposed_changes"] == {"description": "Approved grocery domain description"}
+
+    unchanged = await client.get("/api/v1/admin/domains/grocery", headers=VIEWER)
+    assert unchanged.json()["data"]["description"] == original_description
+
+    duplicate = await client.patch(
+        "/api/v1/admin/domains/grocery",
+        headers=PLATFORM,
+        json={"changes": {"description": "A second pending description"}},
+    )
+    assert duplicate.status_code == 409
+
+    listed = await client.get("/api/v1/admin/resource-change-requests", headers=VIEWER)
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["id"] == request["id"]
+
+    approved = await client.post(
+        f"/api/v1/admin/resource-change-requests/{request['id']}/approve",
+        headers=PLATFORM,
+        json={"reason": "Reviewed by platform governance"},
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["data"]["status"] == "APPROVED"
+
+    published = await client.get("/api/v1/admin/domains/grocery", headers=VIEWER)
+    assert published.json()["data"]["description"] == ("Approved grocery domain description")
+
+
+@pytest.mark.asyncio
 async def test_access_approval_grant_revoke_and_transactional_audit(admin_environment) -> None:
     client, database = admin_environment
     requested = await client.post(

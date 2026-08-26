@@ -5,6 +5,7 @@ import pytest
 from reference_agent.client import (
     GoogleIdTokenProvider,
     MemoryApiClient,
+    MemoryApiError,
     PreferenceCandidate,
 )
 
@@ -148,3 +149,39 @@ async def test_google_token_provider_mints_for_every_request() -> None:
 
     assert minted == ["https://memory-api", "https://memory-api"]
     assert seen_authorization == ["Bearer token-1", "Bearer token-2"]
+
+
+@pytest.mark.asyncio
+async def test_api_error_exposes_platform_reason_and_correlation_id() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            json={
+                "code": "PERMISSION_DENIED",
+                "message": (
+                    "request scope domain does not match registered agent domain"
+                ),
+                "correlationId": "correlation-123",
+            },
+        )
+
+    client = MemoryApiClient(
+        base_url="http://memory-api",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(MemoryApiError) as caught:
+        await client.resolve_preferences(
+            user_id="user-1",
+            session_id="session-1",
+            app_name="grocery-app",
+            consumer_domain="customer.grocery",
+            agent_id="grocery-agent",
+        )
+
+    assert caught.value.status_code == 403
+    assert caught.value.code == "PERMISSION_DENIED"
+    assert caught.value.correlation_id == "correlation-123"
+    assert "request scope domain does not match registered agent domain" in str(
+        caught.value
+    )

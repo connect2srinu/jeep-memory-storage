@@ -257,6 +257,31 @@ class AccessRequestRecord(TimestampMixin, Base):
     expiration: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ResourceChangeRequestRecord(TimestampMixin, Base):
+    __tablename__ = "resource_change_requests"
+
+    id: Mapped[str] = mapped_column(String(191), primary_key=True)
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(191), nullable=False)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    domain_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_domains.id", ondelete="CASCADE"), nullable=False
+    )
+    before_values: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    proposed_changes: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    decided_by: Mapped[str | None] = mapped_column(String(255))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decision_reason: Mapped[str | None] = mapped_column(Text)
+
+
 class ResolutionPolicyRecord(TimestampMixin, Base):
     __tablename__ = "resolution_policies"
     __table_args__ = (UniqueConstraint("agent_id", "version"),)

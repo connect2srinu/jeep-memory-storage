@@ -53,6 +53,29 @@ class RuntimeMutation(ApiModel):
     profile_version: int | None = Field(default=None, alias="profileVersion")
 
 
+class MemoryApiError(RuntimeError):
+    """Actionable runtime API failure safe to surface in ADK traces."""
+
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        code: str,
+        message: str,
+        correlation_id: str | None = None,
+    ) -> None:
+        self.status_code = status_code
+        self.code = code
+        self.correlation_id = correlation_id
+        correlation_suffix = (
+            f"; correlationId={correlation_id}" if correlation_id else ""
+        )
+        super().__init__(
+            f"Memory API request failed: {code}: {message} "
+            f"(HTTP {status_code}{correlation_suffix})"
+        )
+
+
 class TokenProvider(Protocol):
     async def get_token(self) -> str | None:
         """Return a bearer token, or None when local agent-ID auth is enabled."""
@@ -124,7 +147,22 @@ class MemoryApiClient:
             timeout=self.timeout,
         ) as client:
             response = await client.request(method, path, json=payload)
-            response.raise_for_status()
+            if response.is_error:
+                try:
+                    error = response.json()
+                except ValueError:
+                    error = {}
+                code = error.get("code") or f"HTTP_{response.status_code}"
+                message = error.get("message") or response.reason_phrase
+                correlation_id = error.get("correlationId")
+                raise MemoryApiError(
+                    status_code=response.status_code,
+                    code=str(code),
+                    message=str(message),
+                    correlation_id=(
+                        str(correlation_id) if correlation_id is not None else None
+                    ),
+                )
             return response.json()
 
     @staticmethod
