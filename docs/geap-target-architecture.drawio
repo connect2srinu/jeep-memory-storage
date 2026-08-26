@@ -1,0 +1,248 @@
+<mxfile host="app.diagrams.net" modified="2026-08-26T00:00:00.000Z" agent="Claude" version="24.7.17" type="device" pages="1">
+  <diagram id="geap-target-architecture" name="GEAP Control Panel Target Architecture">
+    <mxGraphModel dx="2400" dy="1500" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2620" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ============ TITLE ============ -->
+        <mxCell id="titlebar" value="Architecture: GEAP Platform &gt; Control Panel — Target Architecture" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#4285F4;strokeColor=none;fontColor=#FFFFFF;fontSize=26;fontStyle=1;align=left;spacingLeft=28;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="2540" height="58" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Entra ID → Admin Console UI → Backend API → PostgreSQL / GEAP services.   Solid blue = implemented today.   Dashed purple = target capability, not yet implemented." style="text;html=1;strokeColor=none;fillColor=none;fontSize=15;fontColor=#5F6368;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="44" y="92" width="2100" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ ARROWS (back layer) ============ -->
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="users" target="entra">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="entra" target="uiCard">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2l" value="Authenticate&#xa;(OIDC)" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="-0.05" relative="1" as="geometry">
+            <mxPoint y="-32" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="uiCard" target="apiCard">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3l" value="Authenticated API calls" style="edgeLabel;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="95" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="apiCard" target="pgCard">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4l" value="Authorize against the&#xa;organization / project role model" style="edgeLabel;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.15;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="apiCard" target="mbCard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="590"/>
+              <mxPoint x="1045" y="375"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5l" value="Configure &amp; govern memory" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e5">
+          <mxGeometry x="0.55" relative="1" as="geometry">
+            <mxPoint y="-22" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.45;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;" edge="1" parent="1" source="apiCard" target="arCard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1065" y="650"/>
+              <mxPoint x="1065" y="575"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6l" value="Provision &amp; evaluate" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#7627BB;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="0.6" relative="1" as="geometry">
+            <mxPoint y="24" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.47;exitDx=0;exitDy=0;entryX=1;entryY=0.9;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="agentsZone" target="apiCard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1085" y="1087"/>
+              <mxPoint x="1085" y="740"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7l" value="Resolve &amp; write preferences&#xa;/api/v1/runtime" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e7">
+          <mxGeometry x="0.1" relative="1" as="geometry">
+            <mxPoint x="-6" y="-40" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.78;exitY=1;exitDx=0;exitDy=0;entryX=0.17;entryY=0;entryDx=0;entryDy=0;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;" edge="1" parent="1" source="apiCard" target="agentsZone">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="851" y="850"/>
+              <mxPoint x="1250" y="850"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9l" value="Deploy &amp; manage agents" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#7627BB;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e9">
+          <mxGeometry x="-0.1" relative="1" as="geometry">
+            <mxPoint y="-20" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;" edge="1" parent="1" source="apiCard" target="opsZone">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="345" y="700"/>
+              <mxPoint x="345" y="1370"/>
+              <mxPoint x="2315" y="1370"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10l" value="Query telemetry summaries &amp; attributed cost — references only, never raw telemetry" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#7627BB;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e10">
+          <mxGeometry x="0.12" relative="1" as="geometry">
+            <mxPoint y="-20" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.805;entryDx=0;entryDy=0;strokeColor=#1A73E8;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="agentsZone" target="opsZone">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11l" value="Emit logs&#xa;metrics · traces" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#174EA6;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="e11">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-38" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============ IDENTITY COLUMN ============ -->
+        <mxCell id="users" value="Platform &amp; project users" style="shape=umlActor;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=14;fontStyle=1;fontColor=#202124;strokeColor=#5F6368;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="130" y="160" width="90" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="entra" value="&lt;b&gt;Microsoft Entra ID&lt;/b&gt;&lt;br&gt;&lt;br&gt;Enterprise identity provider&lt;br&gt;Authentication only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF3FB;strokeColor=#0078D4;strokeWidth=2;fontSize=15;fontColor=#0B4F86;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="340" width="250" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ KUBERNETES PLATFORM ============ -->
+        <mxCell id="k8sZone" value="Enterprise Kubernetes Platform" style="swimlane;html=1;rounded=1;startSize=46;container=0;collapsible=0;fillColor=#F8FAFD;strokeColor=#4285F4;strokeWidth=3;fontColor=#174EA6;fontSize=18;fontStyle=1;align=left;spacingLeft=18;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="370" y="190" width="660" height="620" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="uiCard" value="&lt;b style=&quot;font-size: 19px;&quot;&gt;Admin Console UI&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color: #5F6368;&quot;&gt;Control Panel&lt;/span&gt;&lt;br&gt;&lt;br&gt;Dashboards · agent inventory · governance&lt;br&gt;memory · evaluation · cost · traceability&lt;br&gt;&lt;br&gt;&lt;i style=&quot;color: #5F6368;&quot;&gt;Never calls a cloud API directly&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=2;fontSize=14;fontColor=#202124;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="430" y="310" width="540" height="180" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="apiCard" value="&lt;b style=&quot;font-size: 19px;&quot;&gt;Backend API&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color: #5F6368;&quot;&gt;Control Panel / Platform API — evolved from Memory API&lt;/span&gt;&lt;br&gt;&lt;br&gt;identity · organizations · projects · agents · deployments&lt;br&gt;memory · evaluations · observability · finops · approvals · audit&lt;br&gt;&lt;br&gt;&lt;i style=&quot;color: #5F6368;&quot;&gt;Sole authorization and policy-enforcement point&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=3;fontSize=14;fontColor=#202124;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="430" y="560" width="540" height="200" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ GEAP MANAGED SERVICES ============ -->
+        <mxCell id="geapZone" value="GEAP managed services — Google-managed systems of record" style="swimlane;html=1;rounded=1;startSize=46;container=0;collapsible=0;fillColor=#F1F8F4;strokeColor=#34A853;strokeWidth=3;fontColor=#137333;fontSize=18;fontStyle=1;align=left;spacingLeft=18;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="190" width="880" height="620" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mbCard" value="&lt;b&gt;Memory Bank&lt;/b&gt;&lt;br&gt;Governed long-term memory&lt;br&gt;&lt;span style=&quot;color: #137333;&quot;&gt;Integrated today&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#34A853;strokeWidth=2;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="300" width="390" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="mbIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(5VzbcuI4EP0aHqOSunV9nMrMVO0P7LtDnIRaBlKGTJK/HxnfdBsWbEPspCpVgMDy6dN9pG5JzgJvd0/Zc74Amu2e8+V+gd8XAL+zYpXdrW0z2G+eqkZOefV5k/3Kq6Z/82Kfv337p2rf7Yvtf/nr6n5fX7HaPOXFal99+9r0ognXZRP+WNBv9ovuD2+X283GolhtN7sF/Ez+5GFb5I/F9mVzn/g6+OlqvV5u19vCfqxeDxDK5tvyI1bI7vOH7GVdm74AzDOOKA7vf550j2z9/JSVFB5eD92wEy9/zkqyjv7Iv+DX9nfprbfqNkoSqL3yXrXQk27s95kVS/tmnRWP+Y19f/Owzh7d3mhR347J+vO7/3n3mufP8WX1VZK2IN9usrfV7qbY7rPSyd6v/T4nZYFD8wkWIEzPAgNfywd9ZLBcb3f5uRf9nx4lEtonHpYvRdUxq/tRpLEeYllh1PTOwvvT9/pCRQnTdVN9oTL9UK5Xmzwp9Ma1ihNjxjDfMRYiRjBmv76OaSQaffuZoQ2olgCnbRhQLQjVPlBXexg1tUhdVJBAjwMp9X3lIhgWAyEDrrkQk/J3X7lxCXH04kBBXULdADD3+RZQz32wB8HnPuN+Bi/ABWWJt/Y3JyTLVUJ+auJ+rDjg6eLg4e5uSfl1snvGowkVGUE+wiDNbEfBIM2AR/OU29YM0x2EdphGTYQ/SnPVD6c/SXm3bzixPYsxZmrPXohpwYQTmkuFJCyarO3M1CDrZmuncSBcbqLMosQRuUwksiAPGqSMwKH0Bp4T0VzZNyQiIlyjIUHOEcc5gQpxNONAjQ3PMEDqSykehAkVDyLOTN22D1C8d/vG33QkCXn2QkwLJpzQBp1JKV6mFC/HgqtUpHjQ8SDttnWKlynFm4Tie9MbeE7zSyneMxoS5Bxx3NQVn5jjmRHTywW92fKEZJCxCdrAz6uMQE3QBiG/mh/66eEys/EktenNazONCZfruWrTm6e+hh8+TJtMEd2uFjYyoITSUUoMIFIHCYciiho/3+BEBdlGCYHxIFcu5al4sOIOQhHORsBKg7zIZnjBWjORIkApOdEqAKmsNTLAqAwRw0tBIzoEzSYw69Vx5Cdjg1UFBNi+QQaJIY0zZE6RsICEdou7LWpGCSegitSLYx1MZudAFsC0cdcu97MQEiRw4zA+fUehZbO9/bAICBng1GYtxmegOwngKMoaF2mqjMwgh/cieGxFlTyYACxqWzr5WFGzWFncEBNitWVQpCw7JAx3mBfWNShZ7uKMUM3JKBR6Qo7EwAlFGWqWaBMu37gDvDO8KoCQX8s5hPz2ngouUtJBrwJ7YiWdEvMv6Qybf0n3GfzQb4HsIiXdJLV5bkk3xZg4t6SbojbPLek+gx8uqc3r7+NCeh8XeaYFXmcfN5GnMTrFiUifV/uzKa7B0LMEyxAnaAPQL+eHXnoYIyFIaFOK+WtTs/nHhFHz1+Zn8IMUk9GmTciIUWyUtUMRnYByNYZxW7sM4YDoliFQEoYsWIfgvCfcYA1VJ86F6J4rPRETrtkQs3NkERXLdSIZHDOwuVWLrNtidxoHLiAxjI9FQHwY3m1r8XrQIGUEDqU3WEiDeDGod1BEVEB8LN6j54jr/HiFVGTjYM1NtShI1wQctHi40tlORJjBo1vI5NyfG3KJnunDW8j1F/PCBz2+lRCl5LNXpaazjwcjZ6/KT+AFyT9Qloz5gxzoMbZ6AQk2+U6711vKC4LNXpY4VW/zIhokUAwFYTo6VM9HySVLEFyFzw0RimOk1YfOw11vS0+zxd0yYZ3Rgmj3dBNlAAje0YNR2yAiLAbBwmfA+vUc8cAZQRHwwNtTxC0NvDu90G1Phyd/Sl7CrWlUxOjhFJSjjwgejcGR6opD5xhywAhVcSxAcATioAAeygKC40895Xu9euLQR/S/Jg6t1X/MwB9/AA==);" vertex="1" parent="1"><mxGeometry x="1180" y="344.34" width="62.0" height="61.32" as="geometry"/></mxCell>
+
+        <mxCell id="mpCard" value="&lt;b&gt;Memory Profiles&lt;/b&gt;&lt;br&gt;Structured profile generation&lt;br&gt;&lt;span style=&quot;color: #137333;&quot;&gt;Integrated today&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#34A853;strokeWidth=2;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1570" y="300" width="360" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="mpIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(5VzbcuI4EP0aHqOSunV9nMrMVO0P7LtDnIRaBlKGTJK/HxnfdBsWbEPspCpVgMDy6dN9pG5JzgJvd0/Zc74Amu2e8+V+gd8XAL+zYpXdrW0z2G+eqkZOefV5k/3Kq6Z/82Kfv337p2rf7Yvtf/nr6n5fX7HaPOXFal99+9r0ognXZRP+WNBv9ovuD2+X283GolhtN7sF/Ez+5GFb5I/F9mVzn/g6+OlqvV5u19vCfqxeDxDK5tvyI1bI7vOH7GVdm74AzDOOKA7vf550j2z9/JSVFB5eD92wEy9/zkqyjv7Iv+DX9nfprbfqNkoSqL3yXrXQk27s95kVS/tmnRWP+Y19f/Owzh7d3mhR347J+vO7/3n3mufP8WX1VZK2IN9usrfV7qbY7rPSyd6v/T4nZYFD8wkWIEzPAgNfywd9ZLBcb3f5uRf9nx4lEtonHpYvRdUxq/tRpLEeYllh1PTOwvvT9/pCRQnTdVN9oTL9UK5Xmzwp9Ma1ihNjxjDfMRYiRjBmv76OaSQaffuZoQ2olgCnbRhQLQjVPlBXexg1tUhdVJBAjwMp9X3lIhgWAyEDrrkQk/J3X7lxCXH04kBBXULdADD3+RZQz32wB8HnPuN+Bi/ABWWJt/Y3JyTLVUJ+auJ+rDjg6eLg4e5uSfl1snvGowkVGUE+wiDNbEfBIM2AR/OU29YM0x2EdphGTYQ/SnPVD6c/SXm3bzixPYsxZmrPXohpwYQTmkuFJCyarO3M1CDrZmuncSBcbqLMosQRuUwksiAPGqSMwKH0Bp4T0VzZNyQiIlyjIUHOEcc5gQpxNONAjQ3PMEDqSykehAkVDyLOTN22D1C8d/vG33QkCXn2QkwLJpzQBp1JKV6mFC/HgqtUpHjQ8SDttnWKlynFm4Tie9MbeE7zSyneMxoS5Bxx3NQVn5jjmRHTywW92fKEZJCxCdrAz6uMQE3QBiG/mh/66eEys/EktenNazONCZfruWrTm6e+hh8+TJtMEd2uFjYyoITSUUoMIFIHCYciiho/3+BEBdlGCYHxIFcu5al4sOIOQhHORsBKg7zIZnjBWjORIkApOdEqAKmsNTLAqAwRw0tBIzoEzSYw69Vx5Cdjg1UFBNi+QQaJIY0zZE6RsICEdou7LWpGCSegitSLYx1MZudAFsC0cdcu97MQEiRw4zA+fUehZbO9/bAICBng1GYtxmegOwngKMoaF2mqjMwgh/cieGxFlTyYACxqWzr5WFGzWFncEBNitWVQpCw7JAx3mBfWNShZ7uKMUM3JKBR6Qo7EwAlFGWqWaBMu37gDvDO8KoCQX8s5hPz2ngouUtJBrwJ7YiWdEvMv6Qybf0n3GfzQb4HsIiXdJLV5bkk3xZg4t6SbojbPLek+gx8uqc3r7+NCeh8XeaYFXmcfN5GnMTrFiUifV/uzKa7B0LMEyxAnaAPQL+eHXnoYIyFIaFOK+WtTs/nHhFHz1+Zn8IMUk9GmTciIUWyUtUMRnYByNYZxW7sM4YDoliFQEoYsWIfgvCfcYA1VJ86F6J4rPRETrtkQs3NkERXLdSIZHDOwuVWLrNtidxoHLiAxjI9FQHwY3m1r8XrQIGUEDqU3WEiDeDGod1BEVEB8LN6j54jr/HiFVGTjYM1NtShI1wQctHi40tlORJjBo1vI5NyfG3KJnunDW8j1F/PCBz2+lRCl5LNXpaazjwcjZ6/KT+AFyT9Qloz5gxzoMbZ6AQk2+U6711vKC4LNXpY4VW/zIhokUAwFYTo6VM9HySVLEFyFzw0RimOk1YfOw11vS0+zxd0yYZ3Rgmj3dBNlAAje0YNR2yAiLAbBwmfA+vUc8cAZQRHwwNtTxC0NvDu90G1Phyd/Sl7CrWlUxOjhFJSjjwgejcGR6opD5xhywAhVcSxAcATioAAeygKC40895Xu9euLQR/S/Jg6t1X/MwB9/AA==);" vertex="1" parent="1"><mxGeometry x="1600" y="344.34" width="62.0" height="61.32" as="geometry"/></mxCell>
+
+        <mxCell id="arCard" value="&lt;b&gt;Agent Runtime&lt;/b&gt;&lt;br&gt;Managed agent execution&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Target integration&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FE;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="500" width="390" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="arIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(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);" vertex="1" parent="1"><mxGeometry x="1180" y="544.24" width="62.0" height="61.52" as="geometry"/></mxCell>
+
+        <mxCell id="evCard" value="&lt;b&gt;Evaluation Services&lt;/b&gt;&lt;br&gt;Datasets · runs · metrics&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Target integration&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FE;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1570" y="500" width="360" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="evIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(zVrbbhs5DP0avwoSqetjkW2BBXY/wpu4jbGuHThJm/z9Sp6LNOSkdjN0sECBNPRofESRh4dUVnjzeL9+2KxArx8fNrdPK/xjBfBjfdyu/9llM+RP7juj1U6ZzrJff990xk9//r2+vd/uN39t1sf9dv+te+Dx6Xj4d/Nze/fUL97u7zfH7VP36c/hhV5hSsWGn1f6U/6k/sOb28N+nxFtD/vHFXyZfeTr4bj5djw87+9mPiaPbne728PucMy/dj9PGIr5pvwKHbS7zdf18653wwrQQnRf7en/X85+x8O6bPeXD00XfD/8KK5/6b4OAZXvYLx2Fn3RFxO3PR+7l5r+rSapbgP6BQaTU6j7s3zBwQjV+GpaAPq1X2iU784rm/pldjT9Hsxdjpm6dbBhsvEgsXOwZN9gge97Yhz2HXC68RCUGZ/pF0YzrluKs4UFFDxSF/XLolNuxNSvimmMoH5Zgt6y5HimsdHHggsqicSnU5buvgStI/HZZEe/1HiyfeOB7r+aFsKEoAIBiUZFAhKtShRkxQQUNy7z5fSUrNbKjPm56Pjp7huqrvufGnEOxBCqfqCgMaG8gqkP3pXyJEwb7y9jJ3b6+ajJ7ktAxPMh2jAmTDkVF3D87vC4+d1F54oNRgmm8J7F4LuJkryaITbZIlB7ovkYuO90sMBhm2AHOu2xOAlWMD7QrMhsN80J4xLNCUfo0JOMKCEkgc4x4WMwKU0FQEoq0vqfIVDONkFpKn6Mq9G+DKzXtZiPaDWtgUYTdklOAeWXjGqoVAPOYpJASdypp+gIODBRERlVCNlQJwJqIZbWhKFV+rX7AMOM+yzS0gTWiVTR5kDH0FfhkngsCCLB6VkJxbFDW4gzM1Vk0dik09u5jZYUekyVegaYyYmQD1DqCezAM+/ZKUBLJXNua0lHo91i8ueEa6XOJtJzyeIq0RgyuRFgTU3TwNfNG2XY6QgBzcHBupqcAkAlI9jEJWOJG0LBmDMzUvY4xbwIe0CMleGrxo+sEUECtWSi5TTiONgTkcgIUkuYBC3x6mioHIKNm6FSoKWdbWHkKNLaVlQjzDEG3/ZnrhJA07StJsJVrT1jqLFgL4rTttrCXFUWlwqgk0o0Tk3t/FsOIOQ3FTHAtI6wAIuBgjT08FuiNEQOApGLuES6yohoO+0/9BA4Sx3lWABqoN1l9gx1lYExcsfgc47miQlRJE/AaUX5PPfxgcBMnoqCshlL0znxWaKcEmxxwYj+rD/BGhUYRToKMw7bWZrIwNqnJhLe1jCl5hGQiNCoxoFZHQjxuPE4RNUI1XreSxmYGaYWbIHyebsHYb+m2IjqYd4ETW0fiARm6NyxOm6uGagTXDDi9xc5dppEDXO46xDA9MiBh8bbIdvSElTyosPa9xLqZeyON/mZCy5putuiS9537lZp/lIprdd67T/wUokM5LTSzghdLTmmmA2jsHJ9QOKhQmgul9zVLpeUucb1kqb03ZqQf7lhs29g83HJaxu+8QQigqUoAaTlNdLxQGMatp64WNZI60A1LZ6/ksAXG3HTyzCpmXGM5AIju1AiBRDdR96LBFpqp4dheMIDpwVcSFbLFT/YRK48BXISPO0igkRUlvd69l4Z9TeX7kVgswa5SH+mqIr45908u6g+aSoh6e9pUWpbF+QOa+U/Ff+xTtdaoSp09a+RNwD+bItcxHNkijrLbFZBSwsgk+pF51neAszoVMflP1OpqD336fK5a0qEP0VH4u8biCPr1ZKl5b6Y0v9qKG5pVa6mpcMOzbveGTIp4yvWnrW4oP7BQbqSN8sUnVFJGWHPDAb5+Nry8XVgw2uZwTUfWls6ZI1qZmyNfGgd+MjaXWdgHRUbWXOQZWjNR9ZwndrRYhphWgZzxpdg+bia33QaJ6TmqEwsbxaa2Dex0w7Dz0b8aXOUR06j8JlBuEBrIyHNPnBucHoH+3vVk7X7C1z8/B8=);" vertex="1" parent="1"><mxGeometry x="1600" y="544.1" width="62.0" height="61.8" as="geometry"/></mxCell>
+
+        <mxCell id="geapNote" value="The Control Panel stores configuration, ownership and references. It never duplicates managed memory or evaluation data." style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;fontColor=#137333;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="680" width="780" height="56" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ POSTGRESQL ============ -->
+        <mxCell id="pgCard" value="&lt;b style=&quot;font-size: 17px;&quot;&gt;PostgreSQL — Cloud SQL&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color: #5F6368;&quot;&gt;System of record for Control Panel metadata&lt;/span&gt;&lt;br&gt;&lt;br&gt;organizations · projects · users &amp; memberships · agents&lt;br&gt;versions · deployments · resource configuration&lt;br&gt;access relationships · governance · audit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=3;fontSize=14;fontColor=#202124;align=left;spacingLeft=112;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="430" y="900" width="540" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="pgIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(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);" vertex="1" parent="1"><mxGeometry x="460" y="959.27" width="62.0" height="61.45" as="geometry"/></mxCell>
+
+        <!-- ============ AGENT EXECUTION ============ -->
+        <mxCell id="agentsZone" value="Agent execution — two supported deployment models" style="swimlane;html=1;rounded=1;startSize=46;container=0;collapsible=0;fillColor=#F8FAFD;strokeColor=#4285F4;strokeWidth=3;fontColor=#174EA6;fontSize=18;fontStyle=1;align=left;spacingLeft=18;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="880" width="880" height="440" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="crCard" value="&lt;b&gt;Cloud Run agents&lt;/b&gt;&lt;br&gt;Current deployment model&lt;br&gt;&lt;span style=&quot;color: #174EA6;&quot;&gt;Deployed today&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=2;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="1000" width="390" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="crIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(3VltbtswDD1N/hoiKcvSzyFrD7AbuImzBnPtIh9tevvJlSXHlLGmtZoOBQIEoW3qUdR7JJ0FLff35WO1QFHuH6vVYUE/F4hP5W5b3tXWjPbKvTNKoTJ0lqZ8qJxxWbfH9a9j4+z7w679Uz1v14f+mW1zX+22B3f12fvRGXUWulmIH9Y+fGi5apvGwti2zX6Bt5O3bNpd9XvXHpv1xGV267auV23d7uxP9/2KoDMvu5/SAVtXm/JY97EvkDZ3dyvhrt2+ucZj2QX7z5vGDzy0T91+n9xyBrPcoXhxBkTRb/Ptu9yujjvnF5wfrTJwjk/YW0SwkLMURab6xYGvLl76xxBU1m/UC3mTd/U+jPW2OQudeOTyQ0554CEAH7cMhh4+YAiofwbyzIyjVmFnyKOlBOAsOjVGh8Yv7eERhRT4kMbYWDZsODg7GSCKsCm9xegkBxHsYSnGMYOVkmIctF0sZ0dRDOcuHMXcPzccRZMAo1E8LUYGCwWmcrKAyTRDiIFkASGmIMukTnyILnW7ry4RNnvPBdrmRPYSf2+JMU2LcVVKovw6YoxChuylVWMwRUQCA5wEoA2n/jUFGSy94DMkGSCc3hA9yGAKOjZwxz9YhFMfpGMced6TciZAzKP0EEUAyfRFYADIkwOc/nkCcSZjInGGJOeya+qY8oX+bAhcCooyYyWT2LkUgymcS7+J82CSpY8ZwyStWdm0/Y2OyVNwgcaYPEWKAqrG+qwwM7Od+uqWuiZ3u0CsD4Eo7YOqfElRRqF5K9ctz3rYTrPx6+rydMn4VoUZpwszyVLndJ3CXORBWXjW500gY6+kZRJ6Caao0fjBDiwZ5KySAjirpEghpZBz5oOKBiTNeX82/A8IFafUYJrJfOm3I6i94MWYKEYIHCHygkRGfcKo5LuSmZmJ9a4z8SZETExKOqrETOuETKB1kyz8VlI3rXQSdb650vsgUsOYmVLqQMls3EuQzDOZvEP56CQSScBQw09xDT9RXNbPugaIG1OICZFgU7Vim5rIL0TJSlSZukmM4kmMNX4A4aXUUKIE76nIaC6vneIWSeYx5NkHVBFMNLzj9zXyGlWqmxD5XlIM0g6NcEGpymOYlOIlqx0d2YsjO+5AktGR+Ex21iWcKG4cArX5BCHMFD8TBD8ppv95xXr1Ef3J8Wp1/9XQzV8=);" vertex="1" parent="1"><mxGeometry x="1180" y="1054.16" width="62.0" height="61.68" as="geometry"/></mxCell>
+
+        <mxCell id="arAgentCard" value="&lt;b&gt;Agent Runtime agents&lt;/b&gt;&lt;br&gt;Target deployment model&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Behind the same adapter&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FE;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1570" y="1000" width="360" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="arAgentIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(1Vzbbts4EP2avBKcGV4fi2z7H97WbYz12kGS3v5+h5IsiaNB17VoJwVaBKEt6XA49znKHd0/P2wet3doN8+P248vd/TXHeK3zdNu8/eel5E/eegXnXX974fNv9t+6d2X7eHluV99fnk6/rP9vvv0Mnx/d3jYPu1e+k+/n+4RDaAva/T+zr7jT6Z/dP/xeDgwiN3xwDf9oH7l8/Fp++Xp+PXwSflYfHW333887o9P/Gv/s8NQlu/Lr9hD+7T9vPm6H3Z+h+Qw+c/9Vj+c9YzN/vFhUyTY/exuA2de/rgp0vrll+oL/j1+K4f1o39M8MaGYRs/+yV71pOF2L8+9XeF4bbW5BD72/7Afs0HkyINazSskYkuD4+H+fPtz+EyMD7AsDRc5UxI4QKU+91hvnWD46MHNGjgohvL7dt657be9PzBwwU+GUeu3nhIvHNX7zw6kwBXb70S+yBmREMX3VpuvjpnVPSBFNWDEwrPgkhCAzDWUjgtrDr98nQnRBBbqH424FO9/UiGlavefgyGYpDbj3LrRR5Bbv/So6pFAEh8UqGSwcUKJsUAZE9+epJDvUgaDFCUHxUjoZUmW4uiOox1TkYKojp7nOlIOMMcZr6v9iWn/V/krPfH5+3vXlSHDbRkpPUkkwezX6k5ORqbpOZkMPxfaE5KJgbhSmc4RqGxweSYaslhNraFvRcQfjzME9zAeyCUiu6nb57gMoxghaInMhZJGr0zZKEB4OQMWoGXwIQgFJJtNVqpkKylzgu4bIAmOyFeSNHQ4MnX4S2WSMKA0JogDaisuYUyZNYQL/Bmz98U8kVbPEkLuAWGhMtbQFyIN6QklMGyQkMWygt8tRUhEIEVzPkGePno8fTIE96iIimeo70MA70ETGnKAEbAMbOStAAMgRMMYW7FBk8GXnkHKWHi48lZuAfiqEdZJJllMbcJhbmIWHqIzstlqcLsVoXJUWLEY2w6IeYTyk7oRLfo16dGvXOnyrtf/9650b1jo3sv7Bo4dwlC8fhY2QxFWCohyJ0C2HSME5DZMc61ca54TSylAIkWpC+yo46NiBOY0WBhguGsBMzmk4Jq2i1iKXGgTrJu5MRslg/QtBiskDESx3SbpPuMUwJWu88W2Qol5NAp/CdxRAwk4+l8cXKgxblLyCUMyKKnC1AZmkCeo8PZPrwiZT86RpiFTy9jagm0MSg5gGuBuKhAEDUlcd2AIWuaLBGn0jOSVWXwU6Bun2UVM0Mnba8YJC29hUdXIy4ZoLS9LlOMyyS2SZVSHBkASbh2lhvMY5SPQo05wU4LleA1qRCX1gjrSxal08V5SmjQSmDVz+SrOwcyvk2LokbMKQ1dJMD6zqybMGZGqxBfp5aMXI5Qmwjo2QpFQEHiB8qAwlks1+QioGQOR45kS6aAk9WZ4xIotUgWS+7to4wnQJx7CEMkcgZkvRORM3dZn2U7VVB1OGlTQLCzyk7IOJXsIZ4hY+TLowyAxOBGkxqv5kAemjg7VoAEXjo7P3bVhLMTmRFyqHRJdOoIgOtdmcrxPjxBkxoCjZWQIbLRoqzTXJoFO5ih8wJy2Yd37lpSLm3KhEIvMutsEvky7wIAZSrH+02yjVNUxWt1e4sko0AjEQHLHqKMgKqEOyOTpXtnjvFarqI7/oyyrsRl56lysTD3YwJw5/CEhC93xutjAzlcxECMTUoNissRFRXHIBM0Ko0w2Vg6gZh0M5aOtXSynI22GFWVfFAOq4hzvzbTqnEvoyuM0nFXzx8l6JdDK3J+ObUiD03GVvVJDGs5N5pb1YePmpqQppVwyqlwOboaJ97j6NK69WLoHl9nTJfddyEC9k2L4RV5u5xekafl+MrJRnYvE1EVXn5iMom1i/HV5ZomRTHjGUyiqBdJwwGaHaBmMbTWjoVWVCey1v8sNKNSApyrSzjDOGrvKN3M1EiKbyfMEOeDLapDCmFRHhIXYL6RHxCouWhsUSESxEWJeCnqMw+I7vk7Z9BZesrMudSaX9F3dPZO3mzsJtyGfqMdoX397OZWFBwtr2lGwrkwrbkxFUfLadpxcVbmNLej42g5TRs+zsqc5raUHC2naUbJWZnS3JiSo+Uz7m1kM2+WlqNmBOlqaUyTLreGuVGbW0tiXrHPzcm4t164OGfArvcbxRDzadL7c2o0Rduki17unuTo22c+t3O66B2QLBgMZTHlV2ijx1VddPjjuujhz+ui41W76ARKFz0qPV4kr3TRk9JFD6h00SlCA4ouF6FWFvW2FYtqQUr6DR4VTMSX1+dRRUXhIJ1NpEoakaoVIcldlZDkFUKSZJ70hCQ4m5CE1yQkhRwVQhIEhceB4faUJFmgFhhJzB+ufW/fjErlNSoVaFQq0KhU/hWoVF6jUpFGpXJvhUrlNCqVU6hUKWtUqqBRqfxVqVSgUanS/5MCX4VJVZrYsoDvkumoIPaSFFiA4ILDwUlfhCXiy3Lx67CT2sw517yJd9shZ7jiiPO3X8i7/XBTeSev3WxzzTt5txtsKu/ktZlrrnkn77ZDTe2dvHZDzZUv5d1+qKm8l9duprnmzbw3PtDUyK6N5pkK27XNOFPD3GiaqfBd/4BhZnePxV8r6Fb7P7lA7/8D);" vertex="1" parent="1"><mxGeometry x="1600" y="1054.24" width="62.0" height="61.52" as="geometry"/></mxCell>
+
+        <mxCell id="agentsNote" value="Agents never call Memory Bank or any cloud admin API directly. The Backend API is the enforcement boundary." style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;fontColor=#174EA6;align=left;verticalAlign=middle;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="1200" width="780" height="56" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ OPERATIONAL DATA ============ -->
+        <mxCell id="opsZone" value="Google Cloud operational data" style="swimlane;html=1;rounded=1;startSize=46;container=0;collapsible=0;fillColor=#FEF7E0;strokeColor=#F9AB00;strokeWidth=3;fontColor=#B06000;fontSize=18;fontStyle=1;align=left;spacingLeft=18;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="2050" y="190" width="530" height="1130" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="logCard" value="&lt;b&gt;Cloud Logging&lt;/b&gt;&lt;br&gt;Logs &amp;amp; correlation&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Read integration: target&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="2100" y="330" width="430" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="logIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(7VjbjuIwDP2avlaJ3ZbmccXOvO43BChLtZ0WtcDA3296x43FspMyaKSRRmJ60iT2sY9t8HBZ7fQ+8UDoap+sDx7+9ABOukz1KjMwmJVdCwYibJ9z/Za00K9VlZQnvUqz9HBpF6tDWfxJ3tPNoduW5rukTA/t6vtwlC9EXGP44okfZmX8w+W6yHNjS1rklQev7Cvbokx+l8Ux3zDLk1fTLFsXWVGax/azsaGGl/UjtKZtkq0+Zh0BHmAAcbgNmv9f77pDZ/udrolsPptj5J3b97pm6+ZLdMNbcapjdm6vQejZBHFpIXHXzRPaj2V7quysD3zELuZn6M4dbzqjBV3k9e3iAuNBsOgw7G3+gIVZml+5LSyvcYEz+H3tIzBUIMN6txWV8KPOiMH9QTi97z3g4rxx1XL/Y+dO3W98iCUl4EqxIwME7CkYvQWOE3SJFKWAXu+QVlMGqLPA0YJcFCST7kAVgQ7yzIoq+d9N/ywUM+iQS8VHHTtD2nAkfKxuuAcEBPjhxBhloDmqt0Iju4mMZRyN9/VJTMA+iQcrhhRWyo+iiYyliH33WkYN6JhR4Tw0EI+B4wa5WPTFUNSVfyJmlNKflPQRcjMXzDkYTJquccKOGgEHc68sA84DdGOXxo2a4JYRNhGxHTfKzq24kWQFK6XRTWr3CR+X5p07Rrt2fLx3zLw1yvKTrNJa6OiTRtGv1QvEI8ZHe3Tsp4EzHX6/x8avPTa6938p7f4vg3kqqBTMAKCY/q+Y9j8aMX6LC0NmAIiCGRqJelz/V1z7F0z7p6F4UvuXwLR/CUz7J+Bz2j81wS0fbCKY9k/ZuRU3mqtg5zQ6am2G0V/Z0jfhmmd4ihnpw4LRPgF79kYzBu5MHtniNzV6jily8Tj1U5+BYwe5cDxJ/igY+aNg5E/A58ifmuCWETYRjPwpO7fiRrMV7KxGR7193heA5gzr1+4GbX+5x5e/);" vertex="1" parent="1"><mxGeometry x="2130" y="374.0" width="62.0" height="62.0" as="geometry"/></mxCell>
+
+        <mxCell id="monCard" value="&lt;b&gt;Cloud Monitoring &amp;amp; Trace&lt;/b&gt;&lt;br&gt;Metrics · latency · spans&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Read integration: target&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="2100" y="560" width="430" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="monIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(7VrbcqM4EP0aP0YldUsIPW5lZ173G5iEJK5ljAs7E/P3I8xNamQva+RdZzxVqYppkDjn9EWiYYWPu7dsm6+AZ7tt/rRf4Z8rgB9Ztc6+FdYM9sxba5RJ2h5vsu95a/prm1fZfl1udu2Z3b4q/84/1s/7bsx685ZX63179sObB7+s+B/WOv7h41O52VgQ7YRfg5e8lFX+WpXvm+fAaXLpuiieyqKs7GH7/3j/xvzYmhtUz/lL9l50xFeAJst4lhx/f511i6zYvmWNgMf/x2nEzOHbrBHq7EX+gO/lj8ZXh/Y2gLLlULfHfNZtieTvVTul6KBrwaRp+fMDdEYBTCN2RmyNScoU6g6AcBHwuhsHkg0Qp6OWAXXm7mFyHyD3sXkkeoQe3R5jr+sygNwH5+I9oyCYhCkufZSoFINE+yjRGCYTjOFzz70hZQ5II64bKiWyJPHRDoWiR9obFjrcVeYQUuYQUGZEOqCCAPTomrqzH6gwB6SYRMjREAqJqDE6IgqIclZOP3FCdSJ6xvu+DolzMkzdQuQXixoX1M6i3OX/dtD5Eo4QQyipGKYknyUStw6GIfiAeBOAJUJfJe6QpIYP+ZQbvatqSqwmxBYWRZf9ABNIagApMkgywkccVcMBS8hdJyX0nUpo1bgkCuNnQ9IUo0vWjqx6sj+KrHrNH+zvh5cie/XSvuruKDp/VbV/vPvI8+10WI9T9GXzITusdw9VuT9ug/3K0h5pc6Mcht3IP3Mw6kY5KH5Xfrg4HyLkZlM4EMDDI7hdfAFvT9QG2AB2hrANudsk4qo+hwimN0rEArtPj1ycIxGS1il6PZ5+7bopUZ3CNkfTyzZQV+bgaj2Hg+K3x8FZ6O/GD+KKCyo+2mtmdPnaTuLcjuO5piaEu5oSUvUiP09bslhv7u8p2SctaeH+3fH5FTo+NuzI/kAzzuMENGeGK9KxwISlgrgXrctTEtcujtG93LoyIe4VQtjh6fKs1jZzlB/kwtq0UDHaxYkNV2VoEz5lMEg0xA4yY0gnViR2KQRF5LBzKk6aJa5xYcvJSMZBkLZOw8OQxrFnHCG76MCdU03KU6SY89FBiMc5lUFbozakG9XsmKnKrnFhYBzvSdPETj9R2TMO9d9DByEe0VX20Q2Q7YOIpnXQ7uDsUk9UFoZpQ2IZGh5SkFi2w+1eYXFqo7LP34I0C6wcKKJ0PhP7bJiQPPGNGMIxtEBTxpPJQqaZoZ3kyyvddCVDJlLqQWkYN6QajeuDcGuwpIXZrda4eCmJ37sVRrModVxJJoC8LgDNGa3io2lQboAwRr1AluqrvEtzMUEI+8mtintVPWVYTxguBOpqMNZsTRV15ZtyrEMc4yrqYgr577SinpenDGtcGKMRtoFpalcMvP3WDNod2QD0s/YEPLU/a3NGcnmHnhD/0/sOfoWH79+fBC37JOh8V+hXfe//37Uaj3NMvrA8WtvPRPHLTw==);" vertex="1" parent="1"><mxGeometry x="2130" y="604.0" width="62.0" height="62.0" as="geometry"/></mxCell>
+
+        <mxCell id="bqCard" value="&lt;b&gt;BigQuery billing export&lt;/b&gt;&lt;br&gt;Cost allocation source&lt;br&gt;&lt;span style=&quot;color: #7627BB;&quot;&gt;Read integration: target&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A142F4;strokeWidth=2;dashed=1;dashPattern=8 6;fontSize=14;fontColor=#202124;align=left;spacingLeft=104;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="2100" y="790" width="430" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="bqIcon" value="" style="sketch=0;html=1;fillColor=none;strokeColor=none;verticalLabelPosition=bottom;verticalAlign=top;align=center;shape=stencil(3VnbbtswDP2avAoSKcv249a17/sEt3XbYFlcJL0kfz+5jnUh1bSL1HYYMKALY1OHh+QRpSzwbHvX3fcLkN32vr96WOCPBcBTt1l2lytrBvvN3WTUtZw+r7vf/WT6vrz9+dhv9pN9+7AZfvXPy+uHwxvL9V2/WT5M3z7PXpSoRgueL+Q3a/f/8OxqWK8tiOWw3i7gIvnIzbDpbzfD4/o68TV5dLlaXQ2rYWM/Tn9fEIzms/EjTMCu+5vucXWIfAGIumsqfPn/xZtr3HdjsEcfil/4PTyNbO+m5UDWwrTtBGQ/2ZRsJ4beXJ6Q97iZXKuDn7YRzex7B7NR+QV3mDDuFYUh9/PLyoj6YJpfheoksKvlOqAhBjDZsG0FSlWEiDBmSLGDqXQcXteyEeoAxFGhVeXQOTJCYw4dqaoYfauDLY8OsFnUlA7LN6+LyOjoCIB4Oizi1hnRZ/A0yISOCEZe3TEyorghxdCx2gg7AnjfYGZHr4Zt/7cvxQLjeXLMGV2qr3zwOx78DjkfikPwvI0bA+0o1cgiHRWCOBSn9dyUoSGImQvlDnki1AyhFYbSgK1xuIJOMqXAoqWegNWK5cybHNgIF6QiwFxmSc4CELnVwGgIYgbOzOs5i6sUUvWM2X2W3/ZgE+OzNatakd2jUULOnp1g1uiXc4IZGvcqBuG4AzACYuYA8yeKePHSLR/HCylmMJWIL2x8sPOOoZBRVjxvkfHr2j+GkVMZlIo4akjxcyx7YcUCrWrM6rX3NT6e2WfecfCYTkDv8ffWSUmnT0o3l5dXUn/eSalmEzEWKIcW53TOtSAFqQNnCIdgJM0AwITMYc5qBBCkC050y/rAOfZzixSJsbcmWiA1PRlig44PpKbcbtV0qw5W2yEHoLgJOPKiOQrroWySAs87XmnHshTUI3CUmNlE/6pUYVqq+k7jOzePbKkqVwxECIKCLqwEQUPxVjlSZIFgeB0UdCKYLbnHTS9Obi2iAkB7QNBR3TppPkIB5IckRsbxBlvV6znxD81ByzhgWWTvALprhkqFvBPiiPY+IsXTYT5IkM3/pHRpodPQVDefNJNpQ0nWGkoIHfOLJ/plZdvORRCVLfCypUpizwxESqCq6W34yTWW2PRJd6HtFEPUrtJCEz22mOilvSTtb2YFzEoRKqejk8VuIbpEhkxi2AM+7AG/iDX0VkZ+VH5CTDNMo+noPHJEtBkqNjqPB08yk/oXc1MUn5hO9cvFn138ImiWJdUKcl2OyK7LERuapbHZ82+AvBQ5cTJlDoxaV3PtOxHRLc2+rkhvatO4dgXyk6obx2uZH7hbOMcnC7pq6GlRG3YOCXcERWMEzgMWzkzNrnVD0xGQVUvlXetGkFudU3e3TxwhXnyw38hfrNMP/Xj+Bw==);" vertex="1" parent="1"><mxGeometry x="2130" y="834.1" width="62.0" height="61.8" as="geometry"/></mxCell>
+
+        <mxCell id="opsNote" value="Authoritative for telemetry and billing.&#xa;&#xa;The Control Panel correlates and summarises using shared agent / deployment / run identifiers. It stores references and summaries only — never raw traces or billing events." style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;fontColor=#B06000;align=left;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="2100" y="1030" width="430" height="180" as="geometry"/>
+        </mxCell>
+
+        <!-- ============ LEGEND ============ -->
+        <mxCell id="legSolid" value="" style="rounded=1;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=3;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1414" width="44" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="legSolidTxt" value="Implemented today — verifiable in code and Terraform" style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;fontColor=#202124;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="436" y="1411" width="520" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="legDash" value="" style="rounded=1;html=1;fillColor=#FAF5FE;strokeColor=#A142F4;strokeWidth=3;dashed=1;dashPattern=8 6;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="990" y="1414" width="44" height="26" as="geometry"/>
+        </mxCell>
+        <mxCell id="legDashTxt" value="Target capability — not yet implemented" style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;fontColor=#202124;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1046" y="1411" width="470" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="legMeta" value="GEAP Platform · Control Panel target architecture · v1.0 · baseline commit adea777 · see docs/GEAP_Platform_Reference_Architecture.md" style="text;html=1;strokeColor=none;fillColor=none;fontSize=13;fontColor=#5F6368;align=right;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1560" y="1411" width="1020" height="32" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
