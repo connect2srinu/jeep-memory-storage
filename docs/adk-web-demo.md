@@ -5,6 +5,9 @@ cross-Session recall. It does not ask the user or model for schema IDs.
 
 ## 1. Start the Vertex-backed platform
 
+# kill existing docker demons
+docker compose down --remove-orphans
+
 ```bash
 export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
 export GOOGLE_CLOUD_LOCATION=us-central1
@@ -13,6 +16,14 @@ export AGENT_PLATFORM_MEMORY_BANK_ID=YOUR_AGENT_ENGINE_ID
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.vertex.yml \
+  up --build
+
+#if you like to access postgress from local machine then
+
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.vertex.yml \
+  -f docker-compose.pgadmin.yml \
   up --build
 ```
 
