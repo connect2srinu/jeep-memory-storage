@@ -14,6 +14,7 @@ from control_plane_api.domain.runtime import (
 )
 from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
+    MemoryDomainRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
     RegisteredAgentRecord,
@@ -84,6 +85,9 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             schema = await self.session.get(ProfileSchemaRecord, grant.schema_id)
             if schema is None or schema.status != "ACTIVE":
                 continue
+            domain = await self.session.get(MemoryDomainRecord, schema.domain_id)
+            if domain is None or domain.status != "ACTIVE":
+                continue
             version = await self.session.scalar(
                 select(ProfileSchemaVersionRecord)
                 .where(
@@ -108,6 +112,7 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             result.append(
                 RuntimeSchemaGrant(
                     schema_id=schema.id,
+                    owner_organization_id=domain.organization_id,
                     domain_id=schema.domain_id,
                     schema_version=version.version,
                     permission=AccessPermission(grant.permission),

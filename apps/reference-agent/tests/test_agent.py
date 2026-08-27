@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -95,7 +96,8 @@ class FakeMemoryClient:
 
 
 @pytest.mark.asyncio
-async def test_phase_5_session_context_update_and_refresh(monkeypatch) -> None:
+async def test_phase_5_session_context_update_and_refresh(monkeypatch, caplog) -> None:
+    caplog.set_level(logging.INFO, logger="reference_agent.preference_snapshot")
     client = FakeMemoryClient()
     monkeypatch.setattr(agent_module, "build_control_plane_api_client", lambda: client)
     context = FakeContext()
@@ -103,6 +105,8 @@ async def test_phase_5_session_context_update_and_refresh(monkeypatch) -> None:
     await agent_module.initialize_preference_snapshot(context)
     await agent_module.initialize_preference_snapshot(context)
     assert client.resolve_calls == 1
+    assert f"SNAPSHOT_STATE_KEY={agent_module.SNAPSHOT_STATE_KEY}" in caplog.text
+    assert "snapshot_cached_in_adk_session_state" in caplog.text
     assert (await agent_module.get_user_preferences(context))["snapshotVersion"] == "v1"
     assert client.resolve_calls == 1
 

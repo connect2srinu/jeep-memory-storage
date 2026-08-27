@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import time
 from collections.abc import Callable
 from typing import Any, Protocol
 from urllib.parse import quote
@@ -9,6 +12,12 @@ import httpx
 from google.auth.transport.requests import Request
 from google.oauth2.id_token import fetch_id_token
 from pydantic import BaseModel, ConfigDict, Field
+
+logger = logging.getLogger("reference_agent.control_plane_api")
+
+
+def _log_event(event: str, **fields: Any) -> None:
+    logger.info(json.dumps({"event": event, **fields}, sort_keys=True, default=str))
 
 
 class ApiModel(BaseModel):
@@ -138,6 +147,13 @@ class ControlPlaneApiClient:
         agent_id: str,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
+        started = time.perf_counter()
+        _log_event(
+            "control_plane_api_request_started",
+            agent_id=agent_id,
+            method=method,
+            path=path,
+        )
         async with httpx.AsyncClient(
             base_url=self.base_url,
             headers=await self._headers(agent_id),
@@ -145,6 +161,7 @@ class ControlPlaneApiClient:
             timeout=self.timeout,
         ) as client:
             response = await client.request(method, path, json=payload)
+            correlation_id = response.headers.get("x-correlation-id")
             if response.is_error:
                 try:
                     error = response.json()
@@ -152,13 +169,31 @@ class ControlPlaneApiClient:
                     error = {}
                 code = error.get("code") or f"HTTP_{response.status_code}"
                 message = error.get("message") or response.reason_phrase
-                correlation_id = error.get("correlationId")
+                correlation_id = error.get("correlationId") or correlation_id
+                _log_event(
+                    "control_plane_api_request_failed",
+                    agent_id=agent_id,
+                    correlation_id=correlation_id,
+                    duration_ms=round((time.perf_counter() - started) * 1000, 3),
+                    method=method,
+                    path=path,
+                    status=response.status_code,
+                )
                 raise ControlPlaneApiError(
                     status_code=response.status_code,
                     code=str(code),
                     message=str(message),
                     correlation_id=(str(correlation_id) if correlation_id is not None else None),
                 )
+            _log_event(
+                "control_plane_api_request_completed",
+                agent_id=agent_id,
+                correlation_id=correlation_id,
+                duration_ms=round((time.perf_counter() - started) * 1000, 3),
+                method=method,
+                path=path,
+                status=response.status_code,
+            )
             return response.json()
 
     @staticmethod

@@ -169,6 +169,91 @@ async def test_organization_project_hierarchy_is_enforced(admin_environment) -> 
 
 
 @pytest.mark.asyncio
+async def test_organization_catalog_marks_foreign_schemas_restricted(admin_environment) -> None:
+    client, _ = admin_environment
+    await client.post(
+        "/api/v1/admin/organizations",
+        headers=PLATFORM,
+        json={"id": "healthcare", "name": "Healthcare"},
+    )
+    response = await client.get("/api/v1/admin/schemas?organizationId=healthcare", headers=VIEWER)
+    assert response.status_code == 200
+    grocery = next(
+        item for item in response.json()["items"] if item["id"] == "grocery-preferences-v1"
+    )
+    assert grocery["visibility"] == "RESTRICTED"
+    assert grocery["editable"] is False
+    assert grocery["access_status"] == "NOT_REQUESTED"
+
+
+@pytest.mark.asyncio
+async def test_schema_edit_creates_draft_and_approval_switches_active_version(
+    admin_environment,
+) -> None:
+    client, _ = admin_environment
+    current = await client.get("/api/v1/admin/schemas/grocery-preferences-v1", headers=PLATFORM)
+    active = next(item for item in current.json()["data"]["versions"] if item["status"] == "ACTIVE")
+    request = await client.post(
+        "/api/v1/admin/schemas/grocery-preferences-v1/versions",
+        headers=PLATFORM,
+        json={
+            "version": "2.0",
+            "scopeDefinitionId": active["scope_definition_id"],
+            "vertexSchemaDefinition": active["vertex_schema_definition"],
+            "generationConfig": active["generation_config"],
+            "mappings": [
+                {
+                    "attributeId": item["attribute_id"],
+                    "profileField": item["profile_field"],
+                }
+                for item in active["mappings"]
+            ],
+        },
+    )
+    assert request.status_code == 202, request.text
+    request_id = request.json()["data"]["id"]
+    draft = await client.get("/api/v1/admin/schemas/grocery-preferences-v1", headers=PLATFORM)
+    assert any(
+        item["version"] == "2.0" and item["status"] == "DRAFT"
+        for item in draft.json()["data"]["versions"]
+    )
+
+    approved = await client.post(
+        f"/api/v1/admin/resource-change-requests/{request_id}/approve",
+        headers=PLATFORM,
+        json={"reason": "Validated by schema owner"},
+    )
+    assert approved.status_code == 200, approved.text
+    published = await client.get("/api/v1/admin/schemas/grocery-preferences-v1", headers=PLATFORM)
+    versions = published.json()["data"]["versions"]
+    assert any(item["version"] == "2.0" and item["status"] == "ACTIVE" for item in versions)
+    assert any(
+        item["version"] == active["version"] and item["status"] == "DEPRECATED" for item in versions
+    )
+
+    active_v2 = next(item for item in versions if item["status"] == "ACTIVE")
+    assert len(active_v2["mappings"]) > 1
+    destructive = await client.post(
+        "/api/v1/admin/schemas/grocery-preferences-v1/versions",
+        headers=PLATFORM,
+        json={
+            "version": "3.0",
+            "scopeDefinitionId": active_v2["scope_definition_id"],
+            "vertexSchemaDefinition": active_v2["vertex_schema_definition"],
+            "mappings": [
+                {
+                    "attributeId": item["attribute_id"],
+                    "profileField": item["profile_field"],
+                }
+                for item in active_v2["mappings"][1:]
+            ],
+        },
+    )
+    assert destructive.status_code == 409
+    assert "cannot be removed or renamed" in destructive.json()["message"]
+
+
+@pytest.mark.asyncio
 async def test_control_plane_resource_crud_and_lifecycle(admin_environment) -> None:
     client, _ = admin_environment
     created_domain = await client.post(

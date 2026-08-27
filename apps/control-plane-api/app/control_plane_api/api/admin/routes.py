@@ -4,7 +4,7 @@ from __future__ import annotations
 # ruff: noqa: B008
 from collections.abc import AsyncIterator, Callable
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from control_plane_api.api.admin.models import (
     AccessDecision,
@@ -24,6 +24,7 @@ from control_plane_api.api.admin.models import (
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
+    SchemaVersionChange,
     ScopeCreate,
 )
 from control_plane_api.domain import AccessRequestStatus
@@ -67,9 +68,14 @@ def create_admin_router(
         return await service.activate(identity, payload)
 
     async def listed(
-        resource: str, identity: AdminPrincipal, service: AdminControlPlaneService
+        resource: str,
+        identity: AdminPrincipal,
+        service: AdminControlPlaneService,
+        organization_id: str | None = None,
     ) -> AdminRecordList:
-        return AdminRecordList(items=await service.list_resources(identity, resource))
+        return AdminRecordList(
+            items=await service.list_resources(identity, resource, organization_id)
+        )
 
     async def fetched(
         resource: str,
@@ -191,10 +197,11 @@ def create_admin_router(
 
     @router.get("/domains", response_model=AdminRecordList)
     async def list_domains(
+        organization_id: str | None = Query(default=None, alias="organizationId"),
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecordList:
-        return await listed("domains", identity, service)
+        return await listed("domains", identity, service, organization_id)
 
     @router.post("/domains", response_model=AdminRecord, status_code=201)
     async def create_domain(
@@ -223,10 +230,11 @@ def create_admin_router(
 
     @router.get("/scopes", response_model=AdminRecordList)
     async def list_scopes(
+        organization_id: str | None = Query(default=None, alias="organizationId"),
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecordList:
-        return await listed("scopes", identity, service)
+        return await listed("scopes", identity, service, organization_id)
 
     @router.post("/scopes", response_model=AdminRecord, status_code=201)
     async def create_scope(
@@ -255,10 +263,11 @@ def create_admin_router(
 
     @router.get("/schemas", response_model=AdminRecordList)
     async def list_schemas(
+        organization_id: str | None = Query(default=None, alias="organizationId"),
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecordList:
-        return await listed("schemas", identity, service)
+        return await listed("schemas", identity, service, organization_id)
 
     @router.post("/schemas", response_model=AdminRecord, status_code=201)
     async def create_schema(
@@ -285,12 +294,28 @@ def create_admin_router(
     ) -> AdminRecord:
         return await updated("schemas", resource_id, payload, identity, service)
 
+    @router.post(
+        "/schemas/{resource_id}/versions",
+        response_model=AdminRecord,
+        status_code=202,
+    )
+    async def create_schema_version_change(
+        resource_id: str,
+        payload: SchemaVersionChange,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.submit_schema_version_change(identity, resource_id, payload)
+        )
+
     @router.get("/preference-catalog", response_model=AdminRecordList)
     async def list_preferences(
+        organization_id: str | None = Query(default=None, alias="organizationId"),
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecordList:
-        return await listed("preference-catalog", identity, service)
+        return await listed("preference-catalog", identity, service, organization_id)
 
     @router.post("/preference-catalog", response_model=AdminRecord, status_code=201)
     async def create_preference(
@@ -321,10 +346,11 @@ def create_admin_router(
 
     @router.get("/agents", response_model=AdminRecordList)
     async def list_agents(
+        organization_id: str | None = Query(default=None, alias="organizationId"),
         identity: AdminPrincipal = Depends(principal),
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecordList:
-        return await listed("agents", identity, service)
+        return await listed("agents", identity, service, organization_id)
 
     @router.post("/agents", response_model=AdminRecord, status_code=201)
     async def create_agent(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from google.adk.agents import Agent
@@ -19,6 +20,17 @@ from .client import (
 from .settings import settings
 
 SNAPSHOT_STATE_KEY = "shared_memory:effective_snapshot"
+logger = logging.getLogger("reference_agent.preference_snapshot")
+
+
+def _log_flow_step(step: str, **fields: Any) -> None:
+    logger.info(
+        json.dumps(
+            {"flow": "effective_preference_snapshot", "step": step, **fields},
+            sort_keys=True,
+            default=str,
+        )
+    )
 
 
 def build_control_plane_api_client() -> ControlPlaneApiClient:
@@ -51,6 +63,17 @@ async def _load_snapshot(context: Any, *, refresh: bool) -> dict[str, Any]:
     user_id, session_id = _identity(context)
     client = build_control_plane_api_client()
     operation = client.refresh_preferences if refresh else client.resolve_preferences
+    endpoint = (
+        "/api/v1/runtime/preferences/refresh" if refresh else "/api/v1/runtime/preferences/resolve"
+    )
+    _log_flow_step(
+        "reference_agent_request",
+        agent_id=settings.agent_id,
+        domain=settings.consumer_domain,
+        endpoint=endpoint,
+        session_id=session_id,
+        user_id=user_id,
+    )
     snapshot = await operation(
         user_id=user_id,
         session_id=session_id,
@@ -60,7 +83,29 @@ async def _load_snapshot(context: Any, *, refresh: bool) -> dict[str, Any]:
         include_provenance=True,
     )
     payload = _snapshot_payload(snapshot)
+    _log_flow_step(
+        "effective_snapshot_received",
+        agent_id=snapshot.agent_id,
+        policy_version=snapshot.policy_version,
+        preference_count=len(snapshot.preferences),
+        schema_count=len(snapshot.schema_versions),
+        session_id=session_id,
+        snapshot_version=snapshot.snapshot_version,
+        writable_preference_count=len(snapshot.writable_preferences),
+    )
     context.state[SNAPSHOT_STATE_KEY] = payload
+    _log_flow_step(
+        "snapshot_cached_in_adk_session_state",
+        session_id=session_id,
+        snapshot_state_key=SNAPSHOT_STATE_KEY,
+        snapshot_version=snapshot.snapshot_version,
+    )
+    logger.info(
+        "SNAPSHOT_STATE_KEY=%s snapshotVersion=%s sessionId=%s",
+        SNAPSHOT_STATE_KEY,
+        snapshot.snapshot_version,
+        session_id,
+    )
     return payload
 
 

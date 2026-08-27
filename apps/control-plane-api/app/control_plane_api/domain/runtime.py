@@ -19,6 +19,7 @@ class RuntimeAgent:
 @dataclass(frozen=True, slots=True)
 class RuntimeSchemaGrant:
     schema_id: str
+    owner_organization_id: str
     domain_id: str
     schema_version: str
     permission: AccessPermission

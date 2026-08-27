@@ -54,8 +54,11 @@ export class AdminApiClient {
     return response.ok;
   }
 
-  async list(resource: string): Promise<AdminRecord[]> {
-    return (await this.request<AdminRecordList>(`/${resource}`)).items;
+  async list(resource: string, organizationId?: string): Promise<AdminRecord[]> {
+    const query = organizationId
+      ? `?organizationId=${encodeURIComponent(organizationId)}`
+      : "";
+    return (await this.request<AdminRecordList>(`/${resource}${query}`)).items;
   }
 
   async get(resource: string, id: string): Promise<AdminRecord> {
@@ -121,6 +124,15 @@ export class AdminApiClient {
 
   async requestDomainChange(id: string, changes: AdminRecord): Promise<AdminRecord> {
     return await this.update("domains", id, { changes });
+  }
+
+  async requestSchemaVersion(id: string, payload: AdminRecord): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/schemas/${encodeURIComponent(id)}/versions`,
+        { method: "POST", body: JSON.stringify(payload) },
+      )
+    ).data;
   }
 
   async listResourceChanges(): Promise<AdminRecord[]> {

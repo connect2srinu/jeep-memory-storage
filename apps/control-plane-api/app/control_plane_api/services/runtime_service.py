@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 
 from control_plane_api.api.runtime.models import (
@@ -36,12 +37,30 @@ from control_plane_api.domain.runtime import (
     RuntimeResolutionConfig,
     RuntimeSchemaGrant,
 )
+from control_plane_api.observability.runtime import correlation_id_context
 from control_plane_api.persistence.runtime_repository import RuntimeControlPlaneRepository
 from control_plane_api.repositories import MemoryStore
 from control_plane_api.security.authentication import AuthenticatedPrincipal
 from control_plane_api.services.authorization import AgentCapability
 from control_plane_api.services.preference_resolver import PreferenceResolver
 from control_plane_api.services.scope_registry import ScopeRegistry
+
+logger = logging.getLogger("uvicorn.error.control_plane_api.preference_resolution")
+
+
+def _log_flow_step(step: str, **fields: object) -> None:
+    logger.info(
+        json.dumps(
+            {
+                "correlation_id": correlation_id_context.get(),
+                "flow": "effective_preference_snapshot",
+                "step": step,
+                **fields,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
 
 
 class RuntimeMemoryService:
@@ -60,18 +79,52 @@ class RuntimeMemoryService:
         principal: AuthenticatedPrincipal,
         request: ResolvePreferencesRequest,
     ) -> EffectivePreferenceSnapshotResponse:
+        _log_flow_step(
+            "control_plane_validation_started",
+            claimed_agent_id=principal.claimed_agent_id,
+            requested_agent_id=request.requested_agent_id,
+            requested_domain=request.scope.domain,
+            requested_organization_id=request.scope.organization_id,
+            session_id=request.session_id,
+        )
         agent = await self._agent(principal, request.requested_agent_id)
         self._require_capability(agent, AgentCapability.RESOLVE_CONTEXT)
         self._require_consumer_scope(agent, request.scope)
         grants = await self.repository.list_schema_grants(agent.id)
         readable = tuple(grant for grant in grants if self._allows(grant.permission, write=False))
+        writable = tuple(grant for grant in grants if self._allows(grant.permission, write=True))
+        _log_flow_step(
+            "agent_capability_scope_and_grants_validated",
+            agent_id=agent.id,
+            capability=AgentCapability.RESOLVE_CONTEXT.value,
+            domain=agent.domain_id,
+            organization_id=agent.organization_id,
+            readable_schema_ids=[grant.schema_id for grant in readable],
+            writable_schema_ids=[grant.schema_id for grant in writable],
+        )
         config = await self.repository.get_resolution_config(agent.id, agent.domain_id)
         catalog, policies = self._resolution_components(agent, grants, config)
         candidates: list[Preference] = []
         for grant in readable:
             await self._register_schema(grant)
-            scope = self._owner_scope(request.scope, agent, grant.scope_keys)
+            scope = self._owner_scope(request.scope, grant)
+            _log_flow_step(
+                "authorized_memory_profiles_read_started",
+                agent_id=agent.id,
+                memory_backend=type(self.store).__name__,
+                owner_domain=grant.domain_id,
+                owner_organization_id=grant.owner_organization_id,
+                schema_id=grant.schema_id,
+            )
             profiles = await self.store.get_profiles(scope, (grant.schema_id,))
+            _log_flow_step(
+                "authorized_memory_profiles_read_completed",
+                agent_id=agent.id,
+                memory_backend=type(self.store).__name__,
+                owner_domain=grant.domain_id,
+                profile_count=len(profiles),
+                schema_id=grant.schema_id,
+            )
             for profile in profiles:
                 candidates.extend(
                     Preference(
@@ -90,6 +143,13 @@ class RuntimeMemoryService:
                     for field, value in profile.values.items()
                     if field in grant.field_to_attribute
                 )
+        _log_flow_step(
+            "configured_resolution_policy_loaded",
+            agent_id=agent.id,
+            candidate_count=len(candidates),
+            policy_version=policies.version,
+            resolution_policy_id=(config.policy_id if config else "runtime-default"),
+        )
         snapshot = PreferenceResolver(catalog, policies).resolve(
             user_id=request.scope.user_id,
             session_id=request.session_id,
@@ -97,6 +157,13 @@ class RuntimeMemoryService:
             agent_id=agent.id,
             preferences=candidates,
             readable_domains=tuple(dict.fromkeys(grant.domain_id for grant in readable)),
+        )
+        _log_flow_step(
+            "configured_resolution_policy_applied",
+            agent_id=agent.id,
+            candidate_count=len(candidates),
+            effective_preference_count=len(snapshot.preferences),
+            policy_version=policies.version,
         )
         include_provenance = request.include_provenance and (
             AgentCapability.INSPECT_PROVENANCE.value in agent.capabilities
@@ -135,7 +202,7 @@ class RuntimeMemoryService:
             sort_keys=True,
             separators=(",", ":"),
         )
-        return EffectivePreferenceSnapshotResponse(
+        response = EffectivePreferenceSnapshotResponse(
             agent_id=agent.id,
             scope=request.scope,
             session_id=request.session_id,
@@ -146,6 +213,16 @@ class RuntimeMemoryService:
             writable_preferences=writable_preferences,
             generated_at=generated_at,
         )
+        _log_flow_step(
+            "effective_preference_snapshot_returned",
+            agent_id=agent.id,
+            preference_count=len(response.preferences),
+            schema_count=len(response.schema_versions),
+            session_id=request.session_id,
+            snapshot_version=response.snapshot_version,
+            writable_preference_count=len(response.writable_preferences),
+        )
+        return response
 
     async def raw_profiles(
         self, principal: AuthenticatedPrincipal, request: RawProfilesRequest
@@ -164,7 +241,7 @@ class RuntimeMemoryService:
                     f"agent {agent.id!r} lacks READ access to schema {schema_id!r}"
                 )
             await self._register_schema(grant)
-            scope = self._owner_scope(request.scope, agent, grant.scope_keys)
+            scope = self._owner_scope(request.scope, grant)
             profiles.extend(
                 (profile, grant.domain_id)
                 for profile in await self.store.get_profiles(scope, (schema_id,))
@@ -291,6 +368,8 @@ class RuntimeMemoryService:
             raise PermissionError(f"agent {agent.id!r} lacks WRITE access to schema {schema_id!r}")
         if grant.domain_id != scope_domain:
             raise PermissionError("cross-domain profile writes are not allowed")
+        if grant.owner_organization_id != agent.organization_id:
+            raise PermissionError("cross-organization profile writes are not allowed")
         return grant
 
     def _resolve_write_grant(
@@ -319,7 +398,9 @@ class RuntimeMemoryService:
         writable = tuple(
             grant
             for grant in matching
-            if grant.domain_id == scope_domain and self._allows(grant.permission, write=True)
+            if grant.domain_id == scope_domain
+            and grant.owner_organization_id == agent.organization_id
+            and self._allows(grant.permission, write=True)
         )
         if len(writable) == 1:
             return writable[0]
@@ -363,12 +444,16 @@ class RuntimeMemoryService:
             {"organization_id": agent.organization_id, "user_id": scope.user_id},
         )
 
-    def _owner_scope(
-        self, scope: RuntimeScope, agent: RuntimeAgent, required_keys: tuple[str, ...]
-    ) -> MemoryScope:
-        if set(required_keys) != {"organization_id", "user_id"}:
-            raise ValueError(f"unsupported runtime scope keys {required_keys!r}")
-        return self._memory_scope(scope, agent)
+    def _owner_scope(self, scope: RuntimeScope, grant: RuntimeSchemaGrant) -> MemoryScope:
+        if set(grant.scope_keys) != {"organization_id", "user_id"}:
+            raise ValueError(f"unsupported runtime scope keys {grant.scope_keys!r}")
+        return self.scope_registry.resolve(
+            "organization-user-profile",
+            {
+                "organization_id": grant.owner_organization_id,
+                "user_id": scope.user_id,
+            },
+        )
 
     @staticmethod
     def _resolution_components(

@@ -19,6 +19,7 @@ from control_plane_api.api.admin.models import (
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
+    SchemaVersionChange,
     ScopeCreate,
 )
 from control_plane_api.domain import AccessPermission, AccessRequestStatus, LifecycleStatus
@@ -230,13 +231,99 @@ class AdminControlPlaneService:
         return None
 
     async def list_resources(
-        self, principal: AdminPrincipal, resource: str
+        self,
+        principal: AdminPrincipal,
+        resource: str,
+        organization_id: str | None = None,
     ) -> list[dict[str, Any]]:
         self.authorizer.require_read(principal)
         model = RESOURCE_MODELS[resource]
         id_column = getattr(model, RESOURCE_IDS[resource])
         records = await self.session.scalars(select(model).order_by(id_column))
-        return [_record_data(record) for record in records]
+        items: list[dict[str, Any]] = []
+        for record in records:
+            owner_organization_id = await self._organization_for(resource, record)
+            if (
+                organization_id
+                and resource in {"projects", "agents"}
+                and owner_organization_id != organization_id
+            ):
+                continue
+            data = _record_data(record)
+            if organization_id and owner_organization_id:
+                visibility = (
+                    "OWNED"
+                    if owner_organization_id == organization_id
+                    else "PLATFORM"
+                    if owner_organization_id == "default-org"
+                    else "RESTRICTED"
+                )
+                data["owner_organization_id"] = owner_organization_id
+                data["visibility"] = visibility
+                data["editable"] = visibility == "OWNED"
+                if resource == "schemas":
+                    data["access_status"] = await self._schema_access_status(
+                        organization_id, record.id
+                    )
+                if visibility == "RESTRICTED":
+                    allowed = {
+                        "id",
+                        "attribute_id",
+                        "domain_id",
+                        "display_name",
+                        "name",
+                        "description",
+                        "status",
+                        "owner_organization_id",
+                        "visibility",
+                        "editable",
+                        "access_status",
+                        "created_at",
+                        "updated_at",
+                    }
+                    data = {key: value for key, value in data.items() if key in allowed}
+            items.append(data)
+        return items
+
+    async def _organization_for(self, resource: str, record: Any) -> str | None:
+        if resource == "organizations":
+            return record.id
+        if resource == "projects":
+            return record.organization_id
+        domain_id = await self._domain_for(resource, record)
+        if not domain_id:
+            return None
+        domain = await self.session.get(MemoryDomainRecord, domain_id)
+        return domain.organization_id if domain else None
+
+    async def _schema_access_status(self, organization_id: str, schema_id: str) -> str:
+        agents = (
+            await self.session.scalars(
+                select(RegisteredAgentRecord.id).where(
+                    RegisteredAgentRecord.organization_id == organization_id,
+                    RegisteredAgentRecord.status == "ACTIVE",
+                )
+            )
+        ).all()
+        if not agents:
+            return "NOT_REQUESTED"
+        grant = await self.session.scalar(
+            select(AgentSchemaGrantRecord).where(
+                AgentSchemaGrantRecord.agent_id.in_(agents),
+                AgentSchemaGrantRecord.schema_id == schema_id,
+                AgentSchemaGrantRecord.status == "ACTIVE",
+            )
+        )
+        if grant:
+            return "APPROVED"
+        pending = await self.session.scalar(
+            select(AccessRequestRecord).where(
+                AccessRequestRecord.requesting_agent_id.in_(agents),
+                AccessRequestRecord.target_schema_id == schema_id,
+                AccessRequestRecord.status == "PENDING",
+            )
+        )
+        return "PENDING" if pending else "NOT_REQUESTED"
 
     async def get_resource(
         self, principal: AdminPrincipal, resource: str, resource_id: str
@@ -816,6 +903,125 @@ class AdminControlPlaneService:
         )
         return after
 
+    async def submit_schema_version_change(
+        self,
+        principal: AdminPrincipal,
+        schema_id: str,
+        payload: SchemaVersionChange,
+    ) -> dict[str, Any]:
+        schema = await self._get("schemas", schema_id)
+        domain = await self._require_existing_domain(schema.domain_id)
+        self.authorizer.require_domain(
+            principal, domain.id, AdminRole.SCHEMA_OWNER, AdminRole.DOMAIN_ADMIN
+        )
+        if schema.status != LifecycleStatus.ACTIVE.value:
+            raise ResourceConflictError("only an active schema can be versioned")
+        pending = await self.session.scalar(
+            select(ResourceChangeRequestRecord).where(
+                ResourceChangeRequestRecord.resource_type == "schemas",
+                ResourceChangeRequestRecord.resource_id == schema.id,
+                ResourceChangeRequestRecord.status == "PENDING",
+            )
+        )
+        if pending:
+            raise ResourceConflictError("a pending schema version change already exists")
+        active = await self.session.scalar(
+            select(ProfileSchemaVersionRecord)
+            .where(
+                ProfileSchemaVersionRecord.schema_id == schema.id,
+                ProfileSchemaVersionRecord.status == LifecycleStatus.ACTIVE.value,
+            )
+            .order_by(ProfileSchemaVersionRecord.version.desc())
+            .limit(1)
+        )
+        if active is None:
+            raise ResourceConflictError("schema has no active version to edit")
+        values = payload.model_dump(by_alias=False)
+        if values["scope_definition_id"] not in {None, active.scope_definition_id}:
+            raise ResourceConflictError(
+                "schema scope is protected; create a governed migration to change it"
+            )
+        active_mappings = (
+            await self.session.scalars(
+                select(SchemaPreferenceMappingRecord).where(
+                    SchemaPreferenceMappingRecord.schema_version_id == active.id
+                )
+            )
+        ).all()
+        protected_mappings = {item.attribute_id: item.profile_field for item in active_mappings}
+        proposed_mappings = {
+            item["attribute_id"]: item["profile_field"] for item in values["mappings"]
+        }
+        removed_or_renamed = {
+            attribute_id
+            for attribute_id, profile_field in protected_mappings.items()
+            if proposed_mappings.get(attribute_id) != profile_field
+        }
+        if removed_or_renamed:
+            raise ResourceConflictError(
+                "active schema mappings cannot be removed or renamed in the additive edit flow: "
+                f"{sorted(removed_or_renamed)}"
+            )
+        requested_definition = values["vertex_schema_definition"] or active.vertex_schema_definition
+        active_properties = dict(active.vertex_schema_definition.get("properties", {}))
+        requested_properties = dict(requested_definition.get("properties", {}))
+        safe_properties = {
+            **active_properties,
+            **{
+                field: definition
+                for field, definition in requested_properties.items()
+                if field not in active_properties
+            },
+        }
+        safe_definition = {
+            **active.vertex_schema_definition,
+            "type": "object",
+            "properties": safe_properties,
+        }
+        details = {
+            "version": values["version"],
+            "scope_definition_id": active.scope_definition_id,
+            "vertex_schema_definition": safe_definition,
+            "generation_config": active.generation_config,
+            "mappings": values["mappings"],
+        }
+        if await self.session.get(ProfileSchemaVersionRecord, f"{schema.id}:{details['version']}"):
+            raise ResourceConflictError(
+                f"schema version {schema.id}:{details['version']} already exists"
+            )
+        await self._create_schema_version(schema, details)
+        draft_id = f"{schema.id}:{details['version']}"
+        record = ResourceChangeRequestRecord(
+            id=str(uuid4()),
+            resource_type="schemas",
+            resource_id=schema.id,
+            organization_id=domain.organization_id,
+            project_id=domain.project_id,
+            domain_id=domain.id,
+            before_values={"active_version_id": active.id, "version": active.version},
+            proposed_changes={
+                "draft_version_id": draft_id,
+                "version": details["version"],
+                "mapping_count": len(details["mappings"]),
+            },
+            requested_by=principal.principal,
+            requested_at=datetime.now(UTC),
+            status="PENDING",
+        )
+        self.session.add(record)
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "schema.version_change_requested",
+            "resource_change_request",
+            record.id,
+            None,
+            after,
+        )
+        return after
+
     async def list_resource_change_requests(
         self, principal: AdminPrincipal
     ) -> list[dict[str, Any]]:
@@ -844,7 +1050,7 @@ class AdminControlPlaneService:
         if decision not in {"APPROVED", "REJECTED"}:
             raise ValueError(f"unsupported resource change decision {decision}")
         before = _record_data(record)
-        if decision == "APPROVED":
+        if decision == "APPROVED" and record.resource_type == "domains":
             domain = await self._require_existing_domain(record.domain_id)
             for field in record.proposed_changes:
                 if record.before_values.get(field) != getattr(domain, field):
@@ -863,6 +1069,26 @@ class AdminControlPlaneService:
                 record.before_values,
                 domain_after,
             )
+        elif record.resource_type == "schemas":
+            draft = await self.session.get(
+                ProfileSchemaVersionRecord, record.proposed_changes["draft_version_id"]
+            )
+            active = await self.session.get(
+                ProfileSchemaVersionRecord, record.before_values["active_version_id"]
+            )
+            if draft is None or draft.status != LifecycleStatus.DRAFT.value:
+                raise ResourceConflictError("schema draft is missing or no longer editable")
+            if active is None or active.status != LifecycleStatus.ACTIVE.value:
+                raise ResourceConflictError(
+                    "active schema version changed after this request was submitted"
+                )
+            if decision == "APPROVED":
+                active.status = LifecycleStatus.DEPRECATED.value
+                draft.status = LifecycleStatus.ACTIVE.value
+            else:
+                draft.status = LifecycleStatus.RETIRED.value
+        elif record.resource_type != "domains":
+            raise ResourceConflictError(f"unsupported resource change type {record.resource_type}")
         record.status = decision
         record.decided_by = principal.principal
         record.decided_at = datetime.now(UTC)
@@ -872,7 +1098,7 @@ class AdminControlPlaneService:
         after = _record_data(record)
         await self._audit(
             principal,
-            f"domain.change_{decision.lower()}",
+            f"{record.resource_type}.change_{decision.lower()}",
             "resource_change_request",
             record.id,
             before,

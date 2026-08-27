@@ -241,19 +241,128 @@ function editablePayload(resource: string, record: AdminRecord): AdminRecord {
   return Object.fromEntries((editableFields[resource] ?? []).map((key) => [key, record[key]]));
 }
 
-function ResourceDetailPanel({ resource, record, writable, api, onClose, onSaved }: { resource: string; record: AdminRecord; writable: boolean; api: AdminApiClient; onClose: () => void; onSaved: () => Promise<void> | void }) {
+function SchemaAccessRequestForm({ api, organizationId, schemaId, onSubmitted }: { api: AdminApiClient; organizationId: string; schemaId: string; onSubmitted: () => Promise<void> | void }) {
+  const [agents, setAgents] = useState<AdminRecord[]>([]);
+  const [agentId, setAgentId] = useState("");
+  const [team, setTeam] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { api.list("agents", organizationId).then(setAgents).catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load agents")); }, [api, organizationId]);
+  async function submit() {
+    if (!agentId || !team.trim() || !reason.trim()) { setError("Agent, requesting team, and business reason are required."); return; }
+    setSaving(true);
+    try {
+      await api.create("access-requests", { requestingAgentId: agentId, requestingTeam: team, targetSchemaId: schemaId, requestedPermission: "READ", businessReason: reason });
+      setError("");
+      await onSubmitted();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to request access"); }
+    finally { setSaving(false); }
+  }
+  return <div className="compact-form"><h4>Request read access</h4><label className="wide">Requesting agent<select value={agentId} onChange={(event) => setAgentId(event.target.value)}><option value="">Choose an agent</option>{agents.map((agent) => <option key={recordId(agent)} value={recordId(agent)}>{String(agent.display_name ?? agent.id)}</option>)}</select></label><label>Requesting team<input value={team} onChange={(event) => setTeam(event.target.value)} /></label><label>Business reason<input value={reason} onChange={(event) => setReason(event.target.value)} /></label><ErrorBanner error={error} /><div className="form-actions wide"><button className="primary" type="button" disabled={saving} onClick={submit}>{saving ? "Submitting…" : "Submit READ request"}</button></div></div>;
+}
+
+function SchemaVersionEditor({ api, schema, activeVersion, organizationId, onCancel, onSubmitted }: { api: AdminApiClient; schema: AdminRecord; activeVersion: AdminRecord; organizationId: string; onCancel: () => void; onSubmitted: () => Promise<void> | void }) {
+  const domainId = String(schema.domain_id);
+  const activeMappings = useMemo(() => Array.isArray(activeVersion.mappings) ? activeVersion.mappings as AdminRecord[] : [], [activeVersion]);
+  const protectedAttributes = useMemo(() => new Set(activeMappings.map((item) => String(item.attribute_id))), [activeMappings]);
+  const [catalog, setCatalog] = useState<AdminRecord[]>([]);
+  const [selected, setSelected] = useState<string[]>(activeMappings.map((item) => String(item.attribute_id)));
+  const [version, setVersion] = useState("");
+  const [step, setStep] = useState<"preferences" | "create" | "review">("preferences");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [attributeName, setAttributeName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [description, setDescription] = useState("");
+  const [dataType, setDataType] = useState("string");
+  const [allowedValues, setAllowedValues] = useState("");
+  const [sensitivity, setSensitivity] = useState("normal");
+
+  const loadCatalog = useCallback(async () => {
+    const items = await api.list("preference-catalog", organizationId);
+    setCatalog(items.filter((item) => String(item.canonical_owner_id ?? "") === domainId));
+  }, [api, domainId, organizationId]);
+  useEffect(() => { loadCatalog().catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load preference catalog")); }, [loadCatalog]);
+
+  function fieldFor(attributeId: string): string {
+    const existing = activeMappings.find((item) => item.attribute_id === attributeId);
+    if (existing) return String(existing.profile_field);
+    return attributeId.split(".").at(-1)?.replace(/[^a-zA-Z0-9_]/g, "_") || "preference";
+  }
+  function toggle(attributeId: string) {
+    if (protectedAttributes.has(attributeId)) return;
+    setSelected((current) => current.includes(attributeId) ? current.filter((item) => item !== attributeId) : [...current, attributeId]);
+  }
+  async function createPreference() {
+    const suffix = attributeName.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "");
+    if (!suffix || !displayName.trim() || !description.trim()) { setError("Preference name, display name, and description are required."); return; }
+    const attributeId = `${domainId}.${suffix}`;
+    setSaving(true);
+    try {
+      await api.create("preference-catalog", {
+        attributeId,
+        displayName: displayName.trim(),
+        description: description.trim(),
+        dataType,
+        allowedValues: allowedValues.split(",").map((item) => item.trim()).filter(Boolean),
+        sensitivityClassification: sensitivity,
+        canonicalOwnerId: domainId,
+      });
+      await loadCatalog();
+      setSelected((current) => [...new Set([...current, attributeId])]);
+      setAttributeName(""); setDisplayName(""); setDescription(""); setAllowedValues(""); setError(""); setStep("preferences");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to create preference"); }
+    finally { setSaving(false); }
+  }
+  async function submit() {
+    if (!version.trim()) { setError("A new schema version is required."); return; }
+    if (!selected.length) { setError("Select at least one preference."); return; }
+    const properties = Object.fromEntries(selected.map((attributeId) => {
+      const preference = catalog.find((item) => item.attribute_id === attributeId);
+      const existingProperties = activeVersion.vertex_schema_definition && typeof activeVersion.vertex_schema_definition === "object" ? (activeVersion.vertex_schema_definition as AdminRecord).properties as AdminRecord | undefined : undefined;
+      const field = fieldFor(attributeId);
+      const existing = existingProperties?.[field];
+      const generated: AdminRecord = { type: String(preference?.data_type ?? "string") };
+      if (Array.isArray(preference?.allowed_values) && preference.allowed_values.length) generated.enum = preference.allowed_values;
+      return [field, existing ?? generated];
+    }));
+    const priorDefinition = activeVersion.vertex_schema_definition as AdminRecord;
+    const priorRequired = Array.isArray(priorDefinition?.required) ? priorDefinition.required as string[] : [];
+    const required = priorRequired.filter((field) => Object.hasOwn(properties, field));
+    setSaving(true);
+    try {
+      await api.requestSchemaVersion(recordId(schema), {
+        version: version.trim(),
+        scopeDefinitionId: activeVersion.scope_definition_id,
+        vertexSchemaDefinition: { ...priorDefinition, type: "object", properties, ...(required.length ? { required } : { required: undefined }) },
+        generationConfig: activeVersion.generation_config ?? {},
+        mappings: selected.map((attributeId) => ({ attributeId, profileField: fieldFor(attributeId) })),
+      });
+      setError("");
+      await onSubmitted();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to submit schema version"); }
+    finally { setSaving(false); }
+  }
+
+  return <div className="schema-version-wizard"><div className="schema-stepper"><span className={step === "preferences" ? "active" : ""}>1 Preferences</span><span className={step === "create" ? "active" : ""}>2 New preference</span><span className={step === "review" ? "active" : ""}>3 Review</span></div>{step === "preferences" && <><h4>Select preferences</h4><p>Only preferences canonically owned by <strong>{domainId}</strong> can be mapped into this schema. Existing mappings are protected; shared-domain preferences remain linked through approved schema access.</p><div className="catalog-grid">{catalog.map((item) => { const id = String(item.attribute_id); const protectedMapping = protectedAttributes.has(id); return <label className={`catalog-card ${selected.includes(id) ? "selected" : ""} ${protectedMapping ? "protected" : ""}`} key={id}><input type="checkbox" checked={selected.includes(id)} disabled={protectedMapping} onChange={() => toggle(id)} /><span><strong>{String(item.display_name)}</strong><small>{id}</small><p>{protectedMapping ? "Existing mapping · protected" : String(item.description)}</p></span></label>; })}</div><div className="form-actions"><button className="secondary" type="button" onClick={() => setStep("create")}>+ Create preference</button><button className="primary" type="button" disabled={!selected.length} onClick={() => setStep("review")}>Review version</button></div></>}{step === "create" && <><h4>Create a domain preference</h4><div className="form-grid"><label>Attribute name<div className="prefixed-input"><span>{domainId}.</span><input value={attributeName} onChange={(event) => setAttributeName(event.target.value)} placeholder="preferred_brand" /></div></label><label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label><label className="wide">Description<input value={description} onChange={(event) => setDescription(event.target.value)} /></label><label>Data type<select value={dataType} onChange={(event) => setDataType(event.target.value)}><option>string</option><option>boolean</option><option>integer</option><option>number</option></select></label><label>Allowed values<input value={allowedValues} onChange={(event) => setAllowedValues(event.target.value)} placeholder="Comma separated; optional" /></label><label>Sensitivity<select value={sensitivity} onChange={(event) => setSensitivity(event.target.value)}><option>normal</option><option>sensitive</option><option>restricted</option></select></label></div><ErrorBanner error={error} /><div className="form-actions"><button className="secondary" type="button" onClick={() => setStep("preferences")}>Back</button><button className="primary" type="button" disabled={saving} onClick={createPreference}>{saving ? "Creating…" : "Create and select"}</button></div></>}{step === "review" && <><h4>Review and submit</h4><div className="protected-settings"><div><span>Schema</span><strong>{recordId(schema)}</strong></div><div><span>Domain</span><strong>{domainId}</strong></div><div><span>Scope (protected)</span><strong>{String(activeVersion.scope_definition_id)}</strong></div><div><span>Current version</span><strong>{String(activeVersion.version)}</strong></div></div><label>New version<input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="For example, 2.0" /></label><div className="mapping-review">{selected.map((attributeId) => <div key={attributeId}><span>{attributeId}{protectedAttributes.has(attributeId) ? " · protected" : " · new"}</span><strong>→ {fieldFor(attributeId)}</strong></div>)}</div><div className="alert warning">Submitting creates a DRAFT. The current active schema remains unchanged until platform approval.</div><ErrorBanner error={error} /><div className="form-actions"><button className="secondary" type="button" onClick={() => setStep("preferences")}>Back</button><button className="primary" type="button" disabled={saving} onClick={submit}>{saving ? "Submitting…" : "Submit version for approval"}</button></div></>}<button className="link-button" type="button" onClick={onCancel}>Cancel schema edit</button></div>;
+}
+
+function ResourceDetailPanel({ resource, record, writable, api, contextOrganizationId, onClose, onSaved }: { resource: string; record: AdminRecord; writable: boolean; api: AdminApiClient; contextOrganizationId?: string; onClose: () => void; onSaved: () => Promise<void> | void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(JSON.stringify(editablePayload(resource, record), null, 2));
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const canEdit = writable && Boolean(editableFields[resource]);
+  const [activeSchemaVersion, setActiveSchemaVersion] = useState<AdminRecord | null>(null);
+  const canEdit = writable && record.editable !== false && Boolean(editableFields[resource]) && (resource !== "schemas" || Boolean(contextOrganizationId));
 
   useEffect(() => {
     setDraft(JSON.stringify(editablePayload(resource, record), null, 2));
     setEditing(false);
     setError("");
     setMessage("");
+    setActiveSchemaVersion(null);
   }, [record, resource]);
 
   async function save() {
@@ -275,8 +384,23 @@ function ResourceDetailPanel({ resource, record, writable, api, onClose, onSaved
     } finally { setSaving(false); }
   }
 
+  async function beginEdit() {
+    if (resource !== "schemas") { setEditing(true); return; }
+    setSaving(true);
+    try {
+      const details = await api.get("schemas", recordId(record));
+      const versions = Array.isArray(details.versions) ? details.versions as AdminRecord[] : [];
+      const active = versions.find((item) => item.status === "ACTIVE");
+      if (!active) throw new Error("This schema has no active version to edit.");
+      setActiveSchemaVersion(active);
+      setEditing(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to load schema version");
+    } finally { setSaving(false); }
+  }
+
   const visibleEntries = Object.entries(record).filter(([key]) => !["before_metadata", "after_metadata"].includes(key));
-  return <div className="detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><aside className="resource-detail" role="dialog" aria-modal="true" aria-label={`${resource} details`}><header><div><span className="eyebrow">{resource.replaceAll("-", " ")}</span><h3>{String(record.name ?? record.display_name ?? record.attribute_id ?? record.id ?? "Resource details")}</h3><small>{recordId(record)}</small></div><button className="icon-button" type="button" aria-label="Close details" onClick={onClose}>×</button></header>{message && <div className="alert success">{message}</div>}{editing ? <div className="detail-editor"><p>Edit only the governed fields below.</p><textarea aria-label={`Edit ${resource} JSON`} value={draft} onChange={(event) => setDraft(event.target.value)} /><ErrorBanner error={error} /><div className="form-actions"><button className="secondary" type="button" onClick={() => setEditing(false)}>Cancel</button><button className="primary" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : resource === "domains" ? "Submit for approval" : "Save changes"}</button></div></div> : <><dl className="detail-list">{visibleEntries.map(([key, item]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <pre>{JSON.stringify(item, null, 2)}</pre> : String(item ?? "—")}</dd></div>)}</dl>{canEdit && <button className="primary" type="button" onClick={() => setEditing(true)}>Edit resource</button>}</>}</aside></div>;
+  return <div className="detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><aside className={`resource-detail ${resource === "schemas" && editing ? "schema-edit-detail" : ""}`} role="dialog" aria-modal="true" aria-label={`${resource} details`}><header><div><span className="eyebrow">{resource.replaceAll("-", " ")}</span><h3>{String(record.name ?? record.display_name ?? record.attribute_id ?? record.id ?? "Resource details")}</h3><small>{recordId(record)}</small></div><button className="icon-button" type="button" aria-label="Close details" onClick={onClose}>×</button></header>{record.visibility === "PLATFORM" && <div className="alert success">Platform resource available to every organization. Runtime use still requires an approved schema grant.</div>}{record.visibility === "RESTRICTED" && <div className="alert warning">Owned by another organization. Metadata is visible; request read access before using this schema.</div>}{message && <div className="alert success">{message}</div>}{editing && resource === "schemas" && activeSchemaVersion && contextOrganizationId ? <SchemaVersionEditor api={api} schema={record} activeVersion={activeSchemaVersion} organizationId={contextOrganizationId} onCancel={() => setEditing(false)} onSubmitted={async () => { setMessage("A draft schema version was submitted for approval. The active version remains unchanged."); setEditing(false); await onSaved(); }} /> : editing ? <div className="detail-editor"><p>Edit only the governed fields below.</p><textarea aria-label={`Edit ${resource} JSON`} value={draft} onChange={(event) => setDraft(event.target.value)} /><ErrorBanner error={error} /><div className="form-actions"><button className="secondary" type="button" onClick={() => setEditing(false)}>Cancel</button><button className="primary" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : resource === "domains" ? "Submit for approval" : "Save changes"}</button></div></div> : <><dl className="detail-list">{visibleEntries.map(([key, item]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof item === "object" && item !== null ? <pre>{JSON.stringify(item, null, 2)}</pre> : String(item ?? "—")}</dd></div>)}</dl>{canEdit && <button className="primary" type="button" disabled={saving} onClick={beginEdit}>{resource === "schemas" ? "Create new version" : "Edit resource"}</button>}{resource === "schemas" && contextOrganizationId && record.visibility !== "OWNED" && record.access_status === "NOT_REQUESTED" && <SchemaAccessRequestForm api={api} organizationId={contextOrganizationId} schemaId={recordId(record)} onSubmitted={async () => { setMessage("READ access request submitted for schema-owner approval."); await onSaved(); }} />}</>}</aside></div>;
 }
 
 function JsonCreateForm({ resource, onCreate }: { resource: string; onCreate: (value: AdminRecord) => Promise<void> }) {
@@ -352,7 +476,7 @@ function ResourceChangeActions({ records, api, reload, approvalsOnly }: { record
   }
   if (!visible.length) return null;
   return <div className="request-list change-request-list">{visible.map((record) => <article key={recordId(record)}>
-    <div><strong>Domain change · {String(record.resource_id)}</strong><p>Requested by {String(record.requested_by)}</p><pre>{JSON.stringify(record.proposed_changes, null, 2)}</pre></div>
+    <div><strong>{String(record.resource_type === "schemas" ? "Schema version" : "Domain change")} · {String(record.resource_id)}</strong><p>Requested by {String(record.requested_by)}</p><pre>{JSON.stringify(record.proposed_changes, null, 2)}</pre></div>
     <span className={`pill ${String(record.status).toLowerCase()}`}>{String(record.status)}</span>
     <div className="actions">{record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve &amp; publish</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}</div>
   </article>)}</div>;
@@ -516,16 +640,16 @@ export function ConsolePage({ section, identity, api, organizationNavigation = d
     setLoading(true);
     const operation = section === "approvals"
       ? Promise.all([api.list("access-requests"), api.listResourceChanges()]).then(([access, changes]) => { setRecords(access); setChangeRequests(changes); })
-      : api.list(resource).then(setRecords);
+      : api.list(resource, organizationNavigation.selectedOrganization?.id).then(setRecords);
     operation.catch((caught) => setError(caught instanceof Error ? caught.message : "Request failed")).finally(() => setLoading(false));
-  }, [api, resource, section]);
+  }, [api, organizationNavigation.selectedOrganization?.id, resource, section]);
   useEffect(() => { setSelectedRecord(null); reload(); }, [reload]);
   if (section === "dashboard") return <section className="dashboard"><span className="eyebrow">Platform overview</span><h2>Governed memory, ready for every shopping journey</h2><p>Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only.</p><div className="metric-grid"><article><span className="metric-icon">O</span><strong>Organization</strong><span>Tenant and policy boundary</span></article><article><span className="metric-icon">P</span><strong>Projects</strong><span>Agent and domain collaboration</span></article><article><span className="metric-icon">M</span><strong>Memory Bank</strong><span>Profiles created lazily per user</span></article></div></section>;
   if (section === "create-setup") return <MemorySetupWizard api={api} />;
   if (section === "organizations") return <OrganizationManagement identity={identity} api={api} {...organizationNavigation} />;
   const writable = canMutate(identity, section);
   const hasPendingApprovals = changeRequests.some((record) => record.status === "PENDING") || records.some((record) => record.status === "PENDING");
-  return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "approvals" ? <>{!hasPendingApprovals && <div className="empty-state"><strong>No pending approvals</strong><p>Domain change and cross-project access requests will appear here for review.</p></div>}<ResourceChangeActions records={changeRequests} api={api} reload={reload} approvalsOnly /><AccessActions records={records} api={api} reload={reload} approvalsOnly /></> : section === "access-requests" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={false} /> : <ResourceTable records={records} onSelect={setSelectedRecord} />}{section !== "approvals" && writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}{selectedRecord && <ResourceDetailPanel resource={resource} record={selectedRecord} writable={writable} api={api} onClose={() => setSelectedRecord(null)} onSaved={reload} />}</section>;
+  return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "approvals" ? <>{!hasPendingApprovals && <div className="empty-state"><strong>No pending approvals</strong><p>Domain change and cross-project access requests will appear here for review.</p></div>}<ResourceChangeActions records={changeRequests} api={api} reload={reload} approvalsOnly /><AccessActions records={records} api={api} reload={reload} approvalsOnly /></> : section === "access-requests" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={false} /> : <ResourceTable records={records} onSelect={setSelectedRecord} />}{section !== "approvals" && writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}{selectedRecord && <ResourceDetailPanel resource={resource} record={selectedRecord} writable={writable} api={api} contextOrganizationId={organizationNavigation.selectedOrganization?.id} onClose={() => setSelectedRecord(null)} onSaved={reload} />}</section>;
 }
 
 export function ConsoleShell({ identity, section, status, onSection }: { identity: AdminIdentity; section: string; status: string; onSection: (value: string) => void }) {

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import httpx
 import pytest
 import pytest_asyncio
+from control_plane_api.api.runtime.models import RuntimeScope
 from control_plane_api.application import create_app
 from control_plane_api.config import ControlPlaneApiSettings
 from control_plane_api.domain.control_plane import AccessPermission
@@ -12,6 +14,7 @@ from control_plane_api.domain.runtime import RuntimeAgent, RuntimeSchemaGrant
 from control_plane_api.integrations import MockMemoryStore
 from control_plane_api.persistence import Database
 from control_plane_api.services.runtime_service import RuntimeMemoryService
+from control_plane_api.services.scope_registry import ScopeRegistry
 from db_seed import seed_control_plane
 
 
@@ -40,7 +43,13 @@ def scope(user_id: str = "u1", domain: str = "grocery") -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_explicit_write_then_resolve_returns_versioned_snapshot(runtime_client) -> None:
+async def test_explicit_write_then_resolve_returns_versioned_snapshot(
+    runtime_client, caplog
+) -> None:
+    caplog.set_level(
+        logging.INFO,
+        logger="uvicorn.error.control_plane_api.preference_resolution",
+    )
     headers = {"X-Agent-ID": "grocery-agent", "X-Correlation-ID": "phase4-test"}
     update = await runtime_client.put(
         "/api/v1/runtime/preferences/grocery.preferred_snack",
@@ -75,6 +84,10 @@ async def test_explicit_write_then_resolve_returns_versioned_snapshot(runtime_cl
     assert len(payload["snapshotVersion"]) == 24
     assert payload["policyVersion"] == "1.0"
     assert "grocery.preferred_snack" in payload["writablePreferences"]
+    assert "agent_capability_scope_and_grants_validated" in caplog.text
+    assert "authorized_memory_profiles_read_completed" in caplog.text
+    assert "configured_resolution_policy_applied" in caplog.text
+    assert "effective_preference_snapshot_returned" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -239,6 +252,7 @@ def test_schema_less_write_rejects_ambiguous_owned_mappings() -> None:
     grants = tuple(
         RuntimeSchemaGrant(
             schema_id=schema_id,
+            owner_organization_id="retail",
             domain_id="grocery",
             schema_version="1",
             permission=AccessPermission.READ_WRITE,
@@ -256,6 +270,24 @@ def test_schema_less_write_rejects_ambiguous_owned_mappings() -> None:
             "grocery",
             None,
         )
+
+
+def test_foreign_schema_reads_use_owner_organization_scope() -> None:
+    service = RuntimeMemoryService(None, MockMemoryStore(), ScopeRegistry())  # type: ignore[arg-type]
+    grant = RuntimeSchemaGrant(
+        schema_id="grocery-preferences-v1",
+        owner_organization_id="default-org",
+        domain_id="grocery",
+        schema_version="1",
+        permission=AccessPermission.READ,
+        scope_keys=("organization_id", "user_id"),
+        field_to_attribute={"preferred_brand": "grocery.preferred_brand"},
+    )
+
+    resolved = service._owner_scope(RuntimeScope(userId="demo-user-123"), grant)
+
+    assert resolved.organization_id == "default-org"
+    assert resolved.user_id == "demo-user-123"
 
 
 @pytest.mark.asyncio

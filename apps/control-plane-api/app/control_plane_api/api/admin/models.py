@@ -68,6 +68,16 @@ class SchemaCreate(AdminModel):
     mappings: list[SchemaMapping] = Field(min_length=1)
 
 
+class SchemaVersionChange(AdminModel):
+    version: str = Field(min_length=1)
+    scope_definition_id: str | None = Field(default=None, alias="scopeDefinitionId")
+    vertex_schema_definition: dict[str, Any] | None = Field(
+        default=None, alias="vertexSchemaDefinition"
+    )
+    generation_config: dict[str, Any] | None = Field(default=None, alias="generationConfig")
+    mappings: list[SchemaMapping] = Field(min_length=1)
+
+
 class PreferenceCreate(AdminModel):
     attribute_id: str = Field(alias="attributeId", min_length=1)
     display_name: str = Field(alias="displayName", min_length=1)

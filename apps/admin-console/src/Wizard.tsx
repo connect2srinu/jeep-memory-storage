@@ -114,22 +114,34 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
 
   useEffect(() => {
     Promise.all([
-      api.list("preference-catalog"),
-      api.list("schemas"),
-      api.list("agents"),
       api.list("organizations"),
       api.list("projects"),
     ])
-      .then(([preferences, profileSchemas, registeredAgents, organizationRows, projectRows]) => {
-        setCatalog(preferences);
-        setSchemas(profileSchemas);
-        setAgents(registeredAgents);
+      .then(([organizationRows, projectRows]) => {
         setOrganizations(organizationRows);
         setProjects(projectRows);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load catalog"))
       .finally(() => setLoading(false));
   }, [api]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    setLoading(true);
+    Promise.all([
+      api.list("preference-catalog", organizationId),
+      api.list("schemas", organizationId),
+      api.list("agents", organizationId),
+    ])
+      .then(([preferences, profileSchemas, registeredAgents]) => {
+        setCatalog(preferences);
+        setSchemas(profileSchemas);
+        setAgents(registeredAgents);
+        setSharedSchemaIds((current) => current.filter((id) => profileSchemas.some((item) => text(item, "id") === id)));
+      })
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load organization catalog"))
+      .finally(() => setLoading(false));
+  }, [api, organizationId]);
 
   useEffect(() => {
     const recommended = catalog
@@ -345,7 +357,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       </>}
       {step === "Sharing" && <>
         <h3>Request shared schema access</h3><p>Requests remain pending until each target schema owner approves them.</p>
-        <div className="catalog-grid">{discoverableSchemas.map((item) => { const id = text(item, "id"); return <label className={`catalog-card ${sharedSchemaIds.includes(id) ? "selected" : ""}`} key={id}><input type="checkbox" checked={sharedSchemaIds.includes(id)} onChange={() => setSharedSchemaIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])} /><span><strong>{text(item, "display_name")}</strong><small>{id} · owner {text(item, "domain_id")}</small><p>Requested permission: READ</p></span></label>; })}</div>
+        <div className="catalog-grid">{discoverableSchemas.map((item) => { const id = text(item, "id"); const visibility = text(item, "visibility"); const access = text(item, "access_status"); return <label className={`catalog-card ${sharedSchemaIds.includes(id) ? "selected" : ""}`} key={id}><input type="checkbox" checked={sharedSchemaIds.includes(id)} onChange={() => setSharedSchemaIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])} /><span><strong>{text(item, "display_name")}</strong><small>{id} · owner {text(item, "domain_id")} · {visibility.toLowerCase()}</small><p>{access === "APPROVED" ? "Approved READ access" : access === "PENDING" ? "Access request pending" : "Selecting submits a READ request"}</p></span></label>; })}</div>
       </>}
       {step === "Resolution" && <>
         <h3>Set schema precedence</h3><p>The first schema wins when higher-priority resolution strategies tie.</p>
