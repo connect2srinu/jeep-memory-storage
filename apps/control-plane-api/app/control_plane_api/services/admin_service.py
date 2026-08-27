@@ -336,6 +336,64 @@ class AdminControlPlaneService:
             return await self._resolution_policy_data(record)
         return _record_data(record)
 
+    async def agent_schema_access(
+        self, principal: AdminPrincipal, agent_id: str
+    ) -> list[dict[str, Any]]:
+        self.authorizer.require_read(principal)
+        agent = await self.session.get(RegisteredAgentRecord, agent_id)
+        if agent is None:
+            raise ResourceNotFoundError(f"agent {agent_id} was not found")
+        schemas = await self.list_resources(principal, "schemas", agent.organization_id)
+        grants = {
+            item.schema_id: item
+            for item in (
+                await self.session.scalars(
+                    select(AgentSchemaGrantRecord).where(
+                        AgentSchemaGrantRecord.agent_id == agent.id
+                    )
+                )
+            ).all()
+        }
+        requests = (
+            await self.session.scalars(
+                select(AccessRequestRecord)
+                .where(AccessRequestRecord.requesting_agent_id == agent.id)
+                .order_by(AccessRequestRecord.requested_at.desc())
+            )
+        ).all()
+        latest_requests: dict[str, AccessRequestRecord] = {}
+        for request in requests:
+            latest_requests.setdefault(request.target_schema_id, request)
+
+        result: list[dict[str, Any]] = []
+        for schema in schemas:
+            schema_id = str(schema["id"])
+            grant = grants.get(schema_id)
+            request = latest_requests.get(schema_id)
+            grant_active = grant is not None and grant.status == LifecycleStatus.ACTIVE.value
+            access_status = (
+                "APPROVED"
+                if grant_active
+                else request.status
+                if request is not None
+                else "NOT_REQUESTED"
+            )
+            result.append(
+                {
+                    **schema,
+                    "agent_id": agent.id,
+                    "permission": grant.permission if grant_active else None,
+                    "access_status": access_status,
+                    "request_id": request.id if request else None,
+                    "requestable": access_status
+                    not in {
+                        AccessRequestStatus.PENDING.value,
+                        AccessRequestStatus.APPROVED.value,
+                    },
+                }
+            )
+        return result
+
     async def _schema_data(self, record: ProfileSchemaRecord) -> dict[str, Any]:
         data = _record_data(record)
         versions = (

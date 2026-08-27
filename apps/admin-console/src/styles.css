@@ -88,6 +88,15 @@ table { width: 100%; border-collapse: collapse; font-size: .84rem; }th { positio
 .prefixed-input { display: flex; align-items: center; border: 1px solid #bac8d6; border-radius: 7px; background: #f5f8fb; overflow: hidden; }
 .prefixed-input span { padding-left: 10px; color: #66758a; }
 .prefixed-input input { border: 0 !important; border-radius: 0 !important; background: white; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.agent-schema-access { display: grid; gap: 18px; padding-bottom: 20px; }
+.agent-schema-access h4, .agent-schema-access h5 { margin: 0; color: #173f62; }
+.agent-schema-access > p { margin: -10px 0 0; color: #66758a; }
+.agent-schema-access section { display: grid; gap: 10px; }
+.access-summary { display: grid; gap: 8px; }
+.access-summary > div { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 12px; border: 1px solid #d8e5f0; border-radius: 9px; }
+.access-summary > div > span:first-child { display: grid; gap: 3px; }
+.access-summary small { color: #66758a; }
 .organization-workspace { display: grid; gap: 24px; }
 .organization-create { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(520px, 1.8fr); gap: 28px; padding: 24px; border: 1px solid #cfe1ef; border-radius: 18px; background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%); box-shadow: 0 8px 24px rgb(6 59 104 / 6%); }
 .organization-create h3, .organization-card h3, .project-card h4 { margin: 3px 0; color: #063b68; }.organization-create p, .organization-card p, .project-card p { margin: 4px 0; color: #66758a; }

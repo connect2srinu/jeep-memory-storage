@@ -135,6 +135,14 @@ export class AdminApiClient {
     ).data;
   }
 
+  async agentSchemaAccess(agentId: string): Promise<AdminRecord[]> {
+    return (
+      await this.request<AdminRecordList>(
+        `/agents/${encodeURIComponent(agentId)}/schema-access`,
+      )
+    ).items;
+  }
+
   async listResourceChanges(): Promise<AdminRecord[]> {
     return await this.list("resource-change-requests");
   }

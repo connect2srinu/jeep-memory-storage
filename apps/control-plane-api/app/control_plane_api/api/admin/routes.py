@@ -368,6 +368,14 @@ def create_admin_router(
     ) -> AdminRecord:
         return await fetched("agents", resource_id, identity, service)
 
+    @router.get("/agents/{resource_id}/schema-access", response_model=AdminRecordList)
+    async def get_agent_schema_access(
+        resource_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(items=await service.agent_schema_access(identity, resource_id))
+
     @router.patch("/agents/{resource_id}", response_model=AdminRecord)
     async def update_agent(
         resource_id: str,

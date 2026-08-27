@@ -1,0 +1,168 @@
+<mxfile host="app.diagrams.net" agent="Claude">
+  <diagram id="geap-arch" name="GEAP Architecture">
+    <mxGraphModel dx="1773" dy="749" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=18;fontStyle=1;align=left;verticalAlign=middle;fontColor=#202124;" value="GEAP - Gemini Enterprise Agent Platform: Reference Architecture" vertex="1">
+          <mxGeometry height="30" width="700" x="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="text;html=1;fontSize=10;align=left;verticalAlign=top;fontColor=#5f6368;" value="Legend: solid border = GCP project boundary&#xa;dashed border = outside GCP / not GCP-owned&#xa;dashed arrow = inferred connection (verify)&#xa;gray dashed chip = planned, not yet wired" vertex="1">
+          <mxGeometry height="70" width="330" x="1050" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="n_entra" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE8E6;strokeColor=#EA4335;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Microsoft Entra ID&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Enterprise identity provider (OIDC / SSO)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="-30" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="b_geap" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=default;strokeColor=#4285F4;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#1A56C4;" value="GEAP GCP Project&amp;nbsp; (us-central1 )&amp;nbsp;" vertex="1">
+          <mxGeometry height="480" width="680" x="260" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="n_webapp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Gemini Enterprise Web App&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Chat UI for product owners&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="300" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_agentengine" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Agent Engine&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Python runtime - hosts deployed agent&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="190" x="300" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="n_memorybank" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Memory Bank&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Long-term agent memory&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="560" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_sessionsvc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Session Service&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Conversation session state&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="560" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="n_agentregistry" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Agent Registry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Agent discovery / catalog&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="560" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="n_modelarmor" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4285F4;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Model Armor&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Security guardrails on agent traffic&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="150" x="750" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="b_vertex" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#9AA0A6;dashed=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=6;fontSize=10;fontStyle=1;fontColor=#5f6368;" value="Google Cloud AI Platform (Google-managed, shared)" vertex="1">
+          <mxGeometry height="160" width="220" x="990" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b_apisaag" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6F4EA;strokeColor=#34A853;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#1E7E34;" value="GCP apisaag Project (KSA Environment)" vertex="1">
+          <mxGeometry height="210" width="340" x="980" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="b_saas" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;dashed=1;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#B36B00;" value="External Cloud SaaS" vertex="1">
+          <mxGeometry height="160" width="340" x="260" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="n_jira" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F9AB00;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Jira Cloud&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="290" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="n_snow" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F9AB00;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;ServiceNow&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="450" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="b_internal" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1F3F4;strokeColor=#9AA0A6;dashed=1;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;fontStyle=1;fontColor=#5f6368;" value="Company Internal Network" vertex="1">
+          <mxGeometry height="160" width="260" x="640" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="n_gateway" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F3F4;strokeColor=#9AA0A6;dashed=1;fontSize=12;align=center;verticalAlign=middle;arcSize=12;" value="&lt;b&gt;Kroger AI Gateway&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#5f6368&quot;&gt;Planned - not yet wired into agent traffic&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="200" x="670" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="7j3W2b1rPQrnMCu_yk_K-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#5f6368;exitX=0.519;exitY=-0.028;exitDx=0;exitDy=0;exitPerimeter=0;" target="n_entra" value="Authenticates (SSO)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="109" y="190" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="n_entra" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#5f6368;" target="n_webapp" value="Issues Entra ID token (OIDC)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="179" y="120.07" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="n_webapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#EA4335;dashed=1;" target="n_agentengine" value="Invokes agent (assumed)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="n_webapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" value="Direct LLM calls">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="395" y="60.07" />
+              <mxPoint x="1070.07" y="60.07" />
+            </Array>
+            <mxPoint x="395" y="99.93" as="sourcePoint" />
+            <mxPoint x="1070" y="109.93" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;curved=1;entryX=0.183;entryY=1.079;entryDx=0;entryDy=0;entryPerimeter=0;" target="n_agentengine" value="Injects keys / secrets">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="330" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="n_agentengine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;" target="n_memorybank" value="Reads/writes long-term memory">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="428.6" y="170.2" />
+              <mxPoint x="650.07" y="170.2" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="n_agentengine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;" target="n_sessionsvc" value="Manages session state">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="n_agentengine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;" target="n_agentregistry" value="Registers / discovers agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="n_agentregistry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#4285F4;" target="n_modelarmor" value="Applies security guardrails">
+          <mxGeometry relative="1" x="-0.3333" y="-10" as="geometry">
+            <mxPoint x="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#34A853;" target="n_agentengine" value="Reads eval data back">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="417.93" y="370.07" />
+            </Array>
+            <mxPoint x="1010" y="370.0666666666666" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="n_agentengine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#34A853;" value="Reads logs &amp;amp; metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1230.07" y="250.07" />
+            </Array>
+            <mxPoint x="1230.07" y="339.8" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#B36B00;" value="Pulls ServiceNow ticket status">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="459" y="450.07" />
+              <mxPoint x="501.40000000000003" y="450.07" />
+            </Array>
+            <mxPoint x="458.9966666666667" y="270" as="sourcePoint" />
+            <mxPoint x="501.3966666666666" y="630" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="n_agentengine" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;strokeColor=#B36B00;" target="n_jira" value="Queries Jira">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="385.93" y="450.07" />
+              <mxPoint x="360.07" y="450.07" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-1" parent="1" style="sketch=0;html=1;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;align=center;fontSize=11;fontStyle=0;fontColor=#000000;aspect=fixed;pointerEvents=1;shape=mxgraph.gcp3.vertexai;fillColor=#4285f4" value="&lt;span style=&quot;color: rgb(35, 47, 62);&quot;&gt;Vertex AI&lt;/span&gt;&lt;br style=&quot;color: rgb(35, 47, 62);&quot;&gt;&lt;span style=&quot;color: rgb(35, 47, 62);&quot;&gt;(Google Native LLMs&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="60.67" x="1054" y="104" as="geometry" />
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-2" parent="1" style="sketch=0;html=1;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;align=center;fontSize=11;fontStyle=0;fontColor=#000000;aspect=fixed;pointerEvents=1;shape=mxgraph.gcp3.bigquery;fillColor=#4285f4" value="&lt;span style=&quot;color: rgb(35, 47, 62);&quot;&gt;BigQuery&lt;/span&gt;&lt;br style=&quot;color: rgb(35, 47, 62);&quot;&gt;&lt;span style=&quot;color: rgb(35, 47, 62);&quot;&gt;(KSA Evals / Conversation Data)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="63.92" width="64.13" x="1015" y="338.03999999999996" as="geometry" />
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-3" parent="1" style="editableCssRules=.*;sketch=0;html=1;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;align=center;spacingTop=-6;fontSize=11;fontStyle=1;fontColor=#999999;shape=image;aspect=fixed;imageAspect=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJzdmc1MzkzNyIgdmVyc2lvbj0iMS4xIiB2aWV3Qm94PSIwIDAgMTc1LjE2MDY0NDUzMTI1IDEwNC4yNzczNTEzNzkzOTQ1MyIgaGVpZ2h0PSIxMDQuMjc3MzUxMzc5Mzk0NTMiIHdpZHRoPSIxNzUuMTYwNjQ0NTMxMjUiPiYjeGE7CTxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+CS5zdDB7ZmlsbDojNDI4NWY0O308L3N0eWxlPgkmI3hhOyAgPHBhdGggY2xhc3M9InN0MCIgZD0ibSAxMjguNTY5MSwzNC4xMTUyMzYgdiAxMi45Nzg1MTYgbCAtMTIuMzM3ODksLTQuMzgwODYgLTIuNTA5NzcsNy4wNjgzNiAxMi41NDEwMiw0LjQ1MzEyNSAtOC41NjA1NSwxMS40MzE2NCA2LjAwMTk2LDQuNDk2MDk0IDguNTk5NjEsLTExLjQ4MDQ2OSA4LjQ5NDE0LDExLjQ2NDg0NCA2LjAyNzM0LC00LjQ2NDg0NCAtOC40NzI2NiwtMTEuNDMzNTkzIDEyLjY0MDYzLC00LjQ2Njc5NyAtMi41LC03LjA3MDMxMyAtMTIuNDIzODMsNC4zOTA2MjUgViAzNC4xMTUyMzYgWiBtIC00NC43NzY4NzIsMCB2IDEyLjk3ODUxNiBsIC0xMi4zMzc4OTEsLTQuMzgwODYgLTIuNTA5NzY1LDcuMDY4MzYgMTIuNTQxMDE1LDQuNDUzMTI1IC04LjU2MDU0NywxMS40MzE2NCA2LjAwMTk1Myw0LjQ5NjA5NCA4LjU5OTYxLC0xMS40ODA0NjkgOC40OTQxNCwxMS40NjQ4NDQgNi4wMjczNDcsLTQuNDY0ODQ0IC04LjQ3MjY1OSwtMTEuNDMzNTkzIDEyLjY0MDYyOSwtNC40NjY3OTcgLTIuNSwtNy4wNzAzMTMgLTEyLjQyMzgzMiw0LjM5MDYyNSBWIDM0LjExNTIzNiBaIG0gLTQ0Ljc3Njg1LDAgdiAxMi45Nzg1MTYgbCAtMTIuMzM3ODkxLC00LjM4MDg2IC0yLjUwOTc2NSw3LjA2ODM2IDEyLjU0MTAxNSw0LjQ1MzEyNSAtOC41NjA1NDcsMTEuNDMxNjQgNi4wMDE5NTMsNC40OTYwOTQgOC41OTk2MSwtMTEuNDgwNDY5IDguNDk0MTQsMTEuNDY0ODQ0IDYuMDI3MzQ0LC00LjQ2NDg0NCAtOC40NzI2NTYsLTExLjQzMzU5MyAxMi42NDA2MjUsLTQuNDY2Nzk3IC0yLjUsLTcuMDcwMzEzIC0xMi40MjM4MjgsNC4zOTA2MjUgViAzNC4xMTUyMzYgWiBNIDE3NS4xNjA2NCwxMGUtNyBWIDEwNC4yNzczNCBoIC0zNy4yNzY4MiBjIC0xLjIwODU3LDAgLTIuMDAyNDgsLTAuNjIzNTQgLTIuMDAyNDgsLTEuODY2MzQgdiAtOS45MjcyMzggYyAwLC0xLjE0ODI1IDAuNzE1OTYsLTEuNzA2NDIgMi4wMDI0OCwtMS43MDY0MiBoIDIzLjc3NjgyIFYgMTMuNSBoIC0yMy45NDQ5OCBjIC0xLjQwODU1LDAgLTEuOTUxNTEsLTAuNzUyMzE3IC0xLjk1MTUxLC0yLjA3NDQ4MiBWIDEuODQyNzI2IGMgMCwtMS4yNjU5NzEgMC42OTgwOCwtMS44NDI3MjUgMS45NTE1MSwtMS44NDI3MjUgeiBNIDAsMCB2IDEwNC4yNzczNSBoIDM3LjI3NjgxNCBjIDEuMjA4NTcxLDAgMi4wMDI0ODMsLTAuNjIzNTQgMi4wMDI0ODMsLTEuODY2MzQgdiAtOS45MjcyMzggYyAwLC0xLjE0ODI1IC0wLjcxNTk1NywtMS43MDY0MiAtMi4wMDI0ODMsLTEuNzA2NDIgSCAxMy41IFYgMTMuNDk5OTk5IGggMjMuOTQ0OTczIGMgMS40MDg1NTIsMCAxLjk1MTUxMSwtMC43NTIzMTcgMS45NTE1MTEsLTIuMDc0NDgyIFYgMS44NDI3MjUgQyAzOS4zOTY0ODQsMC41NzY3NTQgMzguNjk4NDEsMCAzNy40NDQ5NzMsMCBaIi8+JiN4YTs8L3N2Zz4=;" value="Secret&#xa;Manager" vertex="1">
+          <mxGeometry height="38.17" width="64.13" x="272" y="324" as="geometry" />
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-9" parent="1" style="fillColor=#ffffff;strokeColor=#dddddd;shadow=1;strokeWidth=1;rounded=1;absoluteArcSize=1;arcSize=2;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="1174" y="345" as="geometry" />
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-10" parent="7j3W2b1rPQrnMCu_yk_K-9" style="editableCssRules=.*;html=1;fontColor=#999999;shape=image;verticalLabelPosition=middle;verticalAlign=middle;labelPosition=right;align=left;spacingLeft=20;part=1;points=[];imageAspect=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnY9Imh0dHBzOi8vdmVjdGEuaW8vbmFubyIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE5IiB2aWV3Qm94PSIwIDAgMjAgMTkiPiYjeGE7CTxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+JiN4YTsJLnN0MHtmaWxsOiM0Mjg1ZjQ7fSYjeGE7CS5zdDF7ZmlsbDojNjY5ZGY2O30mI3hhOwkuc3Qye2ZpbGw6I2FlY2JmYTt9JiN4YTsJPC9zdHlsZT4mI3hhOwk8ZyBjbGFzcz0ic3QwIj4mI3hhOwkJPHBhdGggZD0iTTQgOWg0djJINHptLTIgN2g2djJIMnoiLz4mI3hhOwkJPHBhdGggZD0iTTQgNEgydjEyaDJ6Ii8+JiN4YTsJPC9nPiYjeGE7CTxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yMCAxSDd2NGgxM3ptMCA3SDd2NGgxM3ptMCA3SDd2NGgxM3oiLz4mI3hhOwk8cGF0aCBjbGFzcz0ic3QyIiBkPSJNNiAwSDB2Nmg2eiIvPiYjeGE7PC9zdmc+;" value="Cloud&#xa;Logging" vertex="1">
+          <mxGeometry height="28" relative="1" width="30" as="geometry">
+            <mxPoint x="15" y="16" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-11" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Cloud Trace" vertex="1">
+          <mxGeometry height="30" width="60" x="1199" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="7j3W2b1rPQrnMCu_yk_K-12" parent="1" style="sketch=0;html=1;verticalAlign=top;labelPosition=center;verticalLabelPosition=bottom;align=center;fontSize=11;fontStyle=0;fontColor=#000000;aspect=fixed;pointerEvents=1;shape=mxgraph.gcp3.collaboration;fillColor=#9aa0a6" value="Product Owners" vertex="1">
+          <mxGeometry height="63.92" width="92.7" x="18.650000000000006" y="274.12" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

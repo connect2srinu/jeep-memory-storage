@@ -475,6 +475,57 @@ async def test_domain_edits_remain_inactive_until_approved(admin_environment) ->
 
 
 @pytest.mark.asyncio
+async def test_agent_schema_access_catalog_tracks_request_and_approval(
+    admin_environment,
+) -> None:
+    client, _ = admin_environment
+    initial = await client.get(
+        "/api/v1/admin/agents/customer-agent/schema-access", headers=PLATFORM
+    )
+    assert initial.status_code == 200
+    inventory = next(
+        item for item in initial.json()["items"] if item["id"] == "inventory-preferences-v1"
+    )
+    assert inventory["access_status"] == "NOT_REQUESTED"
+    assert inventory["requestable"] is True
+
+    requested = await client.post(
+        "/api/v1/admin/access-requests",
+        headers=PLATFORM,
+        json={
+            "requestingAgentId": "customer-agent",
+            "requestingTeam": "customer-platform",
+            "targetSchemaId": "inventory-preferences-v1",
+            "requestedPermission": "READ",
+            "businessReason": "Use availability in the customer experience",
+        },
+    )
+    assert requested.status_code == 201, requested.text
+    request_id = requested.json()["data"]["id"]
+    pending = await client.get(
+        "/api/v1/admin/agents/customer-agent/schema-access", headers=PLATFORM
+    )
+    inventory = next(
+        item for item in pending.json()["items"] if item["id"] == "inventory-preferences-v1"
+    )
+    assert inventory["access_status"] == "PENDING"
+    assert inventory["requestable"] is False
+
+    approved = await client.post(
+        f"/api/v1/admin/access-requests/{request_id}/approve",
+        headers=INVENTORY_SCHEMA_OWNER,
+        json={"reason": "Approved for read-only availability"},
+    )
+    assert approved.status_code == 200, approved.text
+    active = await client.get("/api/v1/admin/agents/customer-agent/schema-access", headers=PLATFORM)
+    inventory = next(
+        item for item in active.json()["items"] if item["id"] == "inventory-preferences-v1"
+    )
+    assert inventory["access_status"] == "APPROVED"
+    assert inventory["permission"] == "READ"
+
+
+@pytest.mark.asyncio
 async def test_access_approval_grant_revoke_and_transactional_audit(admin_environment) -> None:
     client, database = admin_environment
     requested = await client.post(
@@ -491,7 +542,6 @@ async def test_access_approval_grant_revoke_and_transactional_audit(admin_enviro
     )
     assert requested.status_code == 201, requested.text
     request_id = requested.json()["data"]["id"]
-
     wrong_owner = await client.post(
         f"/api/v1/admin/access-requests/{request_id}/approve",
         headers=INVENTORY_SCHEMA_OWNER,
@@ -506,7 +556,6 @@ async def test_access_approval_grant_revoke_and_transactional_audit(admin_enviro
     )
     assert approved.status_code == 200, approved.text
     assert approved.json()["data"]["status"] == "APPROVED"
-
     async with database.session() as session:
         grant = await session.get(AgentSchemaGrantRecord, "grocery-agent:customer-preferences-v1")
         assert grant is not None
