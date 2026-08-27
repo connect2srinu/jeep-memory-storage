@@ -9,11 +9,11 @@ set -euo pipefail
 registry="${GOOGLE_CLOUD_LOCATION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${ARTIFACT_REPOSITORY}"
 
 gcloud auth configure-docker "${GOOGLE_CLOUD_LOCATION}-docker.pkg.dev" --quiet
-docker build -f apps/memory-api/Dockerfile -t "${registry}/memory-api:${IMAGE_TAG}" .
+docker build -f apps/control-plane-api/Dockerfile -t "${registry}/control-plane-api:${IMAGE_TAG}" .
 docker build -f apps/reference-agent/Dockerfile -t "${registry}/reference-agent:${IMAGE_TAG}" .
-docker build --build-arg VITE_MEMORY_API_URL=/api/v1/admin \
+docker build --build-arg VITE_CONTROL_PLANE_API_URL=/api/v1/admin \
   -f apps/admin-console/Dockerfile -t "${registry}/admin-console:${IMAGE_TAG}" .
-docker push "${registry}/memory-api:${IMAGE_TAG}"
+docker push "${registry}/control-plane-api:${IMAGE_TAG}"
 docker push "${registry}/reference-agent:${IMAGE_TAG}"
 docker push "${registry}/admin-console:${IMAGE_TAG}"
 

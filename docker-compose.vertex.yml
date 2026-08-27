@@ -17,10 +17,10 @@ services:
     volumes:
       - shared-memory-postgres:/var/lib/postgresql/data
 
-  memory-api:
+  control-plane-api:
     build:
       context: .
-      dockerfile: apps/memory-api/Dockerfile
+      dockerfile: apps/control-plane-api/Dockerfile
     environment:
       MEMORY_BACKEND: vertex
       AUTH_ENABLED: "false"
@@ -35,9 +35,9 @@ services:
       - sh
       - -c
       - >-
-        python apps/memory-api/scripts/wait_for_database.py &&
-        alembic -c apps/memory-api/alembic.ini upgrade head &&
-        uvicorn memory_api.main:app --host 0.0.0.0 --port 8080
+        python apps/control-plane-api/scripts/wait_for_database.py &&
+        alembic -c apps/control-plane-api/alembic.ini upgrade head &&
+        uvicorn control_plane_api.main:app --host 0.0.0.0 --port 8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +58,7 @@ services:
       context: .
       dockerfile: apps/admin-console/Dockerfile
     depends_on:
-      memory-api:
+      control-plane-api:
         condition: service_healthy
     ports:
       - "3000:80"
@@ -69,7 +69,7 @@ services:
       context: .
       dockerfile: apps/reference-agent/Dockerfile
     environment:
-      MEMORY_API_URL: http://memory-api:8080
+      CONTROL_PLANE_API_URL: http://control-plane-api:8080
       REFERENCE_AGENT_ID: grocery-agent
       ADK_APP_NAME: grocery_shared_preferences
       PREFERENCE_DOMAIN: grocery
@@ -78,7 +78,7 @@ services:
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
     depends_on:
-      memory-api:
+      control-plane-api:
         condition: service_healthy
     ports:
       - "8000:8000"

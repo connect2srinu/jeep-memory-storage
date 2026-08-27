@@ -1,4 +1,4 @@
-# Shared Memory Platform for Google ADK
+# Control Plane Platform for Google ADK
 
 This repository implements a governed preference-memory service between ADK agents and Google
 Vertex AI Memory Bank. Domain teams define preferences through the Admin Console and Admin API;
@@ -12,13 +12,13 @@ Platform admin
   -> Admin Console: Create Memory Setup
   -> select organization and project
   -> preview and activate domain, preferences, schema, agent, grants, policies
-  -> Memory API applies active schemas to Agent Engine context_spec
+  -> Control Plane API applies active schemas to Agent Engine context_spec
   -> profile instances remain lazy
 
 User
   -> tells an ADK agent a preference in natural language
   -> agent chooses an attribute from writablePreferences
-  -> Memory API resolves the single same-domain writable schema
+  -> Control Plane API resolves the single same-domain writable schema
   -> Memory Bank stores the explicit preference and ingests the event
   -> refreshed and later Sessions resolve the saved preference
 ```
@@ -76,7 +76,7 @@ membership is the next security slice.
 | Component | Purpose | Local URL |
 |---|---|---|
 | `apps/admin-console` | Guided onboarding and advanced administration | `http://localhost:3000` |
-| `apps/memory-api` | Control plane, authorization, resolution, and Memory Bank adapter | `http://localhost:8080` |
+| `apps/control-plane-api` | Control plane, authorization, resolution, and Memory Bank adapter | `http://localhost:8080` |
 | `apps/reference-agent` | Thin ADK consumer used for demonstrations | `http://localhost:8000` |
 | PostgreSQL | Durable control-plane metadata, grants, policies, and audit | Compose network only |
 
@@ -86,7 +86,7 @@ membership is the next security slice.
 geap-memory/
 ├── apps/
 │   ├── admin-console/        React guided setup and administration UI
-│   ├── memory-api/           FastAPI runtime and admin service
+│   ├── control-plane-api/           FastAPI runtime and admin service
 │   └── reference-agent/      ADK example consumer
 ├── docs/                     Current architecture, onboarding, demo, and operations guides
 ├── infrastructure/           Terraform and deployment support
@@ -121,14 +121,14 @@ docker compose up --build
 ```
 
 Activation reports `REGISTERED_LOCAL`. Schemas and profile data in the mock store are process-local
-and are lost when the Memory API restarts. PostgreSQL metadata is retained in the
+and are lost when the Control Plane API restarts. PostgreSQL metadata is retained in the
 `shared-memory-postgres` Docker volume.
 
 Wait for all services to become healthy, then open:
 
 - Admin Console: `http://localhost:3000`
-- Memory API health: `http://localhost:8080/healthz`
-- Memory API OpenAPI: `http://localhost:8080/docs`
+- Control Plane API health: `http://localhost:8080/healthz`
+- Control Plane API OpenAPI: `http://localhost:8080/docs`
 
 The reference agent is an optional Compose profile. Start it with the rest of the mock stack when
 Google Cloud credentials and the model settings in `.env` are available:
@@ -143,7 +143,7 @@ Useful lifecycle commands:
 
 ```bash
 docker compose ps
-docker compose logs -f memory-api admin-console
+docker compose logs -f control-plane-api admin-console
 docker compose down
 ```
 
@@ -220,9 +220,9 @@ variables are loaded at process start.
 
 ```bash
 cd apps/reference-agent
-export MEMORY_API_URL=http://localhost:8080
-export MEMORY_API_TOKEN=""
-export MEMORY_API_AUDIENCE=""
+export CONTROL_PLANE_API_URL=http://localhost:8080
+export CONTROL_PLANE_API_TOKEN=""
+export CONTROL_PLANE_API_AUDIENCE=""
 export REFERENCE_AGENT_ID=travel-assistant
 export PREFERENCE_DOMAIN=travel
 export ADK_APP_NAME=travel_preferences
@@ -245,8 +245,8 @@ The tool call should contain only the canonical attribute and value:
 }
 ```
 
-It must not contain `schemaId`. The effective snapshot exposes `writablePreferences`; the Memory
-API uses that registration state to select `travel-preferences-v1` behind the scenes.
+It must not contain `schemaId`. The effective snapshot exposes `writablePreferences`; the Control
+Plane API uses that registration state to select `travel-preferences-v1` behind the scenes.
 
 Ask `What preferences are you currently using?`, then create a new Session for the same user and ask
 again. Managed profile consolidation is asynchronous, but the explicit-preference overlay is
@@ -257,7 +257,7 @@ available through the platform runtime path.
 - `AUTH_ENABLED=false` is local-only and uses `X-Agent-ID`.
 - Production uses a Google-signed ID token and maps the verified principal to one active agent.
 - Agent capabilities gate operations: `resolve_context`, `submit_candidates`, and
-  `inspect_provenance`.
+  `inspect_provenance`. See the detailed [capability contract](docs/agent-memory-setup.md#capabilities).
 - Grants gate schema access. A readable shared schema is not writable.
 - Automatic write routing considers only active `WRITE` or `READ_WRITE` grants owned by the
   consumer agent's domain.
@@ -266,7 +266,7 @@ available through the platform runtime path.
 ## Validation
 
 ```bash
-PYTHONPATH=apps/memory-api/app:. .venv/bin/python -m pytest -q apps/memory-api/tests
+PYTHONPATH=apps/control-plane-api/app:. .venv/bin/python -m pytest -q apps/control-plane-api/tests
 PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
 
 cd apps/admin-console

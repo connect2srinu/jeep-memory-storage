@@ -1,4 +1,4 @@
-# Shared Memory Admin API
+# Control Plane Admin API
 
 All administrative routes are under `/api/v1/admin`. The Admin Console uses the same API.
 

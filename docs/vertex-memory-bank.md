@@ -2,7 +2,7 @@
 
 ## Configuration
 
-The Memory API uses Vertex when these settings are present and `MEMORY_BACKEND=vertex`:
+The Control Plane API uses Vertex when these settings are present and `MEMORY_BACKEND=vertex`:
 
 ```text
 GOOGLE_CLOUD_PROJECT

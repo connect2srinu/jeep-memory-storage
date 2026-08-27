@@ -7,8 +7,8 @@ output "project_id" {
 output "frontend_ip" {
   value = module.platform.frontend_ip
 }
-output "memory_api_url" {
-  value = module.platform.memory_api_url
+output "control_plane_api_url" {
+  value = module.platform.control_plane_api_url
 }
 output "reference_agent_url" {
   value = module.platform.reference_agent_url

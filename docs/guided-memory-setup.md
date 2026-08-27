@@ -82,7 +82,8 @@ the advanced Admin API process before adding attributes.
 After activation:
 
 1. verify the result backend;
-2. verify the agent has `resolve_context` and `submit_candidates`;
+2. verify the agent has `resolve_context` and `submit_candidates` as described in the
+   [capability contract](agent-memory-setup.md#capabilities);
 3. verify its owned schema grant is `READ_WRITE`;
 4. resolve a snapshot and confirm the new attribute appears in `writablePreferences`;
 5. write a value from ADK Web without a schema ID;

@@ -1,7 +1,7 @@
 # Infrastructure
 
 Infrastructure code provisions the deployable platform foundation: network/IAM integration,
-database, Memory API, Admin Console, and related runtime configuration. Domain schemas and grants
+database, Control Plane API, Admin Console, and related runtime configuration. Domain schemas and grants
 are database-backed control-plane resources created through the Admin Console or Admin API after
 the application is healthy.
 
@@ -20,7 +20,7 @@ terraform -chdir=infrastructure/terraform/environments/dev validate
 terraform -chdir=infrastructure/terraform/environments/dev plan -out=dev.tfplan
 ```
 
-Apply only after approval. Deployment order is database/migrations, Memory API, Admin Console,
+Apply only after approval. Deployment order is database/migrations, Control Plane API, Admin Console,
 consumer agents, then schema activation/provisioning. See `docs/deployment-operations.md`.
 
 The module provisions the Artifact Registry repository, VPC/private service networking, private

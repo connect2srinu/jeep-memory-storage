@@ -26,7 +26,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-This starts PostgreSQL, Memory API, and Admin Console. Confirm the stack:
+This starts PostgreSQL, Control Plane API, and Admin Console. Confirm the stack:
 
 ```bash
 docker compose ps
@@ -36,8 +36,8 @@ curl http://localhost:8080/healthz
 Open:
 
 - Admin Console: `http://localhost:3000`
-- Memory API health: `http://localhost:8080/healthz`
-- Memory API OpenAPI: `http://localhost:8080/docs`
+- Control Plane API health: `http://localhost:8080/healthz`
+- Control Plane API OpenAPI: `http://localhost:8080/docs`
 
 To include the reference ADK agent, set `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and
 `GEMINI_MODEL` in `.env`, then run:
@@ -67,15 +67,15 @@ docker compose \
   up --build
 ```
 
-The override mounts the standard gcloud Application Default Credentials file into Memory API.
+The override mounts the standard gcloud Application Default Credentials file into the Control Plane API.
 Activation must return `PROVISIONED` with backend `VertexMemoryBankStore`. `REGISTERED_LOCAL`
 means the API is still using the mock backend.
 
 ### Stop, restart, and troubleshoot
 
 ```bash
-docker compose logs -f memory-api admin-console reference-agent
-docker compose restart memory-api
+docker compose logs -f control-plane-api admin-console reference-agent
+docker compose restart control-plane-api
 docker compose down
 ```
 
@@ -86,7 +86,7 @@ port mapping; do not expose the Compose PostgreSQL service unless an external cl
 ## 2. Validate before deployment
 
 ```bash
-PYTHONPATH=apps/memory-api/app:. .venv/bin/python -m pytest -q apps/memory-api/tests
+PYTHONPATH=apps/control-plane-api/app:. .venv/bin/python -m pytest -q apps/control-plane-api/tests
 PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
 
 cd apps/admin-console
@@ -107,8 +107,8 @@ Terraform module creates the following resources in the selected project:
 | Network | Custom VPC, subnet with Private Google Access, private service range, and Service Networking peering |
 | Database | Private-IP PostgreSQL 16 Cloud SQL instance, `shared_memory` database/user, automated backups, and point-in-time recovery |
 | Secrets | Database URL, admin role bindings, and agent-principal mappings in Secret Manager |
-| Identities | Separate service accounts for Memory API, Admin Console, reference agent, and database migration job, with least-purpose IAM bindings |
-| Runtime | Cloud Run services for Memory API, Admin Console, and reference agent, plus a Cloud Run migration/bootstrap job |
+| Identities | Separate service accounts for Control Plane API, Admin Console, reference agent, and database migration job, with least-purpose IAM bindings |
+| Runtime | Cloud Run services for Control Plane API, Admin Console, and reference agent, plus a Cloud Run migration/bootstrap job |
 | Edge security | Serverless NEGs, external HTTPS load balancer, managed certificate, URL map, IAP, and invoker bindings |
 | Operations | Log-based metrics, alert policies, and monitoring dashboard |
 
@@ -139,13 +139,13 @@ GOOGLE_CLOUD_PROJECT=
 GOOGLE_CLOUD_LOCATION=us-central1
 AGENT_PLATFORM_MEMORY_BANK_ID=
 GOOGLE_ID_TOKEN_AUDIENCE=
-MEMORY_API_SERVICE_ACCOUNT=
+CONTROL_PLANE_API_SERVICE_ACCOUNT=
 ADMIN_CONSOLE_SERVICE_ACCOUNT=
 REFERENCE_AGENT_SERVICE_ACCOUNT=
 DATABASE_INSTANCE=
 DATABASE_NAME=shared_memory
 ARTIFACT_REGISTRY_REPOSITORY=
-MEMORY_API_IMAGE=
+CONTROL_PLANE_API_IMAGE=
 ADMIN_CONSOLE_IMAGE=
 REFERENCE_AGENT_IMAGE=
 ADMIN_ROLE_BINDINGS_JSON=
@@ -157,8 +157,8 @@ For an ADK consumer, also record:
 REFERENCE_AGENT_ID=
 PREFERENCE_DOMAIN=
 ADK_APP_NAME=
-MEMORY_API_URL=
-MEMORY_API_AUDIENCE=
+CONTROL_PLANE_API_URL=
+CONTROL_PLANE_API_AUDIENCE=
 ```
 
 Do not add schema IDs to agent environment variables or prompts. The platform derives schema
@@ -223,7 +223,7 @@ After Terraform completes:
    from Terraform outputs, then plan and apply that configuration update;
 3. execute the migration job returned by `terraform output -raw migration_job` with
    `gcloud run jobs execute JOB --region REGION --wait`;
-4. wait for the Memory API health check to succeed;
+4. wait for the Control Plane API health check to succeed;
 5. verify Admin Console access through the HTTPS load balancer and IAP;
 6. deploy or configure additional consumer agents in Cloud Run or Agent Runtime;
 7. map each deployed agent identity in `AGENT_PRINCIPAL_OVERRIDES_JSON`;
@@ -231,7 +231,7 @@ After Terraform completes:
 9. approve only the required cross-domain shared-schema access;
 10. run the smoke test below before directing production traffic.
 
-The Memory API must use `MEMORY_BACKEND=vertex` in the cloud-backed environment. Successful guided
+The Control Plane API must use `MEMORY_BACKEND=vertex` in the cloud-backed environment. Successful guided
 activation returns `PROVISIONED`; `REGISTERED_LOCAL` is not an acceptable production result.
 
 ## 6. Smoke test

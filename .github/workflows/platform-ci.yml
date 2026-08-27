@@ -30,24 +30,24 @@ jobs:
           cache: pip
       - run: >-
           python -m pip install
-          -e 'apps/memory-api[dev]'
+          -e 'apps/control-plane-api[dev]'
           -e 'apps/reference-agent[dev]'
       - run: python scripts/validate_deployment_security.py
       - run: python -m ruff check apps scripts tests
       - run: python -m pytest -q tests
       - run: PYTHONPATH=apps/reference-agent/app python -m pytest -q apps/reference-agent/tests
-      - run: PYTHONPATH=apps/memory-api/app:apps/memory-api/tests python -m pytest -q apps/memory-api/tests
+      - run: PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests python -m pytest -q apps/control-plane-api/tests
       - name: Apply control-plane migrations to PostgreSQL
         env:
           DATABASE_URL: postgresql+asyncpg://shared_memory:test-only@localhost:5432/shared_memory_test
-        run: PYTHONPATH=apps/memory-api/app alembic -c apps/memory-api/alembic.ini upgrade head
+        run: PYTHONPATH=apps/control-plane-api/app alembic -c apps/control-plane-api/alembic.ini upgrade head
       - name: PostgreSQL control-plane test
         env:
           RUN_POSTGRES_INTEGRATION_TESTS: "1"
           DATABASE_URL: postgresql+asyncpg://shared_memory:test-only@localhost:5432/shared_memory_test
         run: >-
-          PYTHONPATH=apps/memory-api/app:apps/memory-api/tests
-          python -m pytest -q apps/memory-api/tests/test_postgres_control_plane.py
+          PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests
+          python -m pytest -q apps/control-plane-api/tests/test_postgres_control_plane.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22.23.2"

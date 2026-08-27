@@ -1,12 +1,12 @@
-resource "google_cloud_run_v2_service" "memory_api" {
+resource "google_cloud_run_v2_service" "control_plane_api" {
   project             = var.project_id
   location            = var.region
-  name                = local.memory_api_name
+  name                = local.control_plane_api_name
   ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   deletion_protection = var.deletion_protection
 
   template {
-    service_account = google_service_account.memory_api.email
+    service_account = google_service_account.control_plane_api.email
     timeout         = "300s"
     scaling {
       min_instance_count = 1
@@ -29,7 +29,7 @@ resource "google_cloud_run_v2_service" "memory_api" {
 
     }
     containers {
-      image = var.memory_api_image
+      image = var.control_plane_api_image
       ports {
         container_port = 8080
       }
@@ -61,7 +61,7 @@ resource "google_cloud_run_v2_service" "memory_api" {
       }
       env {
         name  = "GOOGLE_ID_TOKEN_AUDIENCE"
-        value = var.memory_api_audience
+        value = var.control_plane_api_audience
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
@@ -120,7 +120,7 @@ resource "google_cloud_run_v2_service" "memory_api" {
     }
 
   }
-  depends_on = [google_project_iam_member.memory_api]
+  depends_on = [google_project_iam_member.control_plane_api]
 }
 
 resource "google_cloud_run_v2_service" "admin_console" {
@@ -193,12 +193,12 @@ resource "google_cloud_run_v2_service" "reference_agent" {
         cpu_idle = true
       }
       env {
-        name  = "MEMORY_API_URL"
-        value = google_cloud_run_v2_service.memory_api.uri
+        name  = "CONTROL_PLANE_API_URL"
+        value = google_cloud_run_v2_service.control_plane_api.uri
       }
       env {
-        name  = "MEMORY_API_AUDIENCE"
-        value = google_cloud_run_v2_service.memory_api.uri
+        name  = "CONTROL_PLANE_API_AUDIENCE"
+        value = google_cloud_run_v2_service.control_plane_api.uri
       }
       env {
         name  = "REFERENCE_AGENT_ID"
@@ -253,10 +253,10 @@ resource "google_cloud_run_v2_job" "migration" {
 
       }
       containers {
-        image   = var.memory_api_image
+        image   = var.control_plane_api_image
         command = ["/bin/sh", "-c"]
         args = [
-          "alembic -c apps/memory-api/alembic.ini upgrade head"
+          "alembic -c apps/control-plane-api/alembic.ini upgrade head"
         ]
         volume_mounts {
           name       = "cloudsql"
@@ -290,21 +290,21 @@ resource "google_cloud_run_v2_job" "migration" {
   }
 }
 
-resource "google_cloud_run_v2_service_iam_member" "reference_to_memory_api" {
+resource "google_cloud_run_v2_service_iam_member" "reference_to_control_plane_api" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.memory_api.name
+  name     = google_cloud_run_v2_service.control_plane_api.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.reference_agent.email}"
 }
 
-resource "google_compute_region_network_endpoint_group" "memory_api" {
+resource "google_compute_region_network_endpoint_group" "control_plane_api" {
   project               = var.project_id
   region                = var.region
   name                  = "${local.name}-memory-neg"
   network_endpoint_type = "SERVERLESS"
   cloud_run {
-    service = google_cloud_run_v2_service.memory_api.name
+    service = google_cloud_run_v2_service.control_plane_api.name
   }
 }
 
@@ -318,13 +318,13 @@ resource "google_compute_region_network_endpoint_group" "admin_console" {
   }
 }
 
-resource "google_compute_backend_service" "memory_api" {
+resource "google_compute_backend_service" "control_plane_api" {
   project               = var.project_id
   name                  = "${local.name}-memory-backend"
   protocol              = "HTTP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   backend {
-    group = google_compute_region_network_endpoint_group.memory_api.id
+    group = google_compute_region_network_endpoint_group.control_plane_api.id
   }
   iap {
     enabled              = true
@@ -353,7 +353,7 @@ resource "google_compute_backend_service" "admin_console" {
 resource "google_cloud_run_v2_service_iam_member" "iap_memory_invoker" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.memory_api.name
+  name     = google_cloud_run_v2_service.control_plane_api.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${local.iap_service_account}"
 }
@@ -369,7 +369,7 @@ resource "google_cloud_run_v2_service_iam_member" "iap_admin_invoker" {
 resource "google_iap_web_backend_service_iam_member" "memory_users" {
   for_each            = var.iap_members
   project             = var.project_id
-  web_backend_service = google_compute_backend_service.memory_api.name
+  web_backend_service = google_compute_backend_service.control_plane_api.name
   role                = "roles/iap.httpsResourceAccessor"
   member              = each.value
 }
@@ -408,7 +408,7 @@ resource "google_compute_url_map" "frontend" {
     default_service = google_compute_backend_service.admin_console.id
     path_rule {
       paths   = ["/api/*", "/healthz", "/internal/*"]
-      service = google_compute_backend_service.memory_api.id
+      service = google_compute_backend_service.control_plane_api.id
 
     }
 

@@ -32,14 +32,14 @@ variable "agent_principal_overrides_json" {
 variable "memory_bank_resource_id" {
   type = string
 }
-variable "memory_api_audience" {
+variable "control_plane_api_audience" {
   type = string
 }
 variable "gemini_model" {
   type    = string
   default = "gemini-3.5-flash"
 }
-variable "memory_api_image" {
+variable "control_plane_api_image" {
   type = string
 }
 variable "admin_console_image" {

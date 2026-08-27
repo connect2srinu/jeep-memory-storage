@@ -1,7 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /application
-ARG VITE_MEMORY_API_URL=/memory-api/api/v1/admin
-ENV VITE_MEMORY_API_URL=$VITE_MEMORY_API_URL
+ARG VITE_CONTROL_PLANE_API_URL=/control-plane-api/api/v1/admin
+ENV VITE_CONTROL_PLANE_API_URL=$VITE_CONTROL_PLANE_API_URL
 COPY apps/admin-console/package.json apps/admin-console/package-lock.json apps/admin-console/tsconfig.json apps/admin-console/vite.config.ts ./
 COPY apps/admin-console/index.html ./
 COPY apps/admin-console/src ./src

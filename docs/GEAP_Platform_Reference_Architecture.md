@@ -28,7 +28,7 @@ Sections 2–4 are CURRENT. Section 5 is TARGET. Sections 6–11 are gap analysi
 The repository implements a **governed preference-memory control plane** for ADK agents on Google Cloud. It is a coherent, well-tested, three-application system:
 
 - **`apps/admin-console`** — a React 19 + Vite single-page admin UI (~1,370 lines of source).
-- **`apps/memory-api`** — a FastAPI service (~4,575 lines) exposing two distinct API planes: an **admin plane** (`/api/v1/admin`, ~51 routes) and an **agent runtime plane** (`/api/v1/runtime`, 5 routes).
+- **`apps/control-plane-api`** — a FastAPI service (~4,575 lines) exposing two distinct API planes: an **admin plane** (`/api/v1/admin`, ~51 routes) and an **agent runtime plane** (`/api/v1/runtime`, 5 routes).
 - **`apps/reference-agent`** — a thin ADK demonstration consumer that deliberately contains no Memory Bank SDK imports (enforced by [`tests/test_application_boundaries.py`](../tests/test_application_boundaries.py)).
 
 PostgreSQL (19 tables, 4 Alembic migrations) is the system of record for control-plane metadata. Vertex/GEAP Memory Bank is the system of record for user memory. The separation the target architecture asks for **already exists and is enforced**.
@@ -38,14 +38,14 @@ PostgreSQL (19 tables, 4 Alembic migrations) is the system of record for control
 | # | Divergence | Severity |
 |---|---|---|
 | 1 | **Deployment is Cloud Run, not Kubernetes.** There is no Kubernetes manifest, Helm chart, Kustomize overlay, or GKE resource anywhere in the repository. The Terraform module provisions three Cloud Run services, a Cloud Run job, an external HTTPS load balancer, and IAP. | **High — requires an explicit decision** |
-| 2 | **Authentication is Google-identity-only.** Admin identity comes from Google IAP JWT assertions or Google ID tokens ([`security/authentication.py`](../apps/memory-api/app/memory_api/security/authentication.py)). There is no Entra ID, OIDC, MSAL, or generic JWT validation code, and the UI has no login flow at all. | **High** |
+| 2 | **Authentication is Google-identity-only.** Admin identity comes from Google IAP JWT assertions or Google ID tokens ([`security/authentication.py`](../apps/control-plane-api/app/control_plane_api/security/authentication.py)). There is no Entra ID, OIDC, MSAL, or generic JWT validation code, and the UI has no login flow at all. | **High** |
 | 3 | **Authorization is not derived from the persisted role model.** Admin roles and domain ownership come from a static `ADMIN_ROLE_BINDINGS_JSON` secret, not from the `organization_memberships` / `project_memberships` tables that already exist. The two role models are disconnected. | **High — security** |
 | 4 | **The backend is memory-scoped in its module structure, not just its name.** There is no deployment, evaluation, observability, or FinOps entity, module, or integration. `registered_agents.runtime_type` is a free-text string with no behaviour attached. | **Medium** |
 | 5 | **No agent deployment or lifecycle capability.** The platform registers agents as metadata; it never creates, deploys, updates, or inspects a Cloud Run service or an Agent Runtime instance. The only GEAP write path is updating an *existing* Agent Engine's `context_spec`. | **Medium** |
 
 ### 2.3 Headline recommendation
 
-**Evolve the Memory API logically into the Control Panel API; do not rewrite it, and do not rename the deployable yet.** The codebase already contains the four seams the target architecture needs — a provider Protocol, a resource registry, a pluggable authenticator, and an audit spine. Section 9 maps each target capability onto one of those seams. A rewrite would discard roughly 4,600 lines of tested authorization and resolution logic that the target architecture still requires.
+**The service is now product-named the Control Plane API; do not rewrite it, and do not rename the deployable yet.** The codebase already contains the four seams the target architecture needs — a provider Protocol, a resource registry, a pluggable authenticator, and an audit spine. Section 9 maps each target capability onto one of those seams. A rewrite would discard roughly 4,600 lines of tested authorization and resolution logic that the target architecture still requires.
 
 ---
 
@@ -59,7 +59,7 @@ flowchart TB
         UI["Admin Console<br/>React 19 + Vite, static build<br/>served by nginx"]
     end
 
-    subgraph api["memory-api (FastAPI, single process)"]
+    subgraph api["control-plane-api (FastAPI, single process)"]
         ADMIN["Admin plane<br/>/api/v1/admin — 51 routes"]
         RT["Runtime plane<br/>/api/v1/runtime — 5 routes"]
         OPS["/healthz, /internal/metrics"]
@@ -99,24 +99,24 @@ flowchart TB
 | Component | Actual responsibility in code | Source |
 |---|---|---|
 | Admin Console | Renders 13 navigation sections; organization/project directory workspace; guided memory-setup wizard; generic JSON-form CRUD over admin resources; approval queues. Holds no business rules — [`governance.ts`](../apps/admin-console/src/governance.ts) is 43 lines of client-side affordance logic only. | `apps/admin-console/src/` |
-| Memory API — admin plane | Full CRUD + lifecycle transitions over 9 resource types, membership management, access-request and resource-change approval workflows, audit query, guided setup preview/activate. | [`api/admin/routes.py`](../apps/memory-api/app/memory_api/api/admin/routes.py), [`services/admin_service.py`](../apps/memory-api/app/memory_api/services/admin_service.py) |
-| Memory API — runtime plane | Agent authentication, capability checks, grant-based schema authorization, automatic write-schema resolution, deterministic preference resolution, provider read/write. | [`api/runtime/routes.py`](../apps/memory-api/app/memory_api/api/runtime/routes.py), [`services/runtime_service.py`](../apps/memory-api/app/memory_api/services/runtime_service.py) |
-| PostgreSQL | Organizations, projects, memberships, domains, scopes, schemas + versions, preference catalog, agents, grants, access requests, change requests, resolution and dynamic-memory policies, audit events. | [`persistence/models.py`](../apps/memory-api/app/memory_api/persistence/models.py) |
+| Control Plane API — admin plane | Full CRUD + lifecycle transitions over 9 resource types, membership management, access-request and resource-change approval workflows, audit query, guided setup preview/activate. | [`api/admin/routes.py`](../apps/control-plane-api/app/control_plane_api/api/admin/routes.py), [`services/admin_service.py`](../apps/control-plane-api/app/control_plane_api/services/admin_service.py) |
+| Control Plane API — runtime plane | Agent authentication, capability checks, grant-based schema authorization, automatic write-schema resolution, deterministic preference resolution, provider read/write. | [`api/runtime/routes.py`](../apps/control-plane-api/app/control_plane_api/api/runtime/routes.py), [`services/runtime_service.py`](../apps/control-plane-api/app/control_plane_api/services/runtime_service.py) |
+| PostgreSQL | Organizations, projects, memberships, domains, scopes, schemas + versions, preference catalog, agents, grants, access requests, change requests, resolution and dynamic-memory policies, audit events. | [`persistence/models.py`](../apps/control-plane-api/app/control_plane_api/persistence/models.py) |
 | Reference agent | Demonstration ADK consumer. Calls only the runtime API. | `apps/reference-agent/` |
 
-**Note:** the Admin Console and the Memory API are the two application components the target architecture names — that mapping is already correct. The console is served as a static bundle by nginx, which in local Compose also reverse-proxies `/memory-api/` to the API ([`nginx.conf`](../apps/admin-console/nginx.conf)); in Cloud Run the load-balancer URL map performs that routing instead.
+**Note:** the Admin Console and the Control Plane API are the two application components the target architecture names. The console is served as a static bundle by nginx, which in local Compose continues to reverse-proxy the compatibility path `/control-plane-api/` to the API ([`nginx.conf`](../apps/admin-console/nginx.conf)); in Cloud Run the load-balancer URL map performs that routing instead.
 
 ### 3.2 Admin Console — CURRENT detail
 
 - **Stack:** React 19.2, Vite 6.4, TypeScript 5.7, Vitest. Only two runtime dependencies (`react`, `react-dom`) — no router, no state library, no UI framework, no auth library.
 - **Navigation:** section state held in `useState`; no URL routing, so views are not linkable or bookmarkable ([`App.tsx:452`](../apps/admin-console/src/App.tsx#L452)).
 - **Identity:** a **persona switcher** — free-text user field, a role `<select>`, and a comma-separated domains field ([`App.tsx:471-476`](../apps/admin-console/src/App.tsx#L471)). These become the `X-Admin-User`, `X-Admin-Roles`, and `X-Admin-Domains` request headers ([`api.ts`](../apps/admin-console/src/api.ts)). **There is no sign-in, no session, and no token handling anywhere in the UI.**
-- **API base URL:** `VITE_MEMORY_API_URL`, defaulting to `/memory-api/api/v1/admin`; the Cloud Build image overrides it to `/api/v1/admin` ([`cloudbuild.yaml`](../cloudbuild.yaml)).
+- **API base URL:** `VITE_CONTROL_PLANE_API_URL`, defaulting to `/control-plane-api/api/v1/admin`; the Cloud Build image overrides it to `/api/v1/admin` ([`cloudbuild.yaml`](../cloudbuild.yaml)).
 - **Editing model:** most advanced sections render a JSON textarea seeded from a hard-coded template map ([`App.tsx:30-110`](../apps/admin-console/src/App.tsx#L30)). Only the organizations workspace and the setup wizard are purpose-built UIs.
 
-### 3.3 Memory API — CURRENT detail
+### 3.3 Control Plane API — CURRENT detail
 
-**Composition root:** [`application.py`](../apps/memory-api/app/memory_api/application.py) builds the app, wires three request-scoped service dependencies (each opening its own DB session), registers both routers, and installs six exception handlers that map domain errors to a stable `ApiError` envelope (`UNAUTHENTICATED` 401, `PERMISSION_DENIED` 403, `INVALID_ARGUMENT` 400, `NOT_FOUND` 404, `CONFLICT` 409), each carrying the correlation ID.
+**Composition root:** [`application.py`](../apps/control-plane-api/app/control_plane_api/application.py) builds the app, wires three request-scoped service dependencies (each opening its own DB session), registers both routers, and installs six exception handlers that map domain errors to a stable `ApiError` envelope (`UNAUTHENTICATED` 401, `PERMISSION_DENIED` 403, `INVALID_ARGUMENT` 400, `NOT_FOUND` 404, `CONFLICT` 409), each carrying the correlation ID.
 
 **Runtime plane endpoints** (prefix `/api/v1/runtime`):
 
@@ -130,17 +130,17 @@ flowchart TB
 
 **Admin plane endpoints** (prefix `/api/v1/admin`): 51 routes covering `organizations`, `projects`, `domains`, `scopes`, `schemas`, `preference-catalog`, `agents`, `resolution-policies`, `dynamic-memory-policies`, plus `organization-hierarchy`, membership creation, `access-requests` (+ approve/reject/revoke/expire), `resource-change-requests` (+ approve/reject), `audit`, and `memory-setups/preview|activate`.
 
-**Operational endpoints:** `/healthz` and `/internal/metrics`. Both are excluded from the OpenAPI schema. There is **no readiness endpoint** — readiness logic exists only as a startup script ([`persistence/readiness.py`](../apps/memory-api/app/memory_api/persistence/readiness.py), invoked by `scripts/wait_for_database.py` in the Compose command).
+**Operational endpoints:** `/healthz` and `/internal/metrics`. Both are excluded from the OpenAPI schema. There is **no readiness endpoint** — readiness logic exists only as a startup script ([`persistence/readiness.py`](../apps/control-plane-api/app/control_plane_api/persistence/readiness.py), invoked by `scripts/wait_for_database.py` in the Compose command).
 
 **Key architectural seams already present:**
 
 | Seam | What it abstracts | Why it matters for the target |
 |---|---|---|
-| `MemoryStore` Protocol ([`repositories/memory_store.py`](../apps/memory-api/app/memory_api/repositories/memory_store.py)) | Provider-neutral memory persistence; two implementations (mock, Vertex) selected by `MEMORY_BACKEND` | The exact pattern to reuse for `RuntimeAdapter`, `EvaluationAdapter`, `ObservabilityAdapter` |
-| `RESOURCE_MODELS` / `RESOURCE_IDS` / `UPDATABLE_FIELDS` / `CHANGE_ALIASES` registries ([`admin_service.py:58-146`](../apps/memory-api/app/memory_api/services/admin_service.py#L58)) | Declarative generic CRUD, field allow-listing, and camelCase↔snake_case mapping | New resource types (deployments, evaluations, cost mappings) are additive table entries, not new endpoint code |
-| `AdminAuthenticator` / `AgentAuthenticator` Protocols ([`security/`](../apps/memory-api/app/memory_api/security/)) selected by `ADMIN_AUTH_MODE` in [`config/settings.py`](../apps/memory-api/app/memory_api/config/settings.py) | Pluggable identity verification | An `EntraIdAuthenticator` is an additive third mode, not a refactor |
+| `MemoryStore` Protocol ([`repositories/memory_store.py`](../apps/control-plane-api/app/control_plane_api/repositories/memory_store.py)) | Provider-neutral memory persistence; two implementations (mock, Vertex) selected by `MEMORY_BACKEND` | The exact pattern to reuse for `RuntimeAdapter`, `EvaluationAdapter`, `ObservabilityAdapter` |
+| `RESOURCE_MODELS` / `RESOURCE_IDS` / `UPDATABLE_FIELDS` / `CHANGE_ALIASES` registries ([`admin_service.py:58-146`](../apps/control-plane-api/app/control_plane_api/services/admin_service.py#L58)) | Declarative generic CRUD, field allow-listing, and camelCase↔snake_case mapping | New resource types (deployments, evaluations, cost mappings) are additive table entries, not new endpoint code |
+| `AdminAuthenticator` / `AgentAuthenticator` Protocols ([`security/`](../apps/control-plane-api/app/control_plane_api/security/)) selected by `ADMIN_AUTH_MODE` in [`config/settings.py`](../apps/control-plane-api/app/control_plane_api/config/settings.py) | Pluggable identity verification | An `EntraIdAuthenticator` is an additive third mode, not a refactor |
 | `AuditEventRecord` + `AdminControlPlaneService._audit()` | Actor / action / target / correlation / before / after | Already satisfies the target's immutable-audit requirement |
-| `CorrelationAndMetricsMiddleware` ([`observability/runtime.py`](../apps/memory-api/app/memory_api/observability/runtime.py)) | Correlation ID propagation + structured JSON access logs | The insertion point for OpenTelemetry and the `run_id` correlation standard |
+| `CorrelationAndMetricsMiddleware` ([`observability/runtime.py`](../apps/control-plane-api/app/control_plane_api/observability/runtime.py)) | Correlation ID propagation + structured JSON access logs | The insertion point for OpenTelemetry and the `run_id` correlation standard |
 | `LIFECYCLE_TRANSITIONS` state machine | DRAFT → PENDING_APPROVAL → APPROVED → ACTIVE → DEPRECATED → RETIRED | Reusable for agent versions and deployments |
 
 ### 3.4 PostgreSQL data model — CURRENT
@@ -181,21 +181,21 @@ erDiagram
 - The **governance backbone** the target architecture needs — organization → project → membership → agent, with grants, approvals, and audit — **already exists** and is enforced with real foreign keys and `ON DELETE RESTRICT` on the ownership edges.
 - The **memory-specific** tables (domains, scopes, schemas, versions, mappings, preference catalog, resolution and dynamic-memory policies) are 11 of the 19. They sit *below* the org/project layer rather than defining it, so the hierarchy is not memory-shaped.
 - **`registered_agents` is a registration record, not a lifecycle record.** It has `runtime_type`, `identity_type`, `principal`, `capabilities`, `status` — but no version, no deployment, no environment, no cloud resource reference, no revision, no URL. The target's Agent → Agent Version → Deployment → Execution Run chain does not exist.
-- `registered_agents.runtime_type` is `String(64)` with **no database or Pydantic validation against `AgentRuntimeType`**. The enum ([`domain/control_plane.py:31`](../apps/memory-api/app/memory_api/domain/control_plane.py#L31)) defines `ADK_AGENT_RUNTIME`, `ADK_CLOUD_RUN`, `ADK_GKE`, `LANGGRAPH_CLOUD_RUN`, `OTHER`, but the guided-setup model defaults to the literal `"ADK_LOCAL"` ([`api/admin/models.py:203`](../apps/memory-api/app/memory_api/api/admin/models.py#L203)), which is not a member of the enum. **The enum is documentation, not a constraint.**
+- `registered_agents.runtime_type` is `String(64)` with **no database or Pydantic validation against `AgentRuntimeType`**. The enum ([`domain/control_plane.py:31`](../apps/control-plane-api/app/control_plane_api/domain/control_plane.py#L31)) defines `ADK_AGENT_RUNTIME`, `ADK_CLOUD_RUN`, `ADK_GKE`, `LANGGRAPH_CLOUD_RUN`, `OTHER`, but the guided-setup model defaults to the literal `"ADK_LOCAL"` ([`api/admin/models.py:203`](../apps/control-plane-api/app/control_plane_api/api/admin/models.py#L203)), which is not a member of the enum. **The enum is documentation, not a constraint.**
 - **No table exists** for: deployments, environments, agent versions, evaluations, datasets, evaluation runs, cost mappings, billing labels, trace references, or execution runs.
 
 ### 3.5 Authentication and authorization — CURRENT
 
 **Two independent identity paths.**
 
-*Agent (runtime plane)* — [`security/authentication.py`](../apps/memory-api/app/memory_api/security/authentication.py):
+*Agent (runtime plane)* — [`security/authentication.py`](../apps/control-plane-api/app/control_plane_api/security/authentication.py):
 
 | Mode | Trigger | Mechanism |
 |---|---|---|
 | `LocalAgentAuthenticator` | `AUTH_ENABLED=false` | Trusts the `X-Agent-ID` header outright |
 | `GoogleIdTokenAuthenticator` | `AUTH_ENABLED=true` | Verifies a Google-signed ID token, pins issuer to `accounts.google.com`, maps the verified service-account email to exactly one active `registered_agents.principal` |
 
-*Admin (admin plane)* — [`security/admin.py`](../apps/memory-api/app/memory_api/security/admin.py):
+*Admin (admin plane)* — [`security/admin.py`](../apps/control-plane-api/app/control_plane_api/security/admin.py):
 
 | Mode | Trigger | Mechanism |
 |---|---|---|
@@ -205,14 +205,14 @@ erDiagram
 
 **Roles:** `PLATFORM_ADMIN`, `DOMAIN_ADMIN`, `SCHEMA_OWNER`, `AGENT_OWNER`, `VIEWER`. Enforcement is `AdminAuthorizer.require_read` / `require_platform` / `require_domain`, called explicitly at the top of each service method.
 
-**The critical finding.** In every authenticated mode, roles and owned domains are read from **`ADMIN_ROLE_BINDINGS_JSON`** — a JSON object (`verified-email → {"roles": [...], "domains": [...]}`) supplied as an environment variable backed by a Secret Manager secret ([`settings.py:52`](../apps/memory-api/app/memory_api/config/settings.py#L52), [`security/admin.py:76-88`](../apps/memory-api/app/memory_api/security/admin.py#L76), [`infrastructure/terraform/modules/platform/main.tf:139`](../infrastructure/terraform/modules/platform/main.tf#L139)).
+**The critical finding.** In every authenticated mode, roles and owned domains are read from **`ADMIN_ROLE_BINDINGS_JSON`** — a JSON object (`verified-email → {"roles": [...], "domains": [...]}`) supplied as an environment variable backed by a Secret Manager secret ([`settings.py:52`](../apps/control-plane-api/app/control_plane_api/config/settings.py#L52), [`security/admin.py:76-88`](../apps/control-plane-api/app/control_plane_api/security/admin.py#L76), [`infrastructure/terraform/modules/platform/main.tf:139`](../infrastructure/terraform/modules/platform/main.tf#L139)).
 
 The `organization_memberships` and `project_memberships` tables — with their `OWNER` / `ADMIN` / `VIEWER` roles — are **written and displayed but never consulted for an authorization decision.** Two role models coexist and do not intersect. The repository README states this openly: *"deriving every admin request from persisted membership is the next security slice."*
 
 Consequences today:
 - Granting someone access requires a secret rotation and a Cloud Run revision, not a UI action.
 - `require_domain` checks `principal.domain_ids` from the binding JSON, so domain ownership is likewise not database-derived.
-- All mutating organization/project/membership operations require `PLATFORM_ADMIN` ([`admin_service.py:378,419,506`](../apps/memory-api/app/memory_api/services/admin_service.py#L378)) — project-scoped delegation is not possible.
+- All mutating organization/project/membership operations require `PLATFORM_ADMIN` ([`admin_service.py:378,419,506`](../apps/control-plane-api/app/control_plane_api/services/admin_service.py#L378)) — project-scoped delegation is not possible.
 
 **Deployment-time guardrail:** [`scripts/validate_deployment_security.py`](../scripts/validate_deployment_security.py) fails CI if any file under `infrastructure/` contains an `allUsers` IAM binding, sets `AUTH_ENABLED` to false/0, or embeds private-key material, or if any app Dockerfile copies a `.env` file. This is a genuinely good control and should be extended, not replaced.
 
@@ -222,18 +222,18 @@ Exactly **three** integration points exist. There are no others.
 
 | Integration | Implementation | Notes |
 |---|---|---|
-| **Memory Bank — data plane** | [`integrations/vertex_memory_store.py`](../apps/memory-api/app/memory_api/integrations/vertex_memory_store.py) (332 lines) via the `agentplatform` SDK against `projects/{p}/locations/{l}/reasoningEngines/{id}` | Uses `retrieve_profiles`, `retrieve`, `create`, `ingest_events`. Because the provider exposes no field-level structured-profile update, explicit writes are stored as typed exact-scope memory facts and **overlaid** on retrieved profiles at read time. Synchronous SDK calls are moved off the event loop with `asyncio.to_thread`. |
-| **Memory Bank — control plane** | [`services/vertex_provisioning.py`](../apps/memory-api/app/memory_api/services/vertex_provisioning.py) (94 lines) | Compiles all ACTIVE schema versions into `context_spec.memory_bank_config.structured_memory_configs` and calls `agent_engines.update()` on an **existing** Agent Engine. It does not create Agent Engines. Profile instances remain lazy. |
+| **Memory Bank — data plane** | [`integrations/vertex_memory_store.py`](../apps/control-plane-api/app/control_plane_api/integrations/vertex_memory_store.py) (332 lines) via the `agentplatform` SDK against `projects/{p}/locations/{l}/reasoningEngines/{id}` | Uses `retrieve_profiles`, `retrieve`, `create`, `ingest_events`. Because the provider exposes no field-level structured-profile update, explicit writes are stored as typed exact-scope memory facts and **overlaid** on retrieved profiles at read time. Synchronous SDK calls are moved off the event loop with `asyncio.to_thread`. |
+| **Memory Bank — control plane** | [`services/vertex_provisioning.py`](../apps/control-plane-api/app/control_plane_api/services/vertex_provisioning.py) (94 lines) | Compiles all ACTIVE schema versions into `context_spec.memory_bank_config.structured_memory_configs` and calls `agent_engines.update()` on an **existing** Agent Engine. It does not create Agent Engines. Profile instances remain lazy. |
 | **Google identity** | `google.oauth2.id_token` for ID-token and IAP-JWT verification | See §3.5. |
 
-**Memory scope:** the provider is always addressed at the exact scope `organization_id + user_id`, validated by a `ScopeRegistry` contract ([`services/scope_registry.py`](../apps/memory-api/app/memory_api/services/scope_registry.py)). Projects and domains are authorization metadata in PostgreSQL and are deliberately **not** Memory Bank partition keys.
+**Memory scope:** the provider is always addressed at the exact scope `organization_id + user_id`, validated by a `ScopeRegistry` contract ([`services/scope_registry.py`](../apps/control-plane-api/app/control_plane_api/services/scope_registry.py)). Projects and domains are authorization metadata in PostgreSQL and are deliberately **not** Memory Bank partition keys.
 
 **Not integrated, at all:** Cloud Run Admin API, GEAP Agent Runtime provisioning or lifecycle, Vertex/GEAP Evaluation Service, Cloud Trace, Cloud Logging read APIs, Cloud Monitoring read APIs, Cloud Billing, BigQuery billing export, Sessions, Example Store, feedback services.
 
 ### 3.7 Observability — CURRENT
 
 - **Correlation:** `X-Correlation-Id` accepted or generated per request, propagated via a `ContextVar`, echoed on the response, and embedded in every `ApiError` and every audit event.
-- **Logging:** one structured JSON line per request (`event`, `correlation_id`, `method`, `path`, `status`, `duration_ms`) on the `memory_api.runtime` logger — Cloud Logging picks this up as structured payload on Cloud Run.
+- **Logging:** one structured JSON line per request (`event`, `correlation_id`, `method`, `path`, `status`, `duration_ms`) on the `control_plane_api.runtime` logger — Cloud Logging picks this up as structured payload on Cloud Run.
 - **Metrics:** `RuntimeMetrics` is an **in-process, lock-guarded `Counter` of `(path, status)`**, exposed at `/internal/metrics` in a bespoke `"path|status": count` format. It is **not Prometheus**, is **not aggregated across instances**, and **resets on every cold start** — which on Cloud Run with `min_instance_count = 0` is frequent. It is a debugging aid, not a metrics system.
 - **Infrastructure monitoring:** [`monitoring.tf`](../infrastructure/terraform/modules/platform/monitoring.tf) defines a log-based error metric, two alert policies (application errors, 5xx rate), and a dashboard.
 - **Absent:** OpenTelemetry, distributed tracing, trace/span propagation to Memory Bank calls, `agent_id`/`deployment_id`/`run_id` correlation identifiers, and any latency histogram.
@@ -243,7 +243,7 @@ Exactly **three** integration points exist. There are no others.
 **There is no Kubernetes in this repository.** No manifests, no Helm chart, no Kustomize, no GKE Terraform resource, no `kubectl` in any script. The only occurrence of the string "GKE" is the unused `AgentRuntimeType.ADK_GKE` enum member.
 
 **Local development** — Docker Compose:
-- [`docker-compose.yml`](../docker-compose.yml): `postgres:16-alpine` (internal `expose` only), `memory-api` (mock backend, `AUTH_ENABLED=false`), `admin-console` (nginx :3000), optional `reference-agent` under the `agent` profile.
+- [`docker-compose.yml`](../docker-compose.yml): `postgres:16-alpine` (internal `expose` only), `control-plane-api` (mock backend, `AUTH_ENABLED=false`), `admin-console` (nginx :3000), optional `reference-agent` under the `agent` profile.
 - [`docker-compose.vertex.yml`](../docker-compose.vertex.yml): overrides to `MEMORY_BACKEND=vertex`, mounting host ADC read-only. **Note:** this file hard-codes fallback defaults `GOOGLE_CLOUD_PROJECT=e2eml-222003` and `AGENT_PLATFORM_MEMORY_BANK_ID=5362284673558904832` — real-looking identifiers checked into the repository.
 - The API container's start command chains `wait_for_database.py` → `alembic upgrade head` → `uvicorn`.
 
@@ -254,7 +254,7 @@ flowchart TB
     U["Admin user (browser)"] --> LB["External HTTPS LB<br/>managed cert + IAP"]
     LB -->|"/api/*, /healthz, /internal/*"| BSA["Backend service → serverless NEG"]
     LB -->|"default"| BSC["Backend service → serverless NEG"]
-    BSA --> CRA["Cloud Run: memory-api<br/>ingress = INTERNAL_LOAD_BALANCER<br/>AUTH_ENABLED=true, ADMIN_AUTH_MODE=iap<br/>MEMORY_BACKEND=vertex"]
+    BSA --> CRA["Cloud Run: control-plane-api<br/>ingress = INTERNAL_LOAD_BALANCER<br/>AUTH_ENABLED=true, ADMIN_AUTH_MODE=iap<br/>MEMORY_BACKEND=vertex"]
     BSC --> CRC["Cloud Run: admin-console<br/>nginx, ingress = INTERNAL_LOAD_BALANCER"]
     CRA -->|"Cloud SQL connector, private IP"| SQL[("Cloud SQL PostgreSQL<br/>private services access")]
     CRA -->|"agentplatform SDK"| MB["GEAP Memory Bank"]
@@ -263,7 +263,7 @@ flowchart TB
     RA["Cloud Run: reference-agent<br/>ingress = ALL"] -->|"run.invoker + ID token"| CRA
 ```
 
-Provisioned by the module: Artifact Registry repo; VPC + subnet + private services access; Cloud SQL PostgreSQL with a random password; three Secret Manager secrets; four dedicated service accounts (memory-api, reference-agent, admin-console, migration) with per-account project IAM; three Cloud Run v2 services; one Cloud Run v2 job for migrations; two serverless NEGs and backend services; IAP web IAM members; global IP, managed certificate, URL map, HTTPS proxy, forwarding rule; and the monitoring resources in §3.7.
+Provisioned by the module: Artifact Registry repo; VPC + subnet + private services access; Cloud SQL PostgreSQL with a random password; three Secret Manager secrets; four dedicated service accounts (control-plane-api, reference-agent, admin-console, migration) with per-account project IAM; three Cloud Run v2 services; one Cloud Run v2 job for migrations; two serverless NEGs and backend services; IAP web IAM members; global IP, managed certificate, URL map, HTTPS proxy, forwarding rule; and the monitoring resources in §3.7.
 
 **Explicitly out of scope for Terraform** (per [`infrastructure/README.md`](../infrastructure/README.md)): the GCP project, the Terraform state bucket, DNS records, the IAP OAuth client, notification channels, the Agent Engine / Memory Bank resource, and container image builds.
 
@@ -287,7 +287,7 @@ Stated plainly, so that nothing in §5 is mistaken for existing behaviour. None 
 - Evaluation definitions, datasets, runs, metrics, thresholds, or results.
 - Cost, billing, budget, or FinOps data.
 - Distributed tracing, trace links, or `run_id` correlation across agent executions.
-- Pagination, filtering, or sorting on any admin list endpoint (`list_resources` returns every row, ordered by ID — [`admin_service.py:232`](../apps/memory-api/app/memory_api/services/admin_service.py#L232)).
+- Pagination, filtering, or sorting on any admin list endpoint (`list_resources` returns every row, ordered by ID — [`admin_service.py:232`](../apps/control-plane-api/app/control_plane_api/services/admin_service.py#L232)).
 - Rate limiting, quotas, or idempotency keys.
 - CORS configuration (the deployed topology is same-origin behind one load balancer, so this is currently by design).
 
@@ -351,7 +351,7 @@ flowchart TB
 |---|---|---|---|
 | Two components on **Kubernetes** | Three Cloud Run services + a job, fully Terraformed with LB, IAP, private Cloud SQL | **Entire deployment substrate.** Both apps are already stateless 12-factor containers with health probes, so the *applications* are portable; the *platform plumbing* (IAP, serverless NEGs, Cloud SQL connector, LB) is not | High (infra), Low (app) |
 | Admin Console as **Control Panel** | Console exists; 13 sections, all memory-governance-oriented | Additive: inventory, deployments, evaluation, observability, FinOps views. Also needs routing and a real auth shell | Medium–High |
-| Backend API as **broad platform API** | FastAPI with a clean two-plane split and generic resource registries | Module structure is memory-shaped (`memory`, `guided_setup`, `runtime`); no `deployments`, `evaluations`, `observability`, `finops` modules. Package is named `memory_api` | Medium |
+| Backend API as **broad platform API** | FastAPI with a clean two-plane split and generic resource registries | Module structure is memory-shaped (`memory`, `guided_setup`, `runtime`); no `deployments`, `evaluations`, `observability`, `finops` modules. Package is named `control_plane_api` | Medium |
 | **Entra ID** authentication | Google IAP JWT / Google ID token only; no login in UI | New `EntraIdAuthenticator` (JWKS, issuer, audience, tenant), MSAL or equivalent in the UI, and a decision about IAP's future (IAP is Google-identity-bound) | High |
 | **Authorization from org/project role model** | Roles from a static `ADMIN_ROLE_BINDINGS_JSON` secret; membership tables unused for decisions | Repoint `AdminAuthenticator` at the membership tables; map Entra `oid`/`upn` to `member_principal`; add project-scoped role checks | **High — highest-value security work** |
 | **PostgreSQL as system of record** for governance metadata | Already true for org/project/agent/grant/policy/audit | Extend the schema: environments, agent versions, deployments, runtime references, evaluation metadata, cost mappings, trace references | Medium |
@@ -379,7 +379,7 @@ Where each capability should live, and what already exists there.
 | Agent deploy / lifecycle | Guided actions + approvals *(new)* | Adapter + workflow *(new)* | Workflow state, audit *(extend)* | — | Executes | Executes |
 | Memory Bank config | Wizard + advanced screens **(exists)** | Provisioner + guided setup **(exists)** | Schemas, versions, mappings **(exists)** | **Memory system of record (exists)** | Consumer | Consumer |
 | Memory Profiles | Config views *(new UI, existing data)* | Compiled into `context_spec` **(exists)** | Schema versions **(exists)** | **Profile generation (exists)** | — | — |
-| Shared memory / preferences | Catalog, grants, approvals **(exists)** | Resolution + grant enforcement **(exists)** | Catalog, grants, policies **(exists)** | Storage **(exists)** | Reads via runtime API | Reads via runtime API |
+| Control Plane / preferences | Catalog, grants, approvals **(exists)** | Resolution + grant enforcement **(exists)** | Catalog, grants, policies **(exists)** | Storage **(exists)** | Reads via runtime API | Reads via runtime API |
 | Evaluation | Definitions, runs, scorecards *(new)* | Evaluation adapter *(new)* | Definitions, run refs, summaries *(new)* | **Runs evaluations** | Subject | Subject |
 | Observability / traceability | Timelines, deep links *(new)* | Read adapters + correlation *(new)* | Trace/log **references only** *(new)* | **Authoritative telemetry** | Emits | Emits |
 | Usage / cost / FinOps | Dashboards, budgets *(new)* | Billing/BigQuery adapter *(new)* | Resource↔agent mappings *(new)* | Billing export authoritative | Cost source | Cost source |
@@ -389,26 +389,26 @@ Where each capability should live, and what already exists there.
 
 ---
 
-## 8. Should `Memory API` be renamed? — PROPOSED
+## 8. Control Plane API naming — DECIDED
 
-**Recommendation: evolve it logically now; rename the deployable later, once, at a planned cut.**
+**Decision: use “Control Plane API” consistently for both the product-facing identity and technical deployable identifiers. The full rename is complete.**
 
 The evidence for evolving rather than replacing:
 
-- The API surface is **already generic**. The admin prefix is `/api/v1/admin`, not `/api/v1/memory`. The FastAPI title is already `"Shared Memory Platform API"`. Of the 51 admin routes, 13 (organizations, projects, memberships, hierarchy, access requests, change requests, audit) are platform-governance routes with no memory semantics.
+- The API surface is **already generic**. The admin prefix is `/api/v1/admin`, not `/api/v1/memory`. The FastAPI title is `"Control Plane API"`. Of the 51 admin routes, 13 (organizations, projects, memberships, hierarchy, access requests, change requests, audit) are platform-governance routes with no memory semantics.
 - The resource registry pattern makes new domains additive. Adding `deployments` or `evaluations` means adding a model, three registry entries, and a service method — not new routing code.
 - The two-plane split (admin vs runtime) is exactly the split the target needs between Control Panel operations and agent-facing operations.
 
-**Proposed sequencing:**
+**Naming boundary:**
 
 | Step | Action | When |
 |---|---|---|
-| 1 | Adopt **"Control Panel API"** as the product name in all documentation and UI copy. Zero code change. | Immediately |
-| 2 | Restructure `memory_api` internals into capability modules — `identity`, `organizations`, `projects`, `agents`, `memory`, `approvals`, `audit`, and later `deployments`, `evaluations`, `observability`, `finops`. Keep the top-level package name. Pure file moves plus import updates; the existing test suites protect the refactor. | Phase 0 |
+| 1 | Adopt **"Control Plane API"** as the product name in API metadata, health output, documentation, UI copy, and operational display names. | Completed |
+| 2 | Restructure `control_plane_api` internals into capability modules — `identity`, `organizations`, `projects`, `agents`, `memory`, `approvals`, `audit`, and later `deployments`, `evaluations`, `observability`, `finops`. Keep the top-level package name. Pure file moves plus import updates; the existing test suites protect the refactor. | Phase 0 |
 | 3 | Keep `/api/v1/admin` and `/api/v1/runtime` as the stable public contract. New capabilities are new resources under `/api/v1/admin`, not a new prefix. | Ongoing |
-| 4 | Rename the Python package `memory_api` → `platform_api`, the directory `apps/memory-api` → `apps/platform-api`, the image, and the Cloud Run/Kubernetes service — **all in one commit**, coordinated with the Kubernetes migration since that already rewrites every deployment reference. | At the K8s cut |
+| 4 | Rename the Python package, source directory, image, Compose/Cloud Run service, proxy path, and environment variables to their `control-plane-api` / `control_plane_api` / `CONTROL_PLANE_API_*` forms. | Completed |
 
-Renaming the package before the deployment migration would mean touching the Dockerfile, both Compose files, Cloud Build, Terraform, CI, and every doc twice. Doing it *with* the migration costs almost nothing extra.
+The stable identifiers are now `apps/control-plane-api`, the `control_plane_api` import package, the Compose and Cloud Run service `control-plane-api`, the local proxy path `/control-plane-api`, and `CONTROL_PLANE_API_*` environment variables. The public route contracts `/api/v1/admin` and `/api/v1/runtime` are unchanged.
 
 ---
 
@@ -503,11 +503,11 @@ Each phase is anchored on an existing code seam so that work extends the current
 
 | Item | Location | Impact |
 |---|---|---|
-| **Dead parallel authorization implementation.** `AuthorizationService` / `AgentRegistration` are exported from `services/__init__.py` and covered by `test_authorization.py`, but no production code path uses them — `RuntimeMemoryService` implements its own capability, scope, and grant checks inline. | [`services/authorization.py`](../apps/memory-api/app/memory_api/services/authorization.py) | Two authorization models to read and reason about; a reviewer may patch the wrong one. *Flagging only — not removing, per the repository's surgical-change guidance.* |
-| **No pagination on any list endpoint.** `list_resources` selects every row. | [`admin_service.py:232`](../apps/memory-api/app/memory_api/services/admin_service.py#L232) | Fails at inventory scale — precisely the scale the target architecture implies. |
+| **Dead parallel authorization implementation.** `AuthorizationService` / `AgentRegistration` are exported from `services/__init__.py` and covered by `test_authorization.py`, but no production code path uses them — `RuntimeMemoryService` implements its own capability, scope, and grant checks inline. | [`services/authorization.py`](../apps/control-plane-api/app/control_plane_api/services/authorization.py) | Two authorization models to read and reason about; a reviewer may patch the wrong one. *Flagging only — not removing, per the repository's surgical-change guidance.* |
+| **No pagination on any list endpoint.** `list_resources` selects every row. | [`admin_service.py:232`](../apps/control-plane-api/app/control_plane_api/services/admin_service.py#L232) | Fails at inventory scale — precisely the scale the target architecture implies. |
 | **`admin_service.py` is 1,057 lines** spanning CRUD, memberships, lifecycle, two approval workflows, grants, and audit. | `services/admin_service.py` | The main obstacle to Phase 0 modularization. |
-| **`runtime_type` is unvalidated free text**, and the guided-setup default `ADK_LOCAL` is not an enum member. | [`api/admin/models.py:203`](../apps/memory-api/app/memory_api/api/admin/models.py#L203) | Runtime-adapter dispatch cannot be built on this field until it is constrained. |
-| **In-process metrics** that reset per instance and per cold start. | [`observability/runtime.py`](../apps/memory-api/app/memory_api/observability/runtime.py) | Unusable for multi-replica deployment. |
+| **`runtime_type` is unvalidated free text**, and the guided-setup default `ADK_LOCAL` is not an enum member. | [`api/admin/models.py:203`](../apps/control-plane-api/app/control_plane_api/api/admin/models.py#L203) | Runtime-adapter dispatch cannot be built on this field until it is constrained. |
+| **In-process metrics** that reset per instance and per cold start. | [`observability/runtime.py`](../apps/control-plane-api/app/control_plane_api/observability/runtime.py) | Unusable for multi-replica deployment. |
 | **No `/readyz`.** | `application.py` | Kubernetes needs it. |
 | **JSON-textarea CRUD** for most admin resources, driven by hard-coded templates. | [`App.tsx:30-110`](../apps/admin-console/src/App.tsx#L30) | Not viable for non-engineer platform administrators. |
 | **No client-side routing.** | `App.tsx` | No deep links to an agent, project, or trace — a hard requirement for a single-pane-of-glass tool. |
@@ -532,7 +532,7 @@ Each phase is anchored on an existing code seam so that work extends the current
 | 3 | **`/internal/*` is routed through the public load balancer** ([`services.tf:398`](../infrastructure/terraform/modules/platform/services.tf#L398) path rule `["/api/*", "/healthz", "/internal/*"]`). IAP sits in front, so it is not anonymous — but an internal debugging endpoint should not be on a public path matcher at all. | **Medium.** Remove `/internal/*` from the URL map. |
 | 4 | **Runtime plane is reachable through the same public host.** `/api/*` routes both `/api/v1/admin` and `/api/v1/runtime` to the same backend behind IAP. Agents call the service directly with `run.invoker` + ID token, so the LB path is not their route — but the runtime plane is nonetheless publicly addressable and gated only by IAP. | **Medium.** Separate the path matchers, or split the planes into two services when moving to Kubernetes. |
 | 5 | **Entra ID and IAP are two different front doors.** IAP authenticates Google identities. If Entra becomes the IdP, either Entra is federated into Google Identity Platform, or IAP is removed and the API validates Entra tokens itself. Running both without a decision produces either a double sign-in or a bypass. | **Blocking for Phase 2.** |
-| 6 | **Agent principal mapping via `AGENT_PRINCIPAL_OVERRIDES_JSON`.** A deployment-time JSON map rewrites `registered_agents.principal` at startup ([`services/principal_overrides.py`](../apps/memory-api/app/memory_api/services/principal_overrides.py)). Same class of problem as finding 1: identity binding lives in configuration rather than in governed data. | **Medium.** |
+| 6 | **Agent principal mapping via `AGENT_PRINCIPAL_OVERRIDES_JSON`.** A deployment-time JSON map rewrites `registered_agents.principal` at startup ([`services/principal_overrides.py`](../apps/control-plane-api/app/control_plane_api/services/principal_overrides.py)). Same class of problem as finding 1: identity binding lives in configuration rather than in governed data. | **Medium.** |
 | 7 | **No rate limiting, quota, or request-size limit** on either plane. | **Medium**, rising with exposure. |
 | 8 | **Memory content sensitivity.** Explicit preferences are written as memory facts and overlaid at read time; no redaction, classification enforcement, or retention policy is applied at the API boundary, though `preference_definitions.sensitivity_classification` exists as a field. | **Medium** — the field exists; nothing reads it. |
 | 9 | **Positive controls worth preserving:** default-deny authorization; read never implies write; automatic writes never cross domains; agents never hold provider SDKs (CI-enforced); no `allUsers` bindings; secrets in Secret Manager; private Cloud SQL; per-component service accounts; `npm audit` in CI. | **Strengths.** Extend these to new capabilities rather than re-deriving them. |
@@ -582,16 +582,16 @@ The enum currently mixes framework and platform (`ADK_CLOUD_RUN`, `LANGGRAPH_CLO
 
 | Concern | Path |
 |---|---|
-| App composition, exception envelope | `apps/memory-api/app/memory_api/application.py` |
-| Configuration and mode switches | `apps/memory-api/app/memory_api/config/settings.py` |
-| Identity verification | `apps/memory-api/app/memory_api/security/` |
-| Admin CRUD, workflows, audit | `apps/memory-api/app/memory_api/services/admin_service.py` |
-| Guided memory setup | `apps/memory-api/app/memory_api/services/guided_setup.py` |
-| Runtime resolution and write routing | `apps/memory-api/app/memory_api/services/runtime_service.py` |
-| Memory Bank data plane | `apps/memory-api/app/memory_api/integrations/vertex_memory_store.py` |
-| Memory Bank control plane | `apps/memory-api/app/memory_api/services/vertex_provisioning.py` |
-| ORM models | `apps/memory-api/app/memory_api/persistence/models.py` |
-| Migrations | `apps/memory-api/migrations/versions/` |
+| App composition, exception envelope | `apps/control-plane-api/app/control_plane_api/application.py` |
+| Configuration and mode switches | `apps/control-plane-api/app/control_plane_api/config/settings.py` |
+| Identity verification | `apps/control-plane-api/app/control_plane_api/security/` |
+| Admin CRUD, workflows, audit | `apps/control-plane-api/app/control_plane_api/services/admin_service.py` |
+| Guided memory setup | `apps/control-plane-api/app/control_plane_api/services/guided_setup.py` |
+| Runtime resolution and write routing | `apps/control-plane-api/app/control_plane_api/services/runtime_service.py` |
+| Memory Bank data plane | `apps/control-plane-api/app/control_plane_api/integrations/vertex_memory_store.py` |
+| Memory Bank control plane | `apps/control-plane-api/app/control_plane_api/services/vertex_provisioning.py` |
+| ORM models | `apps/control-plane-api/app/control_plane_api/persistence/models.py` |
+| Migrations | `apps/control-plane-api/migrations/versions/` |
 | Console shell, sections, persona switcher | `apps/admin-console/src/App.tsx` |
 | Console API client | `apps/admin-console/src/api.ts` |
 | Cloud Run / LB / IAP / Cloud SQL | `infrastructure/terraform/modules/platform/` |

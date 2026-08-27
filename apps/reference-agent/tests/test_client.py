@@ -3,9 +3,9 @@ import json
 import httpx
 import pytest
 from reference_agent.client import (
+    ControlPlaneApiClient,
+    ControlPlaneApiError,
     GoogleIdTokenProvider,
-    MemoryApiClient,
-    MemoryApiError,
     PreferenceCandidate,
 )
 
@@ -45,8 +45,8 @@ async def test_resolve_uses_typed_contract_and_bearer_token() -> None:
         assert payload["sessionId"] == "session-1"
         return httpx.Response(200, json=snapshot_payload())
 
-    client = MemoryApiClient(
-        base_url="http://memory-api",
+    client = ControlPlaneApiClient(
+        base_url="http://control-plane-api",
         token="test-token",
         transport=httpx.MockTransport(handler),
     )
@@ -75,8 +75,8 @@ async def test_refresh_update_and_event_use_runtime_routes() -> None:
             json={"status": "accepted", "reference": "ref-1", "profileVersion": 2},
         )
 
-    client = MemoryApiClient(
-        base_url="http://memory-api",
+    client = ControlPlaneApiClient(
+        base_url="http://control-plane-api",
         transport=httpx.MockTransport(handler),
     )
     await client.update_preference(
@@ -132,9 +132,9 @@ async def test_google_token_provider_mints_for_every_request() -> None:
         seen_authorization.append(request.headers["Authorization"])
         return httpx.Response(200, json=snapshot_payload())
 
-    client = MemoryApiClient(
-        base_url="http://memory-api",
-        token_provider=GoogleIdTokenProvider("https://memory-api", fetcher=fetcher),
+    client = ControlPlaneApiClient(
+        base_url="http://control-plane-api",
+        token_provider=GoogleIdTokenProvider("https://control-plane-api", fetcher=fetcher),
         transport=httpx.MockTransport(handler),
     )
     arguments = {
@@ -147,7 +147,7 @@ async def test_google_token_provider_mints_for_every_request() -> None:
     await client.resolve_preferences(**arguments)
     await client.resolve_preferences(**arguments)
 
-    assert minted == ["https://memory-api", "https://memory-api"]
+    assert minted == ["https://control-plane-api", "https://control-plane-api"]
     assert seen_authorization == ["Bearer token-1", "Bearer token-2"]
 
 
@@ -158,19 +158,17 @@ async def test_api_error_exposes_platform_reason_and_correlation_id() -> None:
             403,
             json={
                 "code": "PERMISSION_DENIED",
-                "message": (
-                    "request scope domain does not match registered agent domain"
-                ),
+                "message": ("request scope domain does not match registered agent domain"),
                 "correlationId": "correlation-123",
             },
         )
 
-    client = MemoryApiClient(
-        base_url="http://memory-api",
+    client = ControlPlaneApiClient(
+        base_url="http://control-plane-api",
         transport=httpx.MockTransport(handler),
     )
 
-    with pytest.raises(MemoryApiError) as caught:
+    with pytest.raises(ControlPlaneApiError) as caught:
         await client.resolve_preferences(
             user_id="user-1",
             session_id="session-1",
@@ -182,6 +180,4 @@ async def test_api_error_exposes_platform_reason_and_correlation_id() -> None:
     assert caught.value.status_code == 403
     assert caught.value.code == "PERMISSION_DENIED"
     assert caught.value.correlation_id == "correlation-123"
-    assert "request scope domain does not match registered agent domain" in str(
-        caught.value
-    )
+    assert "request scope domain does not match registered agent domain" in str(caught.value)

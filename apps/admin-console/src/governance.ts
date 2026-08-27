@@ -41,3 +41,62 @@ export function movePriority<T>(items: T[], index: number, direction: -1 | 1): T
 export function recordId(record: Record<string, unknown>): string {
   return String(record.id ?? record.attribute_id ?? "");
 }
+
+function searchableValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+export function filterRecords<T extends Record<string, unknown>>(
+  records: T[],
+  query: string,
+  columns?: string[],
+): T[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return records;
+  return records.filter((record) =>
+    (columns ?? Object.keys(record)).some((column) =>
+      searchableValue(record[column]).toLocaleLowerCase().includes(normalizedQuery),
+    ),
+  );
+}
+
+export type SortDirection = "ascending" | "descending";
+
+export function sortRecords<T extends Record<string, unknown>>(
+  records: T[],
+  column: string | null,
+  direction: SortDirection,
+): T[] {
+  if (!column) return records;
+  const multiplier = direction === "ascending" ? 1 : -1;
+  return records
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      const leftValue = left.record[column];
+      const rightValue = right.record[column];
+      const leftMissing = leftValue === null || leftValue === undefined;
+      const rightMissing = rightValue === null || rightValue === undefined;
+      if (leftMissing || rightMissing) {
+        if (leftMissing && rightMissing) return left.index - right.index;
+        return leftMissing ? 1 : -1;
+      }
+      const comparison =
+        typeof leftValue === "number" && typeof rightValue === "number"
+          ? leftValue - rightValue
+          : searchableValue(leftValue).localeCompare(searchableValue(rightValue), undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+      return comparison === 0 ? left.index - right.index : comparison * multiplier;
+    })
+    .map(({ record }) => record);
+}
+
+export function paginateRecords<T>(records: T[], page: number, pageSize: number): T[] {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.max(1, pageSize);
+  const start = (safePage - 1) * safePageSize;
+  return records.slice(start, start + safePageSize);
+}

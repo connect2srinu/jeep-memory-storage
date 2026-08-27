@@ -7,9 +7,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        "/memory-api": {
-          target: environment.MEMORY_API_PROXY_TARGET ?? "http://localhost:8080",
-          rewrite: (path) => path.replace(/^\/memory-api/, ""),
+        "/control-plane-api": {
+          target: environment.CONTROL_PLANE_API_PROXY_TARGET ?? "http://localhost:8080",
+          rewrite: (path) => path.replace(/^\/control-plane-api/, ""),
         },
       },
     },

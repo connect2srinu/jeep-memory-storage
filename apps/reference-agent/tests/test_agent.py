@@ -97,7 +97,7 @@ class FakeMemoryClient:
 @pytest.mark.asyncio
 async def test_phase_5_session_context_update_and_refresh(monkeypatch) -> None:
     client = FakeMemoryClient()
-    monkeypatch.setattr(agent_module, "build_memory_api_client", lambda: client)
+    monkeypatch.setattr(agent_module, "build_control_plane_api_client", lambda: client)
     context = FakeContext()
 
     await agent_module.initialize_preference_snapshot(context)
@@ -127,7 +127,7 @@ async def test_phase_5_session_context_update_and_refresh(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_event_refreshes_only_after_success(monkeypatch) -> None:
     client = FakeMemoryClient()
-    monkeypatch.setattr(agent_module, "build_memory_api_client", lambda: client)
+    monkeypatch.setattr(agent_module, "build_control_plane_api_client", lambda: client)
     context = FakeContext()
 
     result = await agent_module.submit_preference_event(
@@ -150,7 +150,7 @@ async def test_failed_update_does_not_replace_or_refresh_snapshot(monkeypatch) -
             raise RuntimeError("update rejected")
 
     client = FailingClient()
-    monkeypatch.setattr(agent_module, "build_memory_api_client", lambda: client)
+    monkeypatch.setattr(agent_module, "build_control_plane_api_client", lambda: client)
     context = FakeContext()
     await agent_module.initialize_preference_snapshot(context)
     original = context.state[agent_module.SNAPSHOT_STATE_KEY]

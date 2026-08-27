@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminApiClient, AdminApiError } from "./api";
-import { canMutate, findNormalizedDuplicates, movePriority, recordId } from "./governance";
+import {
+  canMutate,
+  filterRecords,
+  findNormalizedDuplicates,
+  movePriority,
+  paginateRecords,
+  recordId,
+  sortRecords,
+  type SortDirection,
+} from "./governance";
 import type { AdminIdentity, AdminRecord, AdminRole } from "./types";
 import { MemorySetupWizard } from "./Wizard";
 
@@ -127,21 +136,91 @@ function ErrorBanner({ error }: { error: string }) {
   return error ? <div className="alert error" role="alert">{error}</div> : null;
 }
 
-function ResourceTable({ records, onSelect }: { records: AdminRecord[]; onSelect?: (record: AdminRecord) => void }) {
-  if (!records.length) return <p className="empty">No records found.</p>;
-  const columns = Object.keys(records[0]).filter(
-    (key) => !["created_at", "updated_at", "before_metadata", "after_metadata"].includes(key),
+export function ResourceTable({ records, onSelect }: { records: AdminRecord[]; onSelect?: (record: AdminRecord) => void }) {
+  const columns = useMemo(
+    () => Object.keys(records[0] ?? {}).filter(
+      (key) => !["created_at", "updated_at", "before_metadata", "after_metadata"].includes(key),
+    ),
+    [records],
   );
+  const [query, setQuery] = useState("");
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("ascending");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const filteredRecords = useMemo(() => filterRecords(records, query, columns), [records, query, columns]);
+  const sortedRecords = useMemo(
+    () => sortRecords(filteredRecords, sortColumn, sortDirection),
+    [filteredRecords, sortColumn, sortDirection],
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleRecords = useMemo(
+    () => paginateRecords(sortedRecords, currentPage, pageSize),
+    [sortedRecords, currentPage, pageSize],
+  );
+  const firstResult = sortedRecords.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastResult = Math.min(currentPage * pageSize, sortedRecords.length);
+
+  function toggleSort(column: string) {
+    if (sortColumn === column) {
+      setSortDirection((current) => current === "ascending" ? "descending" : "ascending");
+    } else {
+      setSortColumn(column);
+      setSortDirection("ascending");
+    }
+    setPage(1);
+  }
+
+  if (!records.length) return <p className="empty">No records found.</p>;
+
   return (
-    <div className="table-wrap">
-      <table>
-        <thead><tr>{columns.map((column) => <th key={column}>{column.replaceAll("_", " ")}</th>)}</tr></thead>
-        <tbody>{records.map((record, index) => (
-          <tr className={onSelect ? "clickable-row" : ""} tabIndex={onSelect ? 0 : undefined} role={onSelect ? "button" : undefined} onClick={() => onSelect?.(record)} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect(record); } }} key={recordId(record) || index}>{columns.map((column) => (
-            <td key={column}>{typeof record[column] === "object" ? JSON.stringify(record[column]) : String(record[column] ?? "—")}</td>
-          ))}</tr>
-        ))}</tbody>
-      </table>
+    <div className="data-grid">
+      <div className="data-grid-toolbar">
+        <label className="resource-search">
+          <span>Search resources</span>
+          <input
+            type="search"
+            placeholder="Search all visible fields"
+            value={query}
+            onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+          />
+        </label>
+        <label className="page-size-control">
+          <span>Rows per page</span>
+          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+        </label>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr>{columns.map((column) => (
+            <th key={column} aria-sort={sortColumn === column ? sortDirection : "none"}>
+              <button type="button" className="sort-button" onClick={() => toggleSort(column)} aria-label={`Sort by ${column.replaceAll("_", " ")}`}>
+                <span>{column.replaceAll("_", " ")}</span>
+                <span aria-hidden="true">{sortColumn === column ? sortDirection === "ascending" ? "▲" : "▼" : "↕"}</span>
+              </button>
+            </th>
+          ))}</tr></thead>
+          <tbody>{visibleRecords.map((record, index) => (
+            <tr className={onSelect ? "clickable-row" : ""} tabIndex={onSelect ? 0 : undefined} role={onSelect ? "button" : undefined} onClick={() => onSelect?.(record)} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect(record); } }} key={recordId(record) || index}>{columns.map((column) => (
+              <td key={column}>{typeof record[column] === "object" ? JSON.stringify(record[column]) : String(record[column] ?? "—")}</td>
+            ))}</tr>
+          ))}</tbody>
+        </table>
+        {!visibleRecords.length && <div className="table-empty">No resources match “{query}”.</div>}
+      </div>
+      <div className="data-grid-footer">
+        <span>{firstResult}–{lastResult} of {sortedRecords.length} resources</span>
+        <div className="pagination" aria-label="Table pagination">
+          <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
+          <strong>Page {currentPage} of {totalPages}</strong>
+          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>Next</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -450,7 +529,7 @@ export function ConsolePage({ section, identity, api, organizationNavigation = d
 }
 
 export function ConsoleShell({ identity, section, status, onSection }: { identity: AdminIdentity; section: string; status: string; onSection: (value: string) => void }) {
-  const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_MEMORY_API_URL ?? "/memory-api/api/v1/admin", identity), [identity]);
+  const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_CONTROL_PLANE_API_URL ?? "/control-plane-api/api/v1/admin", identity), [identity]);
   const [selectedOrganization, setSelectedOrganization] = useState<ContextSelection>(null);
   const [selectedProject, setSelectedProject] = useState<ContextSelection>(null);
   const [organizationTab, setOrganizationTab] = useState<OrganizationTab>("projects");
@@ -461,7 +540,7 @@ export function ConsoleShell({ identity, section, status, onSection }: { identit
   function chooseOrganizationTab(tab: OrganizationTab) { setSelectedProject(null); setOrganizationTab(tab); onSection("organizations"); }
   function chooseProjectTab(tab: ProjectTab) { setProjectTab(tab); onSection("organizations"); }
   const organizationNavigation = { selectedOrganization, selectedProject, organizationTab, projectTab, onSelectOrganization: selectOrganization, onSelectProject: selectProject, onOrganizationTab: chooseOrganizationTab, onProjectTab: chooseProjectTab };
-  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Shared Memory</strong><small>Control plane</small></div></div><button className="context-switcher" type="button" onClick={openOrganizations}><span>{selectedOrganization ? selectedOrganization.name.slice(0, 1).toUpperCase() : "O"}</span><strong>{selectedOrganization?.name ?? "Organizations"}</strong><b>›</b></button><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}{selectedOrganization && <div className="contextual-nav"><span>Organization</span><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "overview" ? "active" : ""} onClick={() => chooseOrganizationTab("overview")}>Overview</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "projects" ? "active" : ""} onClick={() => chooseOrganizationTab("projects")}>Projects</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "members" ? "active" : ""} onClick={() => chooseOrganizationTab("members")}>Members &amp; Roles</button></div>}{selectedProject && <div className="contextual-nav project-context-nav"><span>Project · {selectedProject.name}</span><button type="button" className={section === "organizations" && projectTab === "overview" ? "active" : ""} onClick={() => chooseProjectTab("overview")}>Overview</button><button type="button" className={section === "organizations" && projectTab === "domains" ? "active" : ""} onClick={() => chooseProjectTab("domains")}>Domains</button><button type="button" className={section === "organizations" && projectTab === "agents" ? "active" : ""} onClick={() => chooseProjectTab("agents")}>Agents</button><button type="button" className={section === "organizations" && projectTab === "members" ? "active" : ""} onClick={() => chooseProjectTab("members")}>Members &amp; Roles</button></div>}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section && id !== "organizations")}><summary>Govern &amp; manage</summary>{advancedSections.filter(([id]) => id !== "organizations").map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Memory API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} organizationNavigation={organizationNavigation} /></main></div>;
+  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Portal</strong><small>Control plane</small></div></div><button className="context-switcher" type="button" onClick={openOrganizations}><span>{selectedOrganization ? selectedOrganization.name.slice(0, 1).toUpperCase() : "O"}</span><strong>{selectedOrganization?.name ?? "Organizations"}</strong><b>›</b></button><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}{selectedOrganization && <div className="contextual-nav"><span>Organization</span><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "overview" ? "active" : ""} onClick={() => chooseOrganizationTab("overview")}>Overview</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "projects" ? "active" : ""} onClick={() => chooseOrganizationTab("projects")}>Projects</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "members" ? "active" : ""} onClick={() => chooseOrganizationTab("members")}>Members &amp; Roles</button></div>}{selectedProject && <div className="contextual-nav project-context-nav"><span>Project · {selectedProject.name}</span><button type="button" className={section === "organizations" && projectTab === "overview" ? "active" : ""} onClick={() => chooseProjectTab("overview")}>Overview</button><button type="button" className={section === "organizations" && projectTab === "domains" ? "active" : ""} onClick={() => chooseProjectTab("domains")}>Domains</button><button type="button" className={section === "organizations" && projectTab === "agents" ? "active" : ""} onClick={() => chooseProjectTab("agents")}>Agents</button><button type="button" className={section === "organizations" && projectTab === "members" ? "active" : ""} onClick={() => chooseProjectTab("members")}>Members &amp; Roles</button></div>}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section && id !== "organizations")}><summary>Govern &amp; manage</summary>{advancedSections.filter(([id]) => id !== "organizations").map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Control Plane API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} organizationNavigation={organizationNavigation} /></main></div>;
 }
 
 export default function App() {
@@ -471,7 +550,7 @@ export default function App() {
   const [role, setRole] = useState<AdminRole>("PLATFORM_ADMIN");
   const [domains, setDomains] = useState("grocery,customer");
   const identity = useMemo<AdminIdentity>(() => ({ user, roles: [role], domains: domains.split(",").map((value) => value.trim()).filter(Boolean) }), [user, role, domains]);
-  const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_MEMORY_API_URL ?? "/memory-api/api/v1/admin", identity), [identity]);
+  const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_CONTROL_PLANE_API_URL ?? "/control-plane-api/api/v1/admin", identity), [identity]);
   useEffect(() => { api.health().then((ok) => setStatus(ok ? "connected" : "unavailable")).catch(() => setStatus("unavailable")); }, [api]);
   return <><div className="persona"><label>User<input value={user} onChange={(event) => setUser(event.target.value)} /></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value as AdminRole)}><option>PLATFORM_ADMIN</option><option>DOMAIN_ADMIN</option><option>SCHEMA_OWNER</option><option>AGENT_OWNER</option><option>VIEWER</option></select></label><label>Domains<input value={domains} onChange={(event) => setDomains(event.target.value)} /></label></div><ConsoleShell identity={identity} section={section} status={status} onSection={setSection} /></>;
 }

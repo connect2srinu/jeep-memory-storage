@@ -3,10 +3,10 @@ data "google_project" "current" {
 }
 
 locals {
-  name            = "${var.name_prefix}-${var.environment}"
-  memory_api_name = "${local.name}-memory-api"
-  admin_name      = "${local.name}-admin"
-  agent_name      = "${local.name}-reference-agent"
+  name                   = "${var.name_prefix}-${var.environment}"
+  control_plane_api_name = "${local.name}-control-plane-api"
+  admin_name             = "${local.name}-admin"
+  agent_name             = "${local.name}-reference-agent"
   iap_service_account = (
     "service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"
   )
@@ -162,10 +162,10 @@ resource "google_secret_manager_secret_version" "agent_principals" {
   secret_data = var.agent_principal_overrides_json
 }
 
-resource "google_service_account" "memory_api" {
+resource "google_service_account" "control_plane_api" {
   project      = var.project_id
   account_id   = "${substr(local.name, 0, 18)}-memory"
-  display_name = "Shared Memory API ${var.environment}"
+  display_name = "Control Plane API ${var.environment}"
 }
 
 resource "google_service_account" "reference_agent" {
@@ -187,7 +187,7 @@ resource "google_service_account" "migration" {
 }
 
 locals {
-  memory_api_roles = toset([
+  control_plane_api_roles = toset([
     "roles/aiplatform.user",
     "roles/cloudsql.client",
     "roles/cloudtrace.agent",
@@ -206,11 +206,11 @@ locals {
   ])
 }
 
-resource "google_project_iam_member" "memory_api" {
-  for_each = local.memory_api_roles
+resource "google_project_iam_member" "control_plane_api" {
+  for_each = local.control_plane_api_roles
   project  = var.project_id
   role     = each.value
-  member   = "serviceAccount:${google_service_account.memory_api.email}"
+  member   = "serviceAccount:${google_service_account.control_plane_api.email}"
 }
 
 resource "google_project_iam_member" "reference_agent" {

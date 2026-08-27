@@ -59,7 +59,7 @@ reviewed request and response in the deployment system if an approval artifact i
 
 ```bash
 cd apps/reference-agent
-export MEMORY_API_URL=http://localhost:8080
+export CONTROL_PLANE_API_URL=http://localhost:8080
 export REFERENCE_AGENT_ID=travel-assistant
 export PREFERENCE_DOMAIN=travel
 export ADK_APP_NAME=travel_preferences

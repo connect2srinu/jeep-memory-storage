@@ -53,7 +53,7 @@ class RuntimeMutation(ApiModel):
     profile_version: int | None = Field(default=None, alias="profileVersion")
 
 
-class MemoryApiError(RuntimeError):
+class ControlPlaneApiError(RuntimeError):
     """Actionable runtime API failure safe to surface in ADK traces."""
 
     def __init__(
@@ -67,11 +67,9 @@ class MemoryApiError(RuntimeError):
         self.status_code = status_code
         self.code = code
         self.correlation_id = correlation_id
-        correlation_suffix = (
-            f"; correlationId={correlation_id}" if correlation_id else ""
-        )
+        correlation_suffix = f"; correlationId={correlation_id}" if correlation_id else ""
         super().__init__(
-            f"Memory API request failed: {code}: {message} "
+            f"Control Plane API request failed: {code}: {message} "
             f"(HTTP {status_code}{correlation_suffix})"
         )
 
@@ -107,8 +105,8 @@ class GoogleIdTokenProvider:
         return await asyncio.to_thread(self._fetcher, Request(), self._audience)
 
 
-class MemoryApiClient:
-    """Typed async client for the Shared Memory runtime API."""
+class ControlPlaneApiClient:
+    """Typed async client for the Control Plane API runtime plane."""
 
     def __init__(
         self,
@@ -155,13 +153,11 @@ class MemoryApiClient:
                 code = error.get("code") or f"HTTP_{response.status_code}"
                 message = error.get("message") or response.reason_phrase
                 correlation_id = error.get("correlationId")
-                raise MemoryApiError(
+                raise ControlPlaneApiError(
                     status_code=response.status_code,
                     code=str(code),
                     message=str(message),
-                    correlation_id=(
-                        str(correlation_id) if correlation_id is not None else None
-                    ),
+                    correlation_id=(str(correlation_id) if correlation_id is not None else None),
                 )
             return response.json()
 

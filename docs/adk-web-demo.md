@@ -70,9 +70,9 @@ Stop an existing ADK process before changing its environment.
 
 ```bash
 cd apps/reference-agent
-export MEMORY_API_URL=http://localhost:8080
-export MEMORY_API_TOKEN=""
-export MEMORY_API_AUDIENCE=""
+export CONTROL_PLANE_API_URL=http://localhost:8080
+export CONTROL_PLANE_API_TOKEN=""
+export CONTROL_PLANE_API_AUDIENCE=""
 export REFERENCE_AGENT_ID=travel-assistant
 export PREFERENCE_DOMAIN=travel
 export ADK_APP_NAME=travel_preferences

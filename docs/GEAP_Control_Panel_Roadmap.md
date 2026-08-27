@@ -202,7 +202,7 @@ Exit criteria:
 
 ### Phase 1 — Memory Bank Control Panel MVP
 
-**Objective:** Productize the existing memory APIs and provide a guided governance experience.
+**Objective:** Productize the existing control plane APIs and provide a guided governance experience.
 
 Key outcomes:
 

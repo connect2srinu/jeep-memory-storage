@@ -4,22 +4,22 @@ substitutions:
   _TAG: $SHORT_SHA
 
 steps:
-  - id: test-memory-api
+  - id: test-control-plane-api
     name: python:3.12-slim
     entrypoint: bash
     args:
       - -c
-      - pip install -e 'apps/memory-api[dev]' && PYTHONPATH=apps/memory-api/app:apps/memory-api/tests pytest -q apps/memory-api/tests
-  - id: build-memory-api
+      - pip install -e 'apps/control-plane-api[dev]' && PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests pytest -q apps/control-plane-api/tests
+  - id: build-control-plane-api
     name: gcr.io/cloud-builders/docker
-    args: [build, -f, apps/memory-api/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/memory-api:${_TAG}', .]
+    args: [build, -f, apps/control-plane-api/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/control-plane-api:${_TAG}', .]
   - id: build-reference-agent
     name: gcr.io/cloud-builders/docker
     args: [build, -f, apps/reference-agent/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}', .]
   - id: build-admin-console
     name: gcr.io/cloud-builders/docker
-    args: [build, --build-arg, VITE_MEMORY_API_URL=/api/v1/admin, -f, apps/admin-console/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}', .]
+    args: [build, --build-arg, VITE_CONTROL_PLANE_API_URL=/api/v1/admin, -f, apps/admin-console/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}', .]
 images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/memory-api:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/control-plane-api:${_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}'

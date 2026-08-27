@@ -13,9 +13,9 @@ except ImportError:
 
 @dataclass(frozen=True, slots=True)
 class ReferenceAgentSettings:
-    memory_api_url: str = os.getenv("MEMORY_API_URL", "http://localhost:8080")
-    memory_api_token: str | None = os.getenv("MEMORY_API_TOKEN")
-    memory_api_audience: str | None = os.getenv("MEMORY_API_AUDIENCE")
+    control_plane_api_url: str = os.getenv("CONTROL_PLANE_API_URL", "http://localhost:8080")
+    control_plane_api_token: str | None = os.getenv("CONTROL_PLANE_API_TOKEN")
+    control_plane_api_audience: str | None = os.getenv("CONTROL_PLANE_API_AUDIENCE")
     model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     app_name: str = os.getenv("ADK_APP_NAME", "grocery_shared_preferences")
     agent_id: str = os.getenv("REFERENCE_AGENT_ID", "grocery-agent")

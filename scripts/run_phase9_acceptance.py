@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Phase 9 governed-memory acceptance flow.")
-    parser.add_argument("--memory-api-url", default=os.getenv("MEMORY_API_URL", "http://localhost:8080"))
+    parser.add_argument("--control-plane-api-url", default=os.getenv("CONTROL_PLANE_API_URL", "http://localhost:8080"))
     parser.add_argument(
         "--fixture",
         type=Path,
@@ -118,7 +118,7 @@ def assert_expected(snapshot: dict[str, Any], expected: dict[str, Any]) -> None:
 def main() -> None:
     args = parse_args()
     fixture = json.loads(args.fixture.read_text(encoding="utf-8"))
-    with httpx.Client(base_url=args.memory_api_url, timeout=60.0) as client:
+    with httpx.Client(base_url=args.control_plane_api_url, timeout=60.0) as client:
         seed_profiles(client, fixture)
         approve_customer_access(client)
         initial = resolve(client, fixture)

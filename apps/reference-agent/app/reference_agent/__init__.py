@@ -1,4 +1,4 @@
-"""ADK reference consumer for the Shared Memory API."""
+"""ADK reference consumer for the Control Plane API."""
 
 from .agent import app, root_agent
 

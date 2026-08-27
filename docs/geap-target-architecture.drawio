@@ -143,7 +143,7 @@
           <mxGeometry x="430" y="310" width="540" height="180" as="geometry"/>
         </mxCell>
 
-        <mxCell id="apiCard" value="&lt;b style=&quot;font-size: 19px;&quot;&gt;Backend API&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color: #5F6368;&quot;&gt;Control Panel / Platform API — evolved from Memory API&lt;/span&gt;&lt;br&gt;&lt;br&gt;identity · organizations · projects · agents · deployments&lt;br&gt;memory · evaluations · observability · finops · approvals · audit&lt;br&gt;&lt;br&gt;&lt;i style=&quot;color: #5F6368;&quot;&gt;Sole authorization and policy-enforcement point&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=3;fontSize=14;fontColor=#202124;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+        <mxCell id="apiCard" value="&lt;b style=&quot;font-size: 19px;&quot;&gt;Control Plane API&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color: #5F6368;&quot;&gt;Governance, administration, and agent runtime planes&lt;/span&gt;&lt;br&gt;&lt;br&gt;identity · organizations · projects · agents · deployments&lt;br&gt;memory · evaluations · observability · finops · approvals · audit&lt;br&gt;&lt;br&gt;&lt;i style=&quot;color: #5F6368;&quot;&gt;Sole authorization and policy-enforcement point&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A73E8;strokeWidth=3;fontSize=14;fontColor=#202124;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
           <mxGeometry x="430" y="560" width="540" height="200" as="geometry"/>
         </mxCell>
 

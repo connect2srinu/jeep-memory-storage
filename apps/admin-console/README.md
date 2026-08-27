@@ -41,7 +41,7 @@ npm run dev
 Open `http://localhost:5173`. Override the API proxy when necessary:
 
 ```bash
-MEMORY_API_PROXY_TARGET=http://127.0.0.1:8081 npm run dev -- --port 3002
+CONTROL_PLANE_API_PROXY_TARGET=http://127.0.0.1:8081 npm run dev -- --port 3002
 ```
 
 The local persona bar supplies development-only `X-Admin-*` headers. Authenticated deployments

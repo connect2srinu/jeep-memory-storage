@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "shared-memory-reference-agent"
 version = "0.1.0"
-description = "ADK reference consumer for the Shared Memory API"
+description = "ADK reference consumer for the Control Plane API"
 requires-python = ">=3.11"
 dependencies = [
   "google-adk[gcp]>=2.0.0,<3.0.0",

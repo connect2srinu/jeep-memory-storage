@@ -2,17 +2,17 @@
 
 ## Purpose
 
-The Shared Memory Platform separates business preference ownership from agent implementation and
+The GEAP Platform separates business preference ownership from agent implementation and
 provider SDK details. PostgreSQL is the control-plane source of truth; Vertex Memory Bank stores
-user-scoped memory; the Memory API is the enforcement and resolution boundary.
+user-scoped memory; the Control Plane API is the enforcement and resolution boundary.
 
 ## Components
 
 | Component | Responsibility |
 |---|---|
 | Admin Console | Guided onboarding and governed administration |
-| Memory API admin plane | Domains, schemas, agents, grants, policies, audit, provisioning |
-| Memory API runtime plane | Identity, scope checks, reads, writes, resolution, provenance |
+| Control Plane API admin plane | Domains, schemas, agents, grants, policies, audit, provisioning |
+| Control Plane API runtime plane | Identity, scope checks, reads, writes, resolution, provenance |
 | PostgreSQL | Organizations, projects, memberships, and durable control-plane metadata |
 | `MemoryStore` | Provider-neutral persistence contract |
 | Vertex adapter | Structured profile retrieval, explicit overlays, event ingestion |
@@ -60,7 +60,7 @@ resolution.
 The model-facing tool sends `attribute` and `value`, optionally with original text. It does not send
 `schemaId`.
 
-The Memory API:
+The Control Plane API:
 
 1. requires `submit_candidates`;
 2. requires request domain = registered agent domain;
@@ -101,14 +101,48 @@ value and explanation. A Session snapshot is derived context, not a new source o
 
 ## Capabilities
 
-| Capability | Meaning |
-|---|---|
-| `resolve_context` | Resolve the authorized effective snapshot |
-| `submit_candidates` | Submit explicit updates or memory-event candidates |
-| `inspect_provenance` | Receive source/schema provenance and inspect raw profiles |
-| `administer_memory` | Administrative operation; not granted to normal consumer agents |
+Capabilities are stored on the registered agent and authorize classes of runtime operations. They
+are not user preferences and do not grant access to every domain, attribute, or schema. A capability
+must be combined with the agent's registered domain, exact request scope, and applicable schema
+grant.
+
+A normal read/write business agent created by guided setup commonly has:
+
+```json
+{
+  "resolve_context": true,
+  "submit_candidates": true,
+  "inspect_provenance": true,
+  "administer_memory": false
+}
+```
+
+| Capability | What `true` permits | Additional enforcement |
+|---|---|---|
+| `resolve_context` | Call preference resolution and receive an effective snapshot. | Only active schemas with `READ` or `READ_WRITE` grants are considered, and the request must match the agent's registered consumer domain and scope. |
+| `submit_candidates` | Submit natural-language memory-event candidates and explicit preference updates. | The target attribute must resolve to an active schema owned by the agent's domain with `WRITE` or `READ_WRITE` permission. Automatic writes cannot select a cross-domain schema. |
+| `inspect_provenance` | Include source/schema provenance in a resolved snapshot and inspect authorized raw provider profiles. | Raw profile access still requires a readable grant for every requested schema. If this capability is false, resolution can still succeed but requested provenance is omitted and raw-profile inspection is denied. |
+| `administer_memory` | Identifies an agent intended for privileged memory administration. | This is currently a reserved capability and is false for normal consumer agents. Control Plane API administrative endpoints are currently enforced through admin identities and roles such as `PLATFORM_ADMIN` and `DOMAIN_ADMIN`, not this flag alone. |
 
 Capabilities permit an operation class; schema grants determine the data the operation may access.
+For example, `submit_candidates: true` does not let a grocery agent update a
+`customer.*` attribute. A write is accepted only when all of these checks succeed:
+
+```text
+submit_candidates capability
+        +
+authenticated principal maps to the registered agent
+        +
+request scope matches the agent's consumer domain
+        +
+attribute is owned by that domain
+        +
+schema grant is WRITE or READ_WRITE
+```
+
+Similarly, `resolve_context: true` permits the resolution operation, while schema grants and
+cross-project approvals determine which owned or shared preferences can participate in the result.
+A missing capability or insufficient grant returns `403`.
 
 ## Failure model
 

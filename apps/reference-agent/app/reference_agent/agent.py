@@ -10,9 +10,9 @@ from google.adk.models import Gemini, LlmRequest
 from google.adk.tools import ToolContext
 
 from .client import (
+    ControlPlaneApiClient,
     EffectivePreferenceSnapshot,
     GoogleIdTokenProvider,
-    MemoryApiClient,
     PreferenceCandidate,
     StaticTokenProvider,
 )
@@ -21,15 +21,17 @@ from .settings import settings
 SNAPSHOT_STATE_KEY = "shared_memory:effective_snapshot"
 
 
-def build_memory_api_client() -> MemoryApiClient:
+def build_control_plane_api_client() -> ControlPlaneApiClient:
     """Build the client without exposing Memory Bank or provider SDKs to the agent."""
-    if settings.memory_api_token:
-        token_provider = StaticTokenProvider(settings.memory_api_token)
-    elif settings.memory_api_audience:
-        token_provider = GoogleIdTokenProvider(settings.memory_api_audience)
+    if settings.control_plane_api_token:
+        token_provider = StaticTokenProvider(settings.control_plane_api_token)
+    elif settings.control_plane_api_audience:
+        token_provider = GoogleIdTokenProvider(settings.control_plane_api_audience)
     else:
         token_provider = StaticTokenProvider(None)
-    return MemoryApiClient(base_url=settings.memory_api_url, token_provider=token_provider)
+    return ControlPlaneApiClient(
+        base_url=settings.control_plane_api_url, token_provider=token_provider
+    )
 
 
 def _identity(context: Any) -> tuple[str, str]:
@@ -47,7 +49,7 @@ def _snapshot_payload(snapshot: EffectivePreferenceSnapshot) -> dict[str, Any]:
 
 async def _load_snapshot(context: Any, *, refresh: bool) -> dict[str, Any]:
     user_id, session_id = _identity(context)
-    client = build_memory_api_client()
+    client = build_control_plane_api_client()
     operation = client.refresh_preferences if refresh else client.resolve_preferences
     snapshot = await operation(
         user_id=user_id,
@@ -92,7 +94,7 @@ async def get_user_preferences(tool_context: ToolContext) -> dict[str, Any]:
 
 
 async def refresh_user_preferences(tool_context: ToolContext) -> dict[str, Any]:
-    """Explicitly refresh the Session snapshot from the Shared Memory API."""
+    """Explicitly refresh the Session snapshot from the Control Plane API."""
     return await _load_snapshot(tool_context, refresh=True)
 
 
@@ -103,7 +105,7 @@ async def update_user_preference(
 ) -> dict[str, Any]:
     """Save a preference; the platform resolves its authorized writable schema."""
     user_id, _ = _identity(tool_context)
-    mutation = await build_memory_api_client().update_preference(
+    mutation = await build_control_plane_api_client().update_preference(
         user_id=user_id,
         app_name=settings.app_name,
         consumer_domain=settings.consumer_domain,
@@ -126,7 +128,7 @@ async def submit_preference_event(
 ) -> dict[str, Any]:
     """Submit a user statement with one candidate, then refresh the effective snapshot."""
     user_id, _ = _identity(tool_context)
-    mutation = await build_memory_api_client().ingest_event(
+    mutation = await build_control_plane_api_client().ingest_event(
         user_id=user_id,
         app_name=settings.app_name,
         consumer_domain=settings.consumer_domain,
@@ -143,7 +145,7 @@ async def submit_preference_event(
 
 INSTRUCTION = f"""
 You are the preference assistant for the {settings.consumer_domain} domain and a reference consumer
-of the Shared Memory API. Users describe preferences naturally and must never be asked for schema
+of the Control Plane API. Users describe preferences naturally and must never be asked for schema
 IDs or canonical attribute IDs. The effective preference snapshot is loaded into Session state
 before Gemini runs and is included in model context. Its writablePreferences list is the complete
 set of canonical preferences this agent may update. Map the user's statement to the single best

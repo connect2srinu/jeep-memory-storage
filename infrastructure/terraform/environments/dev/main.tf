@@ -13,9 +13,9 @@ module "platform" {
   admin_role_bindings_json       = var.admin_role_bindings_json
   agent_principal_overrides_json = var.agent_principal_overrides_json
   memory_bank_resource_id        = var.memory_bank_resource_id
-  memory_api_audience            = var.memory_api_audience
+  control_plane_api_audience     = var.control_plane_api_audience
   gemini_model                   = var.gemini_model
-  memory_api_image               = var.memory_api_image
+  control_plane_api_image        = var.control_plane_api_image
   admin_console_image            = var.admin_console_image
   reference_agent_image          = var.reference_agent_image
   notification_channel_ids       = var.notification_channel_ids
