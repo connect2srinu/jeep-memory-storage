@@ -26,6 +26,22 @@ variable "iap_jwt_audience" {
 variable "iap_members" {
   type = set(string)
 }
+variable "entra_auth_enabled" {
+  type    = bool
+  default = false
+}
+variable "entra_tenant_id" {
+  type    = string
+  default = ""
+}
+variable "entra_api_audience" {
+  type    = string
+  default = ""
+}
+variable "entra_required_scope" {
+  type    = string
+  default = "access_as_user"
+}
 variable "admin_role_bindings_json" {
   type      = string
   sensitive = true

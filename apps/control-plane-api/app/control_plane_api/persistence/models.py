@@ -92,6 +92,70 @@ class ProjectMembershipRecord(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
 
 
+class OrganizationSettingsRecord(TimestampMixin, Base):
+    __tablename__ = "organization_settings"
+
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True
+    )
+    budget_amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    budget_period: Mapped[str] = mapped_column(String(16), nullable=False, default="MONTHLY")
+    budget_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    thresholds: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    email_recipients: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    monitoring_channel_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    pubsub_topic: Mapped[str | None] = mapped_column(String(512))
+    billing_account_id: Mapped[str | None] = mapped_column(String(128))
+    billing_project_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    external_budget_name: Mapped[str | None] = mapped_column(String(512))
+    sync_status: Mapped[str] = mapped_column(String(32), nullable=False, default="LOCAL_ONLY")
+
+
+class ProjectSettingsRecord(TimestampMixin, Base):
+    __tablename__ = "project_settings"
+
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    health_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=300)
+    latency_warning_ms: Mapped[float] = mapped_column(Float, nullable=False, default=2000)
+    error_rate_warning: Mapped[float] = mapped_column(Float, nullable=False, default=0.05)
+    notifications_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    notification_channel_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+
+
+class AgentRuntimeBindingRecord(TimestampMixin, Base):
+    __tablename__ = "agent_runtime_bindings"
+
+    agent_id: Mapped[str] = mapped_column(
+        ForeignKey("registered_agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    gcp_project_id: Mapped[str | None] = mapped_column(String(63))
+    location: Mapped[str | None] = mapped_column(String(64))
+    resource_name: Mapped[str | None] = mapped_column(String(512))
+    endpoint_url: Mapped[str | None] = mapped_column(String(1024))
+    environment: Mapped[str] = mapped_column(String(32), nullable=False, default="development")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="CONFIGURED")
+
+
+class AgentHealthSnapshotRecord(TimestampMixin, Base):
+    __tablename__ = "agent_health_snapshots"
+
+    agent_id: Mapped[str] = mapped_column(
+        ForeignKey("registered_agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    health_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_status: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_count: Mapped[int | None] = mapped_column(Integer)
+    error_rate: Mapped[float | None] = mapped_column(Float)
+    p95_latency_ms: Mapped[float | None] = mapped_column(Float)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+
 class MemoryDomainRecord(TimestampMixin, Base):
     __tablename__ = "memory_domains"
 

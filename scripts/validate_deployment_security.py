@@ -4,6 +4,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+AUTH_DISABLED_PATTERN = re.compile(
+    r"(?<![A-Z0-9_])AUTH_ENABLED[^\n]*(false|0)", re.IGNORECASE
+)
 
 
 def main() -> None:
@@ -20,16 +23,23 @@ def main() -> None:
         relative = path.relative_to(ROOT)
         if "allUsers" in text:
             errors.append(f"{relative}: public allUsers binding is forbidden")
-        if re.search(r"AUTH_ENABLED[^\n]*(false|0)", text, re.IGNORECASE):
+        if AUTH_DISABLED_PATTERN.search(text):
             errors.append(f"{relative}: deployed authentication cannot be disabled")
         if re.search(r"-----BEGIN (RSA |EC )?PRIVATE KEY-----", text):
             errors.append(f"{relative}: private key material is forbidden")
     for dockerfile in ROOT.glob("apps/*/Dockerfile"):
         text = dockerfile.read_text(encoding="utf-8")
         if re.search(r"^COPY\s+.*\.env", text, re.MULTILINE):
-            errors.append(f"{dockerfile.relative_to(ROOT)}: images must not copy .env files")
+            errors.append(
+                f"{dockerfile.relative_to(ROOT)}: images must not copy .env files"
+            )
     example = (
-        ROOT / "infrastructure" / "terraform" / "environments" / "dev" / "terraform.tfvars.example"
+        ROOT
+        / "infrastructure"
+        / "terraform"
+        / "environments"
+        / "dev"
+        / "terraform.tfvars.example"
     ).read_text(encoding="utf-8")
     required = {
         "<GCP_PROJECT_ID>",
@@ -41,7 +51,9 @@ def main() -> None:
     if missing:
         errors.append(f"terraform.tfvars.example is missing placeholders: {missing}")
     if errors:
-        raise SystemExit("Deployment security validation failed:\n- " + "\n- ".join(errors))
+        raise SystemExit(
+            "Deployment security validation failed:\n- " + "\n- ".join(errors)
+        )
     print("Deployment security validation passed.")
 
 

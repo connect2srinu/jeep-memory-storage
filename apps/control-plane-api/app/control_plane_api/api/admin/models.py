@@ -31,6 +31,45 @@ class MembershipCreate(AdminModel):
     role: Literal["OWNER", "ADMIN", "VIEWER"]
 
 
+class BudgetThreshold(AdminModel):
+    percent: float = Field(gt=0, le=100)
+    basis: Literal["ACTUAL", "FORECAST"] = "ACTUAL"
+
+
+class OrganizationSettingsUpdate(AdminModel):
+    budget_amount: float | None = Field(default=None, alias="budgetAmount", gt=0)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    budget_period: Literal["MONTHLY", "QUARTERLY", "ANNUAL"] = Field(
+        default="MONTHLY", alias="budgetPeriod"
+    )
+    budget_enabled: bool = Field(default=False, alias="budgetEnabled")
+    thresholds: list[BudgetThreshold] = Field(default_factory=list)
+    email_recipients: list[str] = Field(default_factory=list, alias="emailRecipients")
+    monitoring_channel_ids: list[str] = Field(default_factory=list, alias="monitoringChannelIds")
+    pubsub_topic: str | None = Field(default=None, alias="pubsubTopic")
+    billing_account_id: str | None = Field(default=None, alias="billingAccountId")
+    billing_project_ids: list[str] = Field(default_factory=list, alias="billingProjectIds")
+
+
+class ProjectSettingsUpdate(AdminModel):
+    health_refresh_seconds: int = Field(default=300, alias="healthRefreshSeconds", ge=30, le=86400)
+    latency_warning_ms: float = Field(default=2000, alias="latencyWarningMs", gt=0)
+    error_rate_warning: float = Field(default=0.05, alias="errorRateWarning", ge=0, le=1)
+    notifications_enabled: bool = Field(default=True, alias="notificationsEnabled")
+    notification_channel_ids: list[str] = Field(
+        default_factory=list, alias="notificationChannelIds"
+    )
+
+
+class AgentRuntimeBindingUpdate(AdminModel):
+    provider: Literal["GOOGLE_AGENT_RUNTIME", "CLOUD_RUN", "ADK_LOCAL"]
+    gcp_project_id: str | None = Field(default=None, alias="gcpProjectId")
+    location: str | None = None
+    resource_name: str | None = Field(default=None, alias="resourceName")
+    endpoint_url: str | None = Field(default=None, alias="endpointUrl")
+    environment: str = "development"
+
+
 class DomainCreate(AdminModel):
     id: str = Field(min_length=1, max_length=63)
     organization_id: str = Field(alias="organizationId", min_length=1)

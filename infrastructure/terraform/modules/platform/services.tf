@@ -52,6 +52,30 @@ resource "google_cloud_run_v2_service" "control_plane_api" {
         value = "true"
       }
       env {
+        name  = "ENTRA_AUTH_ENABLED"
+        value = tostring(var.entra_auth_enabled)
+      }
+      env {
+        name  = "ENTRA_TENANT_ID"
+        value = var.entra_tenant_id
+      }
+      env {
+        name  = "ENTRA_API_AUDIENCE"
+        value = var.entra_api_audience
+      }
+      env {
+        name  = "ENTRA_REQUIRED_SCOPE"
+        value = var.entra_required_scope
+      }
+      env {
+        name  = "ENTRA_PLATFORM_ADMIN_ROLE"
+        value = "Platform.Admin"
+      }
+      env {
+        name  = "ENTRA_PLATFORM_USER_ROLE"
+        value = "Platform.User"
+      }
+      env {
         name  = "ADMIN_AUTH_MODE"
         value = "iap"
       }

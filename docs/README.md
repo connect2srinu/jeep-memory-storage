@@ -11,6 +11,7 @@ longer represent the running system.
 | Agent developer | [ADK Web Demo](adk-web-demo.md) |
 | Platform developer | [Agent Memory Setup](agent-memory-setup.md) |
 | Platform administrator | [Admin API](admin-api.md) |
+| Identity administrator | [Microsoft Entra Authentication](entra-authentication.md) |
 | DevOps/SRE | [Deployment and Operations](deployment-operations.md) |
 | Vertex integrator | [Vertex Memory Bank](vertex-memory-bank.md) |
 

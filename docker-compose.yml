@@ -24,6 +24,12 @@ services:
     environment:
       MEMORY_BACKEND: mock
       AUTH_ENABLED: "false"
+      ENTRA_AUTH_ENABLED: ${ENTRA_AUTH_ENABLED:-false}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      ENTRA_API_AUDIENCE: ${ENTRA_API_AUDIENCE:-}
+      ENTRA_REQUIRED_SCOPE: ${ENTRA_REQUIRED_SCOPE:-access_as_user}
+      ENTRA_PLATFORM_ADMIN_ROLE: ${ENTRA_PLATFORM_ADMIN_ROLE:-Platform.Admin}
+      ENTRA_PLATFORM_USER_ROLE: ${ENTRA_PLATFORM_USER_ROLE:-Platform.User}
       DATABASE_URL: postgresql+asyncpg://shared_memory:local-development-only@postgres:5432/shared_memory
     command:
       - sh
@@ -51,6 +57,17 @@ services:
     build:
       context: .
       dockerfile: apps/admin-console/Dockerfile
+      args:
+        VITE_ENTRA_AUTH_ENABLED: ${VITE_ENTRA_AUTH_ENABLED:-false}
+        VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID:-}
+        VITE_ENTRA_SPA_CLIENT_ID: ${VITE_ENTRA_SPA_CLIENT_ID:-}
+        VITE_ENTRA_API_SCOPE: ${VITE_ENTRA_API_SCOPE:-}
+        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-http://localhost:3000}
+        VITE_ENTRA_PLATFORM_ADMIN_ROLE: ${VITE_ENTRA_PLATFORM_ADMIN_ROLE:-Platform.Admin}
+        VITE_ENTRA_PLATFORM_USER_ROLE: ${VITE_ENTRA_PLATFORM_USER_ROLE:-Platform.User}
+        VITE_LOCAL_ADMIN_USER: ${VITE_LOCAL_ADMIN_USER:-platform-admin@example.com}
+        VITE_LOCAL_ADMIN_ROLE: ${VITE_LOCAL_ADMIN_ROLE:-PLATFORM_ADMIN}
+        VITE_LOCAL_ADMIN_DOMAINS: ${VITE_LOCAL_ADMIN_DOMAINS:-grocery,customer}
     depends_on:
       control-plane-api:
         condition: service_healthy

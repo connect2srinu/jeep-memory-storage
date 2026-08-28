@@ -83,6 +83,68 @@ async def test_admin_authentication_and_viewer_read_only(admin_environment) -> N
 
 
 @pytest.mark.asyncio
+async def test_org_budget_project_health_and_runtime_governance(admin_environment) -> None:
+    client, _ = admin_environment
+
+    settings = await client.put(
+        "/api/v1/admin/organizations/retail/settings",
+        headers=PLATFORM,
+        json={
+            "budgetEnabled": True,
+            "budgetAmount": 25000,
+            "currency": "USD",
+            "budgetPeriod": "MONTHLY",
+            "thresholds": [{"percent": 80, "basis": "ACTUAL"}],
+            "emailRecipients": ["finops@example.com"],
+            "billingProjectIds": ["retail-agents-dev"],
+        },
+    )
+    assert settings.status_code == 200
+    assert settings.json()["data"]["sync_status"] == "PENDING_SYNC"
+
+    project_settings = await client.put(
+        "/api/v1/admin/projects/customer-experience/settings",
+        headers=PLATFORM,
+        json={
+            "healthRefreshSeconds": 120,
+            "latencyWarningMs": 1500,
+            "errorRateWarning": 0.03,
+            "notificationsEnabled": True,
+            "notificationChannelIds": ["projects/test/notificationChannels/1"],
+        },
+    )
+    assert project_settings.status_code == 200
+    assert project_settings.json()["data"]["health_refresh_seconds"] == 120
+
+    binding = await client.put(
+        "/api/v1/admin/agents/customer-agent/runtime-binding",
+        headers=PLATFORM,
+        json={
+            "provider": "ADK_LOCAL",
+            "endpointUrl": "http://127.0.0.1:9",
+            "environment": "development",
+        },
+    )
+    assert binding.status_code == 200
+
+    health = await client.get("/api/v1/admin/projects/customer-experience/health", headers=PLATFORM)
+    assert health.status_code == 200
+    customer = next(
+        item for item in health.json()["data"]["agents"] if item["agent"]["id"] == "customer-agent"
+    )
+    assert customer["resource_tags"] == {
+        "organization_id": "retail",
+        "project_id": "customer-experience",
+        "agent_id": "customer-agent",
+        "environment": "development",
+    }
+
+    approvals = await client.get("/api/v1/admin/organizations/retail/approvals", headers=PLATFORM)
+    assert approvals.status_code == 200
+    assert set(approvals.json()["data"]) == {"incoming", "outgoing", "history"}
+
+
+@pytest.mark.asyncio
 async def test_organization_project_hierarchy_is_enforced(admin_environment) -> None:
     client, _ = admin_environment
     organizations = await client.get("/api/v1/admin/organizations", headers=VIEWER)
@@ -660,8 +722,10 @@ def test_openapi_exposes_versioned_admin_resources() -> None:
     paths = app.openapi()["paths"]
     expected = {
         "/api/v1/admin/domains",
+        "/api/v1/admin/domains/{resource_id}/detail",
         "/api/v1/admin/scopes",
         "/api/v1/admin/schemas",
+        "/api/v1/admin/schemas/{resource_id}/agents",
         "/api/v1/admin/preference-catalog",
         "/api/v1/admin/agents",
         "/api/v1/admin/access-requests",
@@ -672,3 +736,72 @@ def test_openapi_exposes_versioned_admin_resources() -> None:
         "/api/v1/admin/memory-setups/activate",
     }
     assert expected <= set(paths)
+
+
+@pytest.mark.asyncio
+async def test_domain_detail_aggregates_children(admin_environment) -> None:
+    client, _ = admin_environment
+    response = await client.get("/api/v1/admin/domains/grocery/detail", headers=VIEWER)
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    assert data["domain"]["id"] == "grocery"
+    assert data["organization"]["id"] == "retail"
+    assert data["project"]["id"] == "shopping"
+
+    # A domain owns its scope(s); grocery has exactly one in the seed.
+    assert [scope["id"] for scope in data["scopes"]] == ["grocery:profile-scope"]
+
+    schema = next(item for item in data["schemas"] if item["id"] == "grocery-preferences-v1")
+    assert schema["versions"][0]["mappings"], "schema version exposes preference mappings"
+    assert "access_status" in schema
+    # grocery-agent, grocery-readonly-agent, delivery-agent, store-agent hold active grants.
+    assert schema["active_grant_count"] >= 3
+
+    home_agent_ids = {agent["id"] for agent in data["home_agents"]}
+    assert {"grocery-agent", "grocery-readonly-agent"} <= home_agent_ids
+
+    # Resolution is a domain-level default here (no agent-specific policy seeded).
+    assert data["resolution"]["domain_default"]["id"] == "grocery:test-policy:1"
+
+    assert set(data["pending_requests"]) == {"access", "changes"}
+    assert isinstance(data["audit"], list)
+
+    missing = await client.get("/api/v1/admin/domains/not-a-domain/detail", headers=VIEWER)
+    assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_schema_agent_access_distinguishes_project_and_grant(admin_environment) -> None:
+    client, _ = admin_environment
+    response = await client.get(
+        "/api/v1/admin/schemas/grocery-preferences-v1/agents", headers=VIEWER
+    )
+    assert response.status_code == 200
+    by_agent = {item["agent_id"]: item for item in response.json()["items"]}
+
+    # Owning-project agent with an explicit grant.
+    grocery = by_agent["grocery-agent"]
+    assert grocery["same_project"] is True
+    assert grocery["access_kind"] == "OWNING_PROJECT_GRANT"
+    assert grocery["permission"] == "READ_WRITE"
+
+    # Same project, no grant: explicit-only model means eligible, not granted.
+    inventory = by_agent["inventory-agent"]
+    assert inventory["same_project"] is True
+    assert inventory["access_kind"] == "ELIGIBLE_NOT_GRANTED"
+    assert inventory["permission"] is None
+
+    # Different project, no grant.
+    customer = by_agent["customer-agent"]
+    assert customer["same_project"] is False
+    assert customer["access_kind"] == "NONE"
+
+    # A cross-project grant is labelled distinctly on the customer schema.
+    customer_schema = await client.get(
+        "/api/v1/admin/schemas/customer-preferences-v1/agents", headers=VIEWER
+    )
+    cross = {item["agent_id"]: item for item in customer_schema.json()["items"]}["grocery-agent"]
+    assert cross["same_project"] is False
+    assert cross["access_kind"] == "CROSS_PROJECT_GRANT"
+    assert cross["permission"] == "READ"

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AdminApiClient } from "./api";
-import { ConsolePage, ConsoleShell, OrganizationHierarchyView, ResourceTable } from "./App";
+import { ApprovalsTable, ConsolePage, ConsoleShell, OrganizationHierarchyView, ResourceTable } from "./App";
 import type { AdminIdentity } from "./types";
 
 const viewer: AdminIdentity = { user: "viewer@example.com", roles: ["VIEWER"], domains: [] };
@@ -149,5 +149,45 @@ describe("Admin Console components", () => {
     );
     expect(projectDomains).toContain("Grocery");
     expect(projectDomains).toContain("resource-card");
+  });
+
+  it("renders approvals as a filterable data table with status and direction", () => {
+    const rows = [
+      {
+        id: "req-1",
+        direction: "INCOMING",
+        status: "PENDING",
+        requesting_agent_name: "Rewards Agent",
+        requesting_team: "rewards-team",
+        requesting_project_id: "rewards",
+        owning_domain_id: "customer",
+        target_schema_id: "customer-preferences-v1",
+        requested_permission: "READ",
+        requested_at: "2026-08-20T10:00:00Z",
+      },
+      {
+        id: "req-2",
+        direction: "OUTGOING",
+        status: "APPROVED",
+        requesting_agent_name: "Grocery Agent",
+        target_schema_id: "customer-preferences-v1",
+        requested_permission: "READ",
+        requested_at: "2026-08-19T10:00:00Z",
+      },
+    ];
+    const html = renderToStaticMarkup(
+      <ApprovalsTable rows={rows} api={api} reload={() => {}} writable={true} />,
+    );
+    // Tabular presentation, not cards.
+    expect(html).toContain("<table");
+    // Direction, status chips, and the enriched project/domain columns.
+    expect(html).toContain("dir-pill");
+    expect(html).toContain("status-chip");
+    expect(html).toContain("customer-preferences-v1");
+    expect(html).toContain("rewards");
+    // Incoming pending request exposes decision actions; the header offers filtering.
+    expect(html).toContain("Approve");
+    expect(html).toContain("Direction");
+    expect(html).toContain("2 of 2 requests");
   });
 });

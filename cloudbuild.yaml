@@ -2,6 +2,11 @@ substitutions:
   _REGION: us-central1
   _REPOSITORY: geap-memory-dev-containers
   _TAG: $SHORT_SHA
+  _ENTRA_AUTH_ENABLED: "false"
+  _ENTRA_TENANT_ID: ""
+  _ENTRA_SPA_CLIENT_ID: ""
+  _ENTRA_API_SCOPE: ""
+  _ENTRA_REDIRECT_URI: ""
 
 steps:
   - id: test-control-plane-api
@@ -18,7 +23,7 @@ steps:
     args: [build, -f, apps/reference-agent/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}', .]
   - id: build-admin-console
     name: gcr.io/cloud-builders/docker
-    args: [build, --build-arg, VITE_CONTROL_PLANE_API_URL=/api/v1/admin, -f, apps/admin-console/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}', .]
+    args: [build, --build-arg, VITE_CONTROL_PLANE_API_URL=/api/v1/admin, --build-arg, 'VITE_ENTRA_AUTH_ENABLED=${_ENTRA_AUTH_ENABLED}', --build-arg, 'VITE_ENTRA_TENANT_ID=${_ENTRA_TENANT_ID}', --build-arg, 'VITE_ENTRA_SPA_CLIENT_ID=${_ENTRA_SPA_CLIENT_ID}', --build-arg, 'VITE_ENTRA_API_SCOPE=${_ENTRA_API_SCOPE}', --build-arg, 'VITE_ENTRA_REDIRECT_URI=${_ENTRA_REDIRECT_URI}', -f, apps/admin-console/Dockerfile, -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/admin-console:${_TAG}', .]
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/control-plane-api:${_TAG}'
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/reference-agent:${_TAG}'

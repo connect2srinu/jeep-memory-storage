@@ -24,6 +24,12 @@ export class AdminApiClient {
   ) {}
 
   private headers(): HeadersInit {
+    if (this.identity.accessToken) {
+      return {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.identity.accessToken}`,
+      };
+    }
     return {
       "Content-Type": "application/json",
       "X-Admin-User": this.identity.user,
@@ -76,6 +82,69 @@ export class AdminApiClient {
 
   async organizationHierarchy(): Promise<AdminRecord> {
     return (await this.request<AdminRecordEnvelope>("/organization-hierarchy")).data;
+  }
+
+  async organizationSettings(organizationId: string): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/settings`,
+      )
+    ).data;
+  }
+
+  async updateOrganizationSettings(
+    organizationId: string,
+    payload: AdminRecord,
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/settings`,
+        { method: "PUT", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
+  async organizationApprovals(organizationId: string): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/approvals`,
+      )
+    ).data;
+  }
+
+  async projectSettings(projectId: string): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/projects/${encodeURIComponent(projectId)}/settings`,
+      )
+    ).data;
+  }
+
+  async updateProjectSettings(projectId: string, payload: AdminRecord): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/projects/${encodeURIComponent(projectId)}/settings`,
+        { method: "PUT", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
+  async projectHealth(projectId: string, refresh = false): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/projects/${encodeURIComponent(projectId)}/health${refresh ? "/refresh" : ""}`,
+        refresh ? { method: "POST" } : {},
+      )
+    ).data;
+  }
+
+  async updateAgentRuntimeBinding(agentId: string, payload: AdminRecord): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/agents/${encodeURIComponent(agentId)}/runtime-binding`,
+        { method: "PUT", body: JSON.stringify(payload) },
+      )
+    ).data;
   }
 
   async addOrganizationMember(
@@ -139,6 +208,22 @@ export class AdminApiClient {
     return (
       await this.request<AdminRecordList>(
         `/agents/${encodeURIComponent(agentId)}/schema-access`,
+      )
+    ).items;
+  }
+
+  async domainDetail(domainId: string): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/domains/${encodeURIComponent(domainId)}/detail`,
+      )
+    ).data;
+  }
+
+  async schemaAgents(schemaId: string): Promise<AdminRecord[]> {
+    return (
+      await this.request<AdminRecordList>(
+        `/schemas/${encodeURIComponent(schemaId)}/agents`,
       )
     ).items;
   }

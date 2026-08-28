@@ -125,6 +125,12 @@ module:
 8. additional business agents deployed to Cloud Run or Agent Runtime;
 9. production schema approvals and user-scoped memory profiles, which remain lazy and are created by
    authorized runtime use rather than infrastructure provisioning.
+10. Cloud Billing budgets entered in Organization Settings. The API persists these as
+    `PENDING_SYNC`; a deployment-owned reconciler/service account must call the Cloud Billing Budget
+    API, attach the configured Pub/Sub topic/notification channels, and write back the external
+    budget resource name;
+11. agent runtime bindings. Project owners enter the GCP project, location, and full Reasoning Engine
+    resource name after an agent is deployed.
 
 Do not place OAuth secrets, database passwords, or tokens in committed `.tfvars` files. Use your
 approved secret delivery mechanism and protect Terraform state because it can contain sensitive
@@ -149,7 +155,15 @@ CONTROL_PLANE_API_IMAGE=
 ADMIN_CONSOLE_IMAGE=
 REFERENCE_AGENT_IMAGE=
 ADMIN_ROLE_BINDINGS_JSON=
+GOOGLE_AGENT_HEALTH_MONITORING_PROJECT=
 ```
+
+The Control Plane API identity needs `monitoring.timeSeries.list` on every GCP project referenced by
+a Google Agent Runtime binding (for example through `roles/monitoring.viewer`). A future production
+budget reconciler should use a separate least-privilege identity with Cloud Billing budget
+permissions and Pub/Sub publisher configuration. Organization and project IDs are immutable
+control-plane identifiers; apply them as resource labels/tags to deployed agents wherever the target
+Google service supports labels.
 
 For an ADK consumer, also record:
 

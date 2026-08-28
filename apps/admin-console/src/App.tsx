@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { AdminApiClient, AdminApiError } from "./api";
 import {
@@ -14,23 +14,50 @@ import {
 import type { AdminIdentity, AdminRecord, AdminRole } from "./types";
 import { MemorySetupWizard } from "./Wizard";
 
+type IconName = "home" | "sparkles" | "building" | "domain" | "scope" | "schema" | "catalog" | "agent" | "share" | "approval" | "policy" | "memory" | "audit" | "project" | "users" | "health" | "settings" | "budget" | "observe";
+
+function UiIcon({ name }: { name: IconName }) {
+  const paths: Record<IconName, ReactNode> = {
+    home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,
+    sparkles: <><path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3Z"/><path d="m5 14 .8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Zm13-1 .8 2.2L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.8L18 13Z"/></>,
+    building: <><path d="M4 21V8l8-4 8 4v13M2 21h20"/><path d="M8 10h2m4 0h2m-8 4h2m4 0h2m-8 4h2m4 0h2"/></>,
+    domain: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></>,
+    scope: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3m0 12v3m9-9h-3M6 12H3"/></>,
+    schema: <><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></>,
+    catalog: <><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></>,
+    agent: <><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8"/></>,
+    share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4m-6.8 7 6.8 4"/></>,
+    approval: <><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></>,
+    policy: <><path d="M4 7h10M4 17h16M10 12h10"/><circle cx="17" cy="7" r="2"/><circle cx="7" cy="12" r="2"/><circle cx="9" cy="17" r="2"/></>,
+    memory: <><path d="M8 4a3 3 0 0 0-3 3v1a3 3 0 0 0-1 5 3 3 0 0 0 3 5h1a4 4 0 0 0 8 0h1a3 3 0 0 0 3-5 3 3 0 0 0-1-5V7a3 3 0 0 0-3-3"/><path d="M12 3v18M8 9h4m0 6h4"/></>,
+    audit: <><path d="M6 3h9l4 4v14H6zM15 3v5h5"/><path d="M9 13h6M9 17h6"/></>,
+    project: <><path d="M3 7h7l2 2h9v11H3z"/><path d="M3 7V5h7l2 2"/></>,
+    users: <><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></>,
+    health: <><path d="M3 12h4l2-5 4 10 2-5h6"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7-.7-1.7.9-1.9-2.1-2.1-1.9.9-1.7-.7L10.5 2h-3l-.7 2-1.7.7-1.9-.9-2.1 2.1.9 1.9-.7 1.7-2 .7v3l2 .7.7 1.7-.9 1.9 2.1 2.1 1.9-.9 1.7.7.7 2h3l.7-2 1.7-.7 1.9.9 2.1-2.1-.9-1.9.7-1.7 2-.7Z" transform="translate(1.5 0) scale(.88)"/></>,
+    budget: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></>,
+    observe: <><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="3"/></>,
+  };
+  return <svg className="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
+}
+
 const primarySections = [
-  ["dashboard", "Dashboard"],
-  ["create-setup", "Create Memory Setup"],
+  ["dashboard", "Dashboard", "home"],
+  ["create-setup", "Create Memory Setup", "sparkles"],
 ] as const;
 
 const advancedSections = [
-  ["organizations", "Organizations & Projects"],
-  ["domains", "Domains"],
-  ["scopes", "Scopes"],
-  ["schemas", "Schemas"],
-  ["preference-catalog", "Preference Catalog"],
-  ["agents", "Agents"],
-  ["access-requests", "Access Requests"],
-  ["approvals", "Approvals"],
-  ["resolution-policies", "Resolution Policies"],
-  ["dynamic-memory-policies", "Dynamic Memory Policies"],
-  ["audit", "Audit"],
+  ["organizations", "Organizations & Projects", "building"],
+  ["domains", "Domains", "domain"],
+  ["scopes", "Scopes", "scope"],
+  ["schemas", "Schemas", "schema"],
+  ["preference-catalog", "Preference Catalog", "catalog"],
+  ["agents", "Agents", "agent"],
+  ["access-requests", "Access Requests", "share"],
+  ["approvals", "Approvals", "approval"],
+  ["resolution-policies", "Resolution Policies", "policy"],
+  ["dynamic-memory-policies", "Dynamic Memory Policies", "memory"],
+  ["audit", "Audit", "audit"],
 ] as const;
 
 const sections = [...primarySections, ...advancedSections] as const;
@@ -489,7 +516,7 @@ function PriorityEditor({ payload, onChange }: { payload: AdminRecord; onChange:
   ))}</div>;
 }
 
-function AccessActions({ records, api, reload, approvalsOnly }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean }) {
+function AccessActions({ records, api, reload, approvalsOnly, writable = true }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean; writable?: boolean }) {
   const visible = approvalsOnly ? records.filter((record) => record.status === "PENDING") : records;
   async function act(id: string, action: "approve" | "reject" | "revoke" | "expire") {
     await api.decideAccess(id, action, `${action} from Admin Console`);
@@ -498,11 +525,11 @@ function AccessActions({ records, api, reload, approvalsOnly }: { records: Admin
   return <div className="request-list">{visible.map((record) => <article key={recordId(record)}>
     <div><strong>{String(record.requesting_agent_id)}</strong> → {String(record.target_schema_id)}<p>{String(record.business_reason)}</p></div>
     <span className={`pill ${String(record.status).toLowerCase()}`}>{String(record.status)}</span>
-    <div className="actions">{record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}{record.status === "APPROVED" && <button className="danger" type="button" onClick={() => act(recordId(record), "revoke")}>Revoke</button>}</div>
+    <div className="actions">{writable && record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}{writable && record.status === "APPROVED" && <button className="danger" type="button" onClick={() => act(recordId(record), "revoke")}>Revoke</button>}</div>
   </article>)}</div>;
 }
 
-function ResourceChangeActions({ records, api, reload, approvalsOnly }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean }) {
+function ResourceChangeActions({ records, api, reload, approvalsOnly, writable = true }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean; writable?: boolean }) {
   const visible = approvalsOnly ? records.filter((record) => record.status === "PENDING") : records;
   async function act(id: string, action: "approve" | "reject") {
     await api.decideResourceChange(id, action, `${action} from Admin Console`);
@@ -512,7 +539,7 @@ function ResourceChangeActions({ records, api, reload, approvalsOnly }: { record
   return <div className="request-list change-request-list">{visible.map((record) => <article key={recordId(record)}>
     <div><strong>{String(record.resource_type === "schemas" ? "Schema version" : "Domain change")} · {String(record.resource_id)}</strong><p>Requested by {String(record.requested_by)}</p><pre>{JSON.stringify(record.proposed_changes, null, 2)}</pre></div>
     <span className={`pill ${String(record.status).toLowerCase()}`}>{String(record.status)}</span>
-    <div className="actions">{record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve &amp; publish</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}</div>
+    <div className="actions">{writable && record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve &amp; publish</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}</div>
   </article>)}</div>;
 }
 
@@ -524,9 +551,252 @@ function records(record: AdminRecord, key: string): AdminRecord[] {
   return Array.isArray(record[key]) ? record[key] as AdminRecord[] : [];
 }
 
-type OrganizationTab = "overview" | "projects" | "members";
-type ProjectTab = "overview" | "domains" | "agents" | "members";
+type OrganizationTab = "overview" | "projects" | "approvals" | "members" | "settings";
+type ProjectTab = "overview" | "domains" | "agents" | "health" | "members" | "settings";
 type ContextSelection = { id: string; name: string } | null;
+
+function OrganizationSettingsPanel({ organizationId, api, writable }: { organizationId: string; api: AdminApiClient; writable: boolean }) {
+  const [settings, setSettings] = useState<AdminRecord>({});
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { void api.organizationSettings(organizationId).then(setSettings).catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load settings")); }, [api, organizationId]);
+  async function save() {
+    try {
+      const updated = await api.updateOrganizationSettings(organizationId, {
+        budgetEnabled: Boolean(settings.budget_enabled), budgetAmount: settings.budget_amount ? Number(settings.budget_amount) : undefined,
+        currency: settings.currency || "USD", budgetPeriod: settings.budget_period || "MONTHLY",
+        thresholds: [{ percent: Number(settings.notification_percent || 80), basis: "ACTUAL" }],
+        emailRecipients: String(settings.email_recipients_text || "").split(",").map((item) => item.trim()).filter(Boolean),
+        monitoringChannelIds: String(settings.channel_ids_text || "").split(",").map((item) => item.trim()).filter(Boolean),
+        pubsubTopic: settings.pubsub_topic || undefined, billingAccountId: settings.billing_account_id || undefined,
+        billingProjectIds: String(settings.billing_project_ids_text || "").split(",").map((item) => item.trim()).filter(Boolean),
+      });
+      setSettings(updated); setSaved(true); setError("");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to save settings"); }
+  }
+  const threshold = records(settings, "thresholds")[0]?.percent ?? 80;
+  return <div className="settings-panel"><div className="panel-heading"><div><h3>Budget &amp; notifications</h3><p>Set the organization guardrail. Cloud Billing synchronization remains explicit and observable.</p></div><span className="pill">{value(settings, "sync_status") || "LOCAL_ONLY"}</span></div><div className="settings-grid"><label className="toggle-row"><input type="checkbox" checked={Boolean(settings.budget_enabled)} disabled={!writable} onChange={(event) => setSettings({ ...settings, budget_enabled: event.target.checked })} /> Enable budget notifications</label><label>Budget amount<input type="number" min="1" disabled={!writable} value={value(settings, "budget_amount")} onChange={(event) => setSettings({ ...settings, budget_amount: event.target.value })} /></label><label>Currency<input maxLength={3} disabled={!writable} value={value(settings, "currency") || "USD"} onChange={(event) => setSettings({ ...settings, currency: event.target.value.toUpperCase() })} /></label><label>Period<select disabled={!writable} value={value(settings, "budget_period") || "MONTHLY"} onChange={(event) => setSettings({ ...settings, budget_period: event.target.value })}><option>MONTHLY</option><option>QUARTERLY</option><option>ANNUAL</option></select></label><label>Notify at (%)<input type="number" min="1" max="100" disabled={!writable} defaultValue={String(threshold)} onChange={(event) => setSettings({ ...settings, notification_percent: event.target.value })} /></label><label className="wide">Email recipients (comma separated)<input disabled={!writable} defaultValue={(settings.email_recipients as string[] || []).join(", ")} onChange={(event) => setSettings({ ...settings, email_recipients_text: event.target.value })} /></label><label className="wide">Cloud Monitoring channel IDs<input disabled={!writable} defaultValue={(settings.monitoring_channel_ids as string[] || []).join(", ")} onChange={(event) => setSettings({ ...settings, channel_ids_text: event.target.value })} /></label><label>Billing account ID<input disabled={!writable} value={value(settings, "billing_account_id")} onChange={(event) => setSettings({ ...settings, billing_account_id: event.target.value })} /></label><label>GCP project IDs<input disabled={!writable} defaultValue={(settings.billing_project_ids as string[] || []).join(", ")} onChange={(event) => setSettings({ ...settings, billing_project_ids_text: event.target.value })} /></label><label className="wide">Pub/Sub topic<input disabled={!writable} value={value(settings, "pubsub_topic")} onChange={(event) => setSettings({ ...settings, pubsub_topic: event.target.value })} placeholder="projects/my-project/topics/budget-events" /></label></div><ErrorBanner error={error} />{saved && <div className="alert success">Organization settings saved.</div>}{writable && <button className="primary" type="button" onClick={save}>Save settings</button>}</div>;
+}
+
+function formatDate(value: unknown): string {
+  const raw = String(value ?? "");
+  return raw ? raw.slice(0, 10) : "—";
+}
+
+const approvalColumns: Array<[string, string]> = [
+  ["direction", "Direction"],
+  ["status", "Status"],
+  ["requesting_agent_name", "Requester"],
+  ["requesting_project_id", "From project"],
+  ["owning_domain_id", "Owning domain"],
+  ["target_schema_id", "Target schema"],
+  ["requested_permission", "Permission"],
+  ["requested_at", "Requested"],
+];
+
+export function ApprovalsTable({ rows, api, reload, writable }: { rows: AdminRecord[]; api: AdminApiClient; reload: () => void; writable: boolean }) {
+  const [direction, setDirection] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState("requested_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const statuses = useMemo(() => Array.from(new Set(rows.map((row) => String(row.status)))).sort(), [rows]);
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (direction !== "ALL" && String(row.direction ?? "") !== direction) return false;
+      if (statusFilter !== "ALL" && String(row.status ?? "") !== statusFilter) return false;
+      if (!needle) return true;
+      return [row.requesting_agent_name, row.requesting_agent_id, row.requesting_team, row.owning_domain_id, row.target_schema_id, row.requested_by]
+        .some((field) => String(field ?? "").toLowerCase().includes(needle));
+    });
+  }, [rows, direction, statusFilter, query]);
+  const sorted = useMemo(() => {
+    const copy = [...filtered];
+    copy.sort((a, b) => {
+      const av = String(a[sortKey] ?? "");
+      const bv = String(b[sortKey] ?? "");
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    return copy;
+  }, [filtered, sortKey, sortDir]);
+
+  function toggleSort(key: string) {
+    if (sortKey === key) setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+  async function act(id: string, action: "approve" | "reject" | "revoke") {
+    await api.decideAccess(id, action, `${action} from Approvals`);
+    reload();
+  }
+
+  return <div className="approvals-table data-grid">
+    <div className="data-grid-toolbar approvals-toolbar">
+      <label className="resource-search"><span>Search</span><input type="search" placeholder="Requester, domain, schema…" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      <label className="filter-control"><span>Direction</span><select value={direction} onChange={(event) => setDirection(event.target.value)}><option value="ALL">All</option><option value="INCOMING">Incoming</option><option value="OUTGOING">Outgoing</option><option value="HISTORY">History</option></select></label>
+      <label className="filter-control"><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+    </div>
+    <div className="table-wrap"><table><thead><tr>{approvalColumns.map(([key, label]) => (
+      <th key={key} aria-sort={sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+        <button type="button" className="sort-button" onClick={() => toggleSort(key)}><span>{label}</span><span aria-hidden="true">{sortKey === key ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button>
+      </th>
+    ))}<th>Actions</th></tr></thead>
+    <tbody>{sorted.map((row) => {
+      const id = recordId(row);
+      const status = String(row.status);
+      const isIncoming = String(row.direction ?? "") === "INCOMING";
+      return <tr key={id}>
+        <td><span className={`dir-pill ${String(row.direction ?? "").toLowerCase()}`}>{String(row.direction ?? "—")}</span></td>
+        <td><span className={`status-chip ${status.toLowerCase()}`}>{status}</span></td>
+        <td><strong>{String(row.requesting_agent_name || row.requesting_agent_id || "—")}</strong>{row.requesting_team ? <small>{String(row.requesting_team)}</small> : null}</td>
+        <td>{String(row.requesting_project_id ?? "—")}</td>
+        <td>{String(row.owning_domain_id ?? "—")}</td>
+        <td>{String(row.target_schema_id ?? "—")}</td>
+        <td>{String(row.requested_permission ?? "—")}</td>
+        <td>{formatDate(row.requested_at)}</td>
+        <td className="row-actions">{writable && isIncoming && status === "PENDING"
+          ? <><button type="button" onClick={() => act(id, "approve")}>Approve</button><button className="danger" type="button" onClick={() => act(id, "reject")}>Reject</button></>
+          : writable && isIncoming && status === "APPROVED"
+            ? <button className="danger" type="button" onClick={() => act(id, "revoke")}>Revoke</button>
+            : <span className="muted">—</span>}</td>
+      </tr>;
+    })}</tbody></table>
+      {!sorted.length && <div className="table-empty">No requests match the current filters.</div>}
+    </div>
+    <div className="data-grid-footer"><span>{sorted.length} of {rows.length} requests</span></div>
+  </div>;
+}
+
+function OrganizationApprovalsPanel({ organizationId, api, writable = true }: { organizationId: string; api: AdminApiClient; writable?: boolean }) {
+  const [data, setData] = useState<AdminRecord>({ incoming: [], outgoing: [], history: [] });
+  const [error, setError] = useState("");
+  const load = useCallback(async () => { try { setData(await api.organizationApprovals(organizationId)); setError(""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to load approvals"); } }, [api, organizationId]);
+  useEffect(() => { void load(); }, [load]);
+  const rows = useMemo(() => [
+    ...records(data, "incoming").map((row) => ({ ...row, direction: "INCOMING" })),
+    ...records(data, "outgoing").map((row) => ({ ...row, direction: "OUTGOING" })),
+    ...records(data, "history").map((row) => ({ ...row, direction: "HISTORY" })),
+  ], [data]);
+  const pendingIncoming = records(data, "incoming").length;
+  return <div className="organization-panel"><div className="panel-heading"><div><h3>Schema access approvals</h3><p>One queue for cross-project schema access. Incoming requests need this organization’s decision; outgoing requests are read-only until the owner approves them.</p></div><span className="count-badge">{pendingIncoming} pending</span></div><ErrorBanner error={error} />{rows.length ? <ApprovalsTable rows={rows} api={api} reload={() => void load()} writable={writable} /> : <div className="empty-state"><strong>No access requests</strong><p>Cross-project schema access requests will appear here for review.</p></div>}</div>;
+}
+
+function accessKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    OWNING_PROJECT_GRANT: "Owning-project grant",
+    CROSS_PROJECT_GRANT: "Cross-project grant",
+    ELIGIBLE_NOT_GRANTED: "Eligible · not granted",
+    REQUEST_PENDING: "Request pending",
+    NONE: "No access",
+  };
+  return labels[kind] ?? kind;
+}
+
+function DomainSchemaAgents({ api, schemaId }: { api: AdminApiClient; schemaId: string }) {
+  const [rows, setRows] = useState<AdminRecord[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    setRows(null);
+    setError("");
+    api.schemaAgents(schemaId)
+      .then((result) => { if (live) setRows(result); })
+      .catch((caught) => { if (live) setError(caught instanceof Error ? caught.message : "Unable to load agent access"); });
+    return () => { live = false; };
+  }, [api, schemaId]);
+  if (error) return <ErrorBanner error={error} />;
+  if (!rows) return <p className="empty">Loading agent access…</p>;
+  if (!rows.length) return <p className="empty">No active agents in this organization.</p>;
+  return <div className="table-wrap"><table><thead><tr><th>Agent</th><th>Project</th><th>Access</th><th>Permission</th><th>Status</th></tr></thead>
+    <tbody>{rows.map((row) => <tr key={String(row.agent_id)}>
+      <td><strong>{String(row.display_name || row.agent_id)}</strong><small>{String(row.agent_id)}</small></td>
+      <td>{String(row.project_id ?? "—")}{row.same_project ? " · same project" : ""}</td>
+      <td><span className={`access-chip kind-${String(row.access_kind ?? "none").toLowerCase()}`}>{accessKindLabel(String(row.access_kind))}</span></td>
+      <td>{String(row.permission ?? "—")}</td>
+      <td><span className={`status-chip ${String(row.access_status ?? "").toLowerCase()}`}>{String(row.access_status)}</span></td>
+    </tr>)}</tbody></table></div>;
+}
+
+function ResolutionPolicyCard({ title, policy }: { title: string; policy: AdminRecord }) {
+  const priorities = records(policy, "schema_priorities");
+  const overrides = records(policy, "attribute_overrides");
+  return <div className="policy-card"><div className="policy-card-head"><strong>{title}</strong><small>{value(policy, "id")} · v{value(policy, "version")}</small></div>
+    {priorities.length
+      ? <ol className="precedence">{priorities.map((item) => <li key={String(item.id)}>{String(item.schema_id)}</li>)}</ol>
+      : <p className="empty">No schema precedence configured (single-schema resolution).</p>}
+    {overrides.length > 0 && <details><summary>{overrides.length} attribute override(s)</summary><ul>{overrides.map((item) => <li key={String(item.id)}>{String(item.attribute_id)}</li>)}</ul></details>}
+  </div>;
+}
+
+type DomainTab = "overview" | "schemas" | "preferences" | "access" | "resolution" | "sharing" | "audit";
+
+function DomainDetail({ domainId, api, writable, onBack }: { domainId: string; api: AdminApiClient; writable: boolean; onBack: () => void }) {
+  const [detail, setDetail] = useState<AdminRecord | null>(null);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState<DomainTab>("overview");
+  const [selectedSchemaId, setSelectedSchemaId] = useState<string>("");
+  const load = useCallback(async () => {
+    try {
+      const loaded = await api.domainDetail(domainId);
+      setDetail(loaded);
+      const schemas = records(loaded, "schemas");
+      setSelectedSchemaId((current) => current || (schemas[0] ? String(schemas[0].id) : ""));
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to load domain");
+    }
+  }, [api, domainId]);
+  useEffect(() => { void load(); }, [load]);
+
+  if (error) return <div className="domain-detail"><button className="back-link" type="button" onClick={onBack}>← Domains</button><ErrorBanner error={error} /></div>;
+  if (!detail) return <div className="domain-detail"><button className="back-link" type="button" onClick={onBack}>← Domains</button><p className="empty">Loading domain…</p></div>;
+
+  const domain = (detail.domain as AdminRecord) ?? {};
+  const project = (detail.project as AdminRecord) ?? {};
+  const schemas = records(detail, "schemas");
+  const scopes = records(detail, "scopes");
+  const homeAgents = records(detail, "home_agents");
+  const resolution = (detail.resolution as AdminRecord) ?? {};
+  const pending = (detail.pending_requests as AdminRecord) ?? {};
+  const selectedSchema = schemas.find((item) => String(item.id) === selectedSchemaId) ?? schemas[0];
+  const versions = selectedSchema ? records(selectedSchema, "versions") : [];
+  const activeVersion = versions.find((item) => String(item.status) === "ACTIVE") ?? versions[0];
+  const mappings = activeVersion ? records(activeVersion, "mappings") : [];
+
+  return <div className="domain-detail"><button className="back-link" type="button" onClick={onBack}>← Domains</button>
+    <div className="context-header"><div className="organization-monogram domain-monogram">D</div><div><span className="eyebrow">Domain</span><h2>{value(domain, "name") || value(domain, "id")}</h2><p>{value(domain, "description") || value(domain, "id")}</p><small>Project: {value(project, "name") || value(domain, "project_id")} · Owner: {value(domain, "owner_team")}</small></div><span className={`status-chip ${value(domain, "status").toLowerCase()}`}>{value(domain, "status")}</span></div>
+    <ContextTabs tabs={[["overview", "Overview"], ["schemas", "Schemas"], ["preferences", "Preference Catalog"], ["access", "Agent Access"], ["resolution", "Resolution"], ["sharing", "Sharing"], ["audit", "Audit"]]} selected={tab} onSelect={setTab} />
+    {selectedSchema && schemas.length > 1 && (tab === "preferences" || tab === "access") && <label className="schema-picker"><span>Schema</span><select value={selectedSchemaId} onChange={(event) => setSelectedSchemaId(event.target.value)}>{schemas.map((item) => <option key={String(item.id)} value={String(item.id)}>{value(item, "display_name") || value(item, "id")}</option>)}</select></label>}
+    {tab === "overview" && <div className="domain-overview"><div className="overview-grid"><article><span>Scopes</span><strong>{scopes.length}</strong><p>Provider scope keys</p></article><article><span>Schemas</span><strong>{schemas.length}</strong><p>Typed profile configurations</p></article><article><span>Home agents</span><strong>{homeAgents.length}</strong><p>Registered in this domain</p></article></div><dl className="detail-list"><div><dt>domain id</dt><dd>{value(domain, "id")}</dd></div><div><dt>organization</dt><dd>{value(domain, "organization_id")}</dd></div><div><dt>project</dt><dd>{value(domain, "project_id")}</dd></div><div><dt>owner team</dt><dd>{value(domain, "owner_team")}</dd></div><div><dt>owner contact</dt><dd>{value(domain, "owner_contact") || "—"}</dd></div><div><dt>contract version</dt><dd>{value(domain, "contract_version")}</dd></div><div><dt>scopes</dt><dd>{scopes.map((item) => value(item, "id")).join(", ") || "—"}</dd></div></dl></div>}
+    {tab === "schemas" && <div className="resource-card-grid">{schemas.length ? schemas.map((item) => <button className="resource-card" type="button" key={String(item.id)} onClick={() => { setSelectedSchemaId(String(item.id)); setTab("preferences"); }}><span className="resource-icon">M</span><span><strong>{value(item, "display_name") || value(item, "id")}</strong><small>{value(item, "id")} · {records(item, "versions").length} version(s) · {String(item.active_grant_count ?? 0)} grant(s)</small></span><b>›</b></button>) : <p className="empty">No schemas in this domain.</p>}</div>}
+    {tab === "preferences" && (selectedSchema ? <div className="table-wrap"><table><thead><tr><th>Attribute</th><th>Profile field</th></tr></thead><tbody>{mappings.length ? mappings.map((item) => <tr key={String(item.id)}><td><strong>{String(item.attribute_id)}</strong></td><td>{String(item.profile_field)}</td></tr>) : <tr><td colSpan={2}>No preference fields mapped in the active version.</td></tr>}</tbody></table></div> : <p className="empty">This domain has no schema yet.</p>)}
+    {tab === "access" && (selectedSchema ? <><p className="tab-note">Access is explicit-grant-only: same-project agents are eligible but appear here only after an explicit grant. Read activity is not tracked today — this shows permission, not usage.</p><DomainSchemaAgents api={api} schemaId={String(selectedSchema.id)} /></> : <p className="empty">This domain has no schema yet.</p>)}
+    {tab === "resolution" && <div className="resolution-view"><p className="tab-note">Resolution is defined per agent, with a domain-level default. One policy orders schemas by precedence across everything an agent reads.</p>{resolution.domain_default ? <ResolutionPolicyCard title="Domain default" policy={resolution.domain_default as AdminRecord} /> : <p className="empty">No domain-default policy configured.</p>}{records(resolution, "agent_policies").map((item) => <ResolutionPolicyCard key={String(item.id)} title={`Agent policy · ${String(item.agent_id ?? item.id)}`} policy={item} />)}</div>}
+    {tab === "sharing" && <div className="sharing-view"><h4>Pending access requests</h4>{records(pending, "access").length ? <ApprovalsTable rows={records(pending, "access").map((row) => ({ ...row, direction: "INCOMING" }))} api={api} reload={() => void load()} writable={writable} /> : <p className="empty">No pending access requests targeting this domain’s schemas.</p>}<h4>Pending change requests</h4>{records(pending, "changes").length ? <ResourceChangeActions records={records(pending, "changes")} api={api} reload={() => void load()} approvalsOnly writable={writable} /> : <p className="empty">No pending change requests.</p>}</div>}
+    {tab === "audit" && <div className="table-wrap"><table><thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead><tbody>{records(detail, "audit").length ? records(detail, "audit").map((item) => <tr key={String(item.id)}><td>{formatDate(item.timestamp)}</td><td>{String(item.actor)}</td><td>{String(item.action)}</td><td>{String(item.target_type)} · {String(item.target_id)}</td></tr>) : <tr><td colSpan={4}>No audit events recorded for this domain yet.</td></tr>}</tbody></table></div>}
+  </div>;
+}
+
+function ProjectSettingsPanel({ projectId, api, writable }: { projectId: string; api: AdminApiClient; writable: boolean }) {
+  const [settings, setSettings] = useState<AdminRecord>({}); const [error, setError] = useState("");
+  useEffect(() => { void api.projectSettings(projectId).then(setSettings).catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load project settings")); }, [api, projectId]);
+  async function save() { try { setSettings(await api.updateProjectSettings(projectId, { healthRefreshSeconds: Number(settings.health_refresh_seconds || 300), latencyWarningMs: Number(settings.latency_warning_ms || 2000), errorRateWarning: Number(settings.error_rate_warning || 0.05), notificationsEnabled: Boolean(settings.notifications_enabled), notificationChannelIds: String(settings.channel_ids_text || "").split(",").map((item) => item.trim()).filter(Boolean) })); setError(""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to save project settings"); } }
+  return <div className="settings-panel"><div className="panel-heading"><div><h3>Agent health policy</h3><p>Configure refresh cadence and warning thresholds for project agents.</p></div></div><div className="settings-grid"><label>Refresh interval (seconds)<input type="number" min="30" disabled={!writable} value={value(settings, "health_refresh_seconds") || "300"} onChange={(event) => setSettings({ ...settings, health_refresh_seconds: event.target.value })} /></label><label>Latency warning (ms)<input type="number" min="1" disabled={!writable} value={value(settings, "latency_warning_ms") || "2000"} onChange={(event) => setSettings({ ...settings, latency_warning_ms: event.target.value })} /></label><label>Error-rate warning (0–1)<input type="number" min="0" max="1" step="0.01" disabled={!writable} value={value(settings, "error_rate_warning") || "0.05"} onChange={(event) => setSettings({ ...settings, error_rate_warning: event.target.value })} /></label><label className="toggle-row"><input type="checkbox" disabled={!writable} checked={settings.notifications_enabled !== false} onChange={(event) => setSettings({ ...settings, notifications_enabled: event.target.checked })} /> Enable health notifications</label><label className="wide">Notification channel IDs<input disabled={!writable} defaultValue={(settings.notification_channel_ids as string[] || []).join(", ")} onChange={(event) => setSettings({ ...settings, channel_ids_text: event.target.value })} /></label></div><ErrorBanner error={error} />{writable && <button className="primary" type="button" onClick={save}>Save health policy</button>}</div>;
+}
+
+function ProjectHealthPanel({ projectId, api, writable }: { projectId: string; api: AdminApiClient; writable: boolean }) {
+  const [data, setData] = useState<AdminRecord>({ agents: [] }); const [error, setError] = useState(""); const [editing, setEditing] = useState<string | null>(null);
+  const load = useCallback(async (refresh = false) => { try { setData(await api.projectHealth(projectId, refresh)); setError(""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to load agent health"); } }, [api, projectId]);
+  useEffect(() => { void load(); }, [load]);
+  return <div className="organization-panel"><div className="panel-heading"><div><h3>Agent runtime health</h3><p>Cached provider health is scoped by immutable organization and project IDs.</p></div><button className="primary" type="button" onClick={() => void load(true)}>Refresh from runtime</button></div><ErrorBanner error={error} /><div className="health-grid">{records(data, "agents").map((item) => { const agent = item.agent as AdminRecord; const health = item.health as AdminRecord; const binding = item.binding as AdminRecord | null; const agentId = value(agent, "id"); return <article key={agentId} className="health-card"><div><strong>{value(agent, "display_name")}</strong><span className={`pill ${value(health, "health_status").toLowerCase()}`}>{value(health, "health_status")}</span></div><small>{agentId}</small><dl><dt>Provider</dt><dd>{binding ? value(binding, "provider") : "Not configured"}</dd><dt>Provider status</dt><dd>{value(health, "provider_status")}</dd><dt>Requests (5m)</dt><dd>{value(health, "request_count") || "—"}</dd></dl>{writable && <button className="secondary" type="button" onClick={() => setEditing(editing === agentId ? null : agentId)}>Configure runtime</button>}{editing === agentId && <RuntimeBindingForm agentId={agentId} existing={binding || {}} api={api} onSaved={() => { setEditing(null); void load(); }} />}</article>; })}</div></div>;
+}
+
+function RuntimeBindingForm({ agentId, existing, api, onSaved }: { agentId: string; existing: AdminRecord; api: AdminApiClient; onSaved: () => void }) {
+  const [form, setForm] = useState<AdminRecord>({ provider: existing.provider || "GOOGLE_AGENT_RUNTIME", gcpProjectId: existing.gcp_project_id || "", location: existing.location || "us-central1", resourceName: existing.resource_name || "", endpointUrl: existing.endpoint_url || "", environment: existing.environment || "development" }); const [error, setError] = useState("");
+  async function save() { try { await api.updateAgentRuntimeBinding(agentId, form); onSaved(); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to save runtime binding"); } }
+  return <div className="runtime-form"><label>Provider<select value={String(form.provider)} onChange={(event) => setForm({ ...form, provider: event.target.value })}><option>GOOGLE_AGENT_RUNTIME</option><option>CLOUD_RUN</option><option>ADK_LOCAL</option></select></label><label>GCP project ID<input value={String(form.gcpProjectId)} onChange={(event) => setForm({ ...form, gcpProjectId: event.target.value })} /></label><label>Location<input value={String(form.location)} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label><label>Runtime resource name<input value={String(form.resourceName)} onChange={(event) => setForm({ ...form, resourceName: event.target.value })} /></label><label>Health endpoint URL<input value={String(form.endpointUrl)} onChange={(event) => setForm({ ...form, endpointUrl: event.target.value })} /></label><ErrorBanner error={error} /><button className="primary" type="button" onClick={save}>Save binding</button></div>;
+}
 
 function MemberForm({ title, onSave, onCancel }: { title: string; onSave: (payload: AdminRecord) => Promise<void>; onCancel?: () => void }) {
   const [principal, setPrincipal] = useState("");
@@ -609,6 +879,7 @@ export function OrganizationHierarchyView({ hierarchy, writable, api, reload, se
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedResource, setSelectedResource] = useState<{ resource: string; record: AdminRecord } | null>(null);
+  const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
 
   if (!selectedOrganization) {
     return <div className="organization-directory"><div className="section-heading"><div><span className="eyebrow">Organizations</span><h2>Organizations</h2><p>Choose a line of business to manage its projects, members, domains, and agents.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowOrganizationForm(true)}>+ Create organization</button>}</div>{showOrganizationForm && <OrganizationForm onCancel={() => setShowOrganizationForm(false)} onSave={async (payload) => { const created = await api.create("organizations", payload); await reload(); setShowOrganizationForm(false); onSelectOrganization({ id: value(created, "id"), name: value(created, "name") }); }} />}{organizations.length ? <div className="organization-directory-grid">{organizations.map((organization) => { const projects = records(organization, "projects"); const members = records(organization, "members"); return <button className="organization-directory-card" type="button" key={value(organization, "id")} onClick={() => onSelectOrganization({ id: value(organization, "id"), name: value(organization, "name") })}><span className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</span><span className="directory-card-body"><strong>{value(organization, "name")}</strong><small>{value(organization, "id")}</small><span><b>{projects.length}</b> projects <b>{members.length}</b> members</span></span><span className="directory-arrow">›</span></button>; })}</div> : <div className="empty-state"><strong>No organizations yet</strong><p>Create the first organization to establish a project and Memory Bank governance boundary.</p></div>}</div>;
@@ -619,15 +890,19 @@ export function OrganizationHierarchyView({ hierarchy, writable, api, reload, se
   const organizationProjects = records(organization, "projects");
   const organizationMembers = records(organization, "members");
   const project = selectedProject ? organizationProjects.find((item) => value(item, "id") === selectedProject.id) : undefined;
+  const organizationRole = value(organization, "current_member_role");
+  const canManageOrganization = writable || organizationRole === "OWNER" || organizationRole === "ADMIN";
 
   if (project) {
     const projectDomains = records(project, "domains");
     const projectMembers = records(project, "members");
     const projectAgents = records(project, "agents");
-    return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectProject(null)}>← {value(organization, "name")}</button><div className="context-header"><div className="organization-monogram project-monogram">P</div><div><span className="eyebrow">Project</span><h2>{value(project, "name")}</h2><p>{value(project, "description") || value(project, "id")}</p></div><span className="project-team">{value(project, "owner_team")}</span></div><ContextTabs tabs={[["overview", "Overview"], ["domains", "Domains"], ["agents", "Agents"], ["members", "Members & Roles"]]} selected={projectTab} onSelect={(tab) => { setSelectedResource(null); onProjectTab(tab); }} />{projectTab === "overview" && <div className="overview-grid"><article><span>Domains</span><strong>{projectDomains.length}</strong><p>Preference ownership boundaries</p></article><article><span>Agents</span><strong>{projectAgents.length}</strong><p>Registered project consumers</p></article><article><span>Members</span><strong>{projectMembers.length}</strong><p>Direct project assignments</p></article></div>}{projectTab === "domains" && <div className="resource-card-grid">{projectDomains.length ? projectDomains.map((domain) => <button className="resource-card" type="button" key={value(domain, "id")} onClick={() => setSelectedResource({ resource: "domains", record: domain })}><span className="resource-icon">D</span><span><strong>{value(domain, "name")}</strong><small>{value(domain, "id")}</small></span><b>›</b></button>) : <p className="empty">No domains have been created in this project.</p>}</div>}{projectTab === "agents" && <div className="resource-card-grid">{projectAgents.length ? projectAgents.map((agent) => <button className="resource-card" type="button" key={value(agent, "id")} onClick={() => setSelectedResource({ resource: "agents", record: agent })}><span className="resource-icon">A</span><span><strong>{value(agent, "display_name")}</strong><small>{value(agent, "id")}</small></span><b>›</b></button>) : <p className="empty">No agents are registered in this project.</p>}</div>}{projectTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Project members</h3><p>Direct roles apply only inside this project.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(project, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addProjectMember(value(project, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{projectMembers.length ? projectMembers.map((member) => <button className="member-row" type="button" key={value(member, "id")} onClick={() => setSelectedResource({ resource: "project-members", record: member })}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></button>) : <p className="empty">No direct project members.</p>}</div></div>}{selectedResource && <ResourceDetailPanel resource={selectedResource.resource} record={selectedResource.record} writable={writable} api={api} onClose={() => setSelectedResource(null)} onSaved={reload} />}</div>;
+    const projectRole = value(project, "current_member_role");
+    const canManageProject = canManageOrganization || projectRole === "OWNER" || projectRole === "ADMIN";
+    return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectProject(null)}>← {value(organization, "name")}</button><div className="context-header"><div className="organization-monogram project-monogram">P</div><div><span className="eyebrow">Project</span><h2>{value(project, "name")}</h2><p>{value(project, "description") || value(project, "id")}</p><small>Immutable ID: {value(project, "id")} · Organization: {value(project, "organization_id")}</small></div><span className="project-team">{value(project, "owner_team")}</span></div><ContextTabs tabs={[["overview", "Overview"], ["domains", "Domains"], ["agents", "Agents"], ["health", "Agent health"], ["members", "Members & Roles"], ["settings", "Settings"]]} selected={projectTab} onSelect={(tab) => { setSelectedResource(null); setSelectedDomainId(null); onProjectTab(tab); }} />{projectTab === "overview" && <div className="overview-grid"><article><span>Domains</span><strong>{projectDomains.length}</strong><p>Preference ownership boundaries</p></article><article><span>Agents</span><strong>{projectAgents.length}</strong><p>Registered project consumers</p></article><article><span>Members</span><strong>{projectMembers.length}</strong><p>Direct project assignments</p></article></div>}{projectTab === "domains" && (selectedDomainId ? <DomainDetail domainId={selectedDomainId} api={api} writable={canManageProject} onBack={() => setSelectedDomainId(null)} /> : <div className="resource-card-grid">{projectDomains.length ? projectDomains.map((domain) => <button className="resource-card" type="button" key={value(domain, "id")} onClick={() => setSelectedDomainId(value(domain, "id"))}><span className="resource-icon">D</span><span><strong>{value(domain, "name")}</strong><small>{value(domain, "id")}</small></span><b>›</b></button>) : <p className="empty">No domains have been created in this project.</p>}</div>)}{projectTab === "agents" && <div className="resource-card-grid">{projectAgents.length ? projectAgents.map((agent) => <button className="resource-card" type="button" key={value(agent, "id")} onClick={() => setSelectedResource({ resource: "agents", record: agent })}><span className="resource-icon">A</span><span><strong>{value(agent, "display_name")}</strong><small>{value(agent, "id")}</small></span><b>›</b></button>) : <p className="empty">No agents are registered in this project.</p>}</div>}{projectTab === "health" && <ProjectHealthPanel projectId={value(project, "id")} api={api} writable={canManageProject} />}{projectTab === "settings" && <ProjectSettingsPanel projectId={value(project, "id")} api={api} writable={canManageProject} />}{projectTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Project members</h3><p>Direct roles apply only inside this project.</p></div>{canManageProject && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(project, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addProjectMember(value(project, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{projectMembers.length ? projectMembers.map((member) => <button className="member-row" type="button" key={value(member, "id")} onClick={() => setSelectedResource({ resource: "project-members", record: member })}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></button>) : <p className="empty">No direct project members.</p>}</div></div>}{selectedResource && <ResourceDetailPanel resource={selectedResource.resource} record={selectedResource.record} writable={canManageProject} api={api} onClose={() => setSelectedResource(null)} onSaved={reload} />}</div>;
   }
 
-  return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectOrganization(null)}>← Organizations</button><div className="context-header"><div className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</div><div><span className="eyebrow">Organization</span><h2>{value(organization, "name")}</h2><p>{value(organization, "description") || value(organization, "id")}</p></div><span className="role-badge">Organization active</span></div><ContextTabs tabs={[["overview", "Overview"], ["projects", "Projects"], ["members", "Members & Roles"]]} selected={organizationTab} onSelect={onOrganizationTab} />{organizationTab === "overview" && <div className="overview-grid"><article><span>Projects</span><strong>{organizationProjects.length}</strong><p>Collaboration boundaries</p></article><article><span>Members</span><strong>{organizationMembers.length}</strong><p>Organization-level access</p></article><article><span>Domains</span><strong>{organizationProjects.reduce((count, item) => count + records(item, "domains").length, 0)}</strong><p>Owned memory domains</p></article></div>}{organizationTab === "projects" && <div className="organization-panel"><div className="panel-heading"><div><h3>Projects</h3><p>Agents in a project collaborate through project-owned domains.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowProjectForm(true)}>+ New project</button>}</div>{showProjectForm && <div className="panel-form"><ProjectForm organizationId={value(organization, "id")} onCancel={() => setShowProjectForm(false)} onSave={async (payload) => { await api.create("projects", payload); await reload(); setShowProjectForm(false); }} /></div>}<div className="project-directory-grid">{organizationProjects.length ? organizationProjects.map((item) => <article className="project-directory-card" key={value(item, "id")}><span className="resource-icon">P</span><div><h4>{value(item, "name")}</h4><p>{value(item, "description") || value(item, "id")}</p><small>{records(item, "domains").length} domains · {records(item, "members").length} members</small></div><button className="primary" type="button" onClick={() => onSelectProject({ id: value(item, "id"), name: value(item, "name") })}>Open project ›</button></article>) : <p className="empty project-empty">No projects in this organization.</p>}</div></div>}{organizationTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Members & Roles</h3><p>Organization members can be assigned to projects in this organization.</p></div>{writable && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(organization, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addOrganizationMember(value(organization, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{organizationMembers.length ? organizationMembers.map((member) => <div key={value(member, "id")}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></div>) : <p className="empty">No members assigned.</p>}</div></div>}</div>;
+  return <div className="context-workspace"><button className="back-link" type="button" onClick={() => onSelectOrganization(null)}>← Organizations</button><div className="context-header"><div className="organization-monogram">{value(organization, "name").slice(0, 1).toUpperCase()}</div><div><span className="eyebrow">Organization</span><h2>{value(organization, "name")}</h2><p>{value(organization, "description") || value(organization, "id")}</p><small>Immutable ID: {value(organization, "id")}</small></div><span className="role-badge">{organizationRole || "Organization active"}</span></div><ContextTabs tabs={[["overview", "Overview"], ["projects", "Projects"], ["approvals", "Approvals"], ["members", "Members & Roles"], ["settings", "Settings"]]} selected={organizationTab} onSelect={onOrganizationTab} />{organizationTab === "overview" && <div className="overview-grid"><article><span>Projects</span><strong>{organizationProjects.length}</strong><p>Collaboration boundaries</p></article><article><span>Members</span><strong>{organizationMembers.length}</strong><p>Organization-level access</p></article><article><span>Domains</span><strong>{organizationProjects.reduce((count, item) => count + records(item, "domains").length, 0)}</strong><p>Owned memory domains</p></article></div>}{organizationTab === "projects" && <div className="organization-panel"><div className="panel-heading"><div><h3>Projects</h3><p>Agents in a project collaborate through project-owned domains.</p></div>{canManageOrganization && <button className="primary" type="button" onClick={() => setShowProjectForm(true)}>+ New project</button>}</div>{showProjectForm && <div className="panel-form"><ProjectForm organizationId={value(organization, "id")} onCancel={() => setShowProjectForm(false)} onSave={async (payload) => { await api.create("projects", payload); await reload(); setShowProjectForm(false); }} /></div>}<div className="project-directory-grid">{organizationProjects.length ? organizationProjects.map((item) => <article className="project-directory-card" key={value(item, "id")}><span className="resource-icon">P</span><div><h4>{value(item, "name")}</h4><p>{value(item, "description") || value(item, "id")}</p><small>{records(item, "domains").length} domains · {records(item, "members").length} members · ID {value(item, "id")}</small></div><button className="primary" type="button" onClick={() => onSelectProject({ id: value(item, "id"), name: value(item, "name") })}>Open project ›</button></article>) : <p className="empty project-empty">No projects in this organization.</p>}</div></div>}{organizationTab === "approvals" && <OrganizationApprovalsPanel organizationId={value(organization, "id")} api={api} />}{organizationTab === "settings" && <OrganizationSettingsPanel organizationId={value(organization, "id")} api={api} writable={canManageOrganization} />}{organizationTab === "members" && <div className="membership-panel"><div className="panel-heading"><div><h3>Members & Roles</h3><p>Organization members can be assigned to projects in this organization.</p></div>{canManageOrganization && <button className="primary" type="button" onClick={() => setShowMemberForm(true)}>+ Add member</button>}</div>{showMemberForm && <MemberForm title={`Add member to ${value(organization, "name")}`} onCancel={() => setShowMemberForm(false)} onSave={async (payload) => { await api.addOrganizationMember(value(organization, "id"), payload); await reload(); setShowMemberForm(false); }} />}<div className="member-list">{organizationMembers.length ? organizationMembers.map((member) => <div key={value(member, "id")}><span className="member-avatar">{(value(member, "display_name") || value(member, "member_principal")).slice(0, 1).toUpperCase()}</span><span><strong>{value(member, "display_name") || value(member, "member_principal")}</strong><small>{value(member, "member_principal")}</small></span><span className="role-badge">{value(member, "role")}</span></div>) : <p className="empty">No members assigned.</p>}</div></div>}</div>;
 }
 
 function OrganizationManagement({ identity, api, selectedOrganization, selectedProject, organizationTab, projectTab, onSelectOrganization, onSelectProject, onOrganizationTab, onProjectTab }: { identity: AdminIdentity; api: AdminApiClient; selectedOrganization: ContextSelection; selectedProject: ContextSelection; organizationTab: OrganizationTab; projectTab: ProjectTab; onSelectOrganization: (organization: ContextSelection) => void; onSelectProject: (project: ContextSelection) => void; onOrganizationTab: (tab: OrganizationTab) => void; onProjectTab: (tab: ProjectTab) => void }) {
@@ -637,6 +912,28 @@ function OrganizationManagement({ identity, api, selectedOrganization, selectedP
   const reload = useCallback(async () => { setLoading(true); try { setHierarchy(await api.organizationHierarchy()); setError(""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to load organization hierarchy"); } finally { setLoading(false); } }, [api]);
   useEffect(() => { void reload(); }, [reload]);
   return <section><ErrorBanner error={error} />{loading ? <p>Loading organization hierarchy…</p> : <OrganizationHierarchyView hierarchy={hierarchy} writable={canMutate(identity, "organizations")} api={api} reload={reload} selectedOrganization={selectedOrganization} selectedProject={selectedProject} organizationTab={organizationTab} projectTab={projectTab} onSelectOrganization={onSelectOrganization} onSelectProject={onSelectProject} onOrganizationTab={onOrganizationTab} onProjectTab={onProjectTab} />}</section>;
+}
+
+function PlatformOverview() {
+  const governance: [IconName, string, string][] = [
+    ["building", "Organizations", "Define line-of-business ownership, membership, budgets, and approval responsibility."],
+    ["project", "Projects", "Create isolated team workspaces for agents, domains, runtime resources, and policies."],
+    ["approval", "Identity & approvals", "Use Entra roles, project membership, and explicit approvals to control every change."],
+  ];
+  const capabilities: [IconName, string, string][] = [
+    ["memory", "Memory & personalization", "Model typed preferences, govern schema sharing, and resolve an effective user context."],
+    ["agent", "Agent operations", "Register agents, bind Google runtimes, and inspect deployment and health status by project."],
+    ["budget", "Budgets & FinOps", "Set organization spending limits, alert thresholds, billing projects, and notification routes."],
+    ["observe", "Monitoring & observability", "Track health, latency, error rate, audit history, and runtime provenance from one place."],
+  ];
+  const lifecycle = [
+    ["Organize", "Create the organization and project boundaries that own platform resources."],
+    ["Configure", "Register agents, domains, memory schemas, budgets, and runtime bindings."],
+    ["Approve", "Route sensitive changes and cross-boundary access to the accountable owner."],
+    ["Operate", "Resolve memory, run agents, and monitor health, cost, latency, and failures."],
+    ["Improve", "Use audit and observability signals to tune policy, capacity, and agent behavior."],
+  ];
+  return <section className="dashboard platform-overview"><div className="overview-hero"><div><span className="eyebrow">Enterprise agent control plane</span><h2>Govern, operate, and optimize every agent</h2><p>GEAP gives platform teams one place to organize agents, manage shared memory, enforce approvals, control spend, and observe runtime health across Google Cloud.</p></div><div className="hero-route" aria-label="Platform operating model"><strong><UiIcon name="building" /> Organization</strong><span>→</span><strong><UiIcon name="project" /> Project</strong><span>→</span><strong><UiIcon name="agent" /> Agents &amp; services</strong><span>→</span><strong><UiIcon name="observe" /> Operations</strong></div></div><div className="overview-status"><span className="status-dot"></span><strong>Control Plane connected</strong><span>Start with an organization, create a project, then configure the capabilities your team needs.</span></div><section className="journey-section"><div className="journey-heading"><span>Structure</span><div><h3>Establish ownership and isolation</h3><p>Immutable organization and project IDs keep resources discoverable, attributable, and safely separated.</p></div></div><div className="journey-grid three">{governance.map(([icon, title, description], index) => <article key={title} className="journey-card"><span className="journey-icon"><UiIcon name={icon} /></span><h4>{title}</h4><p>{description}</p>{index < governance.length - 1 && <b className="journey-arrow">→</b>}</article>)}</div></section><section className="journey-section"><div className="journey-heading"><span>Capabilities</span><div><h3>Run the complete agent platform lifecycle</h3><p>Memory is one governed capability alongside runtime operations, financial controls, and observability.</p></div></div><div className="journey-grid four">{capabilities.map(([icon, title, description]) => <article key={title} className="journey-card"><span className="journey-icon"><UiIcon name={icon} /></span><h4>{title}</h4><p>{description}</p></article>)}</div></section><section className="journey-section runtime-journey"><div className="journey-heading"><span>Lifecycle</span><div><h3>Move from onboarding to continuous operation</h3><p>The control plane keeps governance decisions visible throughout build and runtime.</p></div></div><div className="runtime-flow">{lifecycle.map(([title, description], index) => <article key={title}><span>{index + 1}</span><div><h4>{title}</h4><p>{description}</p></div></article>)}</div></section><div className="overview-bottom"><section><span className="eyebrow">Start here</span><h3>Your first platform setup</h3><ol><li>Select an <strong>Organization</strong> and create a project.</li><li>Register agents and configure domains or shared memory schemas.</li><li>Set organization budget thresholds and notification channels.</li><li>Connect each agent to Cloud Run or Google Agent Runtime.</li><li>Review approvals, agent health, cost signals, and audit history.</li></ol></section><section><span className="eyebrow">Platform outcomes</span><h3>What GEAP helps teams enforce</h3><ul className="guarantee-list"><li>Immutable ownership and project-scoped resource discovery</li><li>Owner-controlled writes and approval-based sharing</li><li>Typed memory with deterministic preference resolution</li><li>Budget guardrails and configurable spend notifications</li><li>Auditable agent health, runtime provenance, and decisions</li></ul></section></div></section>;
 }
 
 type OrganizationNavigation = {
@@ -678,11 +975,12 @@ export function ConsolePage({ section, identity, api, organizationNavigation = d
     operation.catch((caught) => setError(caught instanceof Error ? caught.message : "Request failed")).finally(() => setLoading(false));
   }, [api, organizationNavigation.selectedOrganization?.id, resource, section]);
   useEffect(() => { setSelectedRecord(null); reload(); }, [reload]);
-  if (section === "dashboard") return <section className="dashboard"><span className="eyebrow">Platform overview</span><h2>Governed memory, ready for every shopping journey</h2><p>Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only.</p><div className="metric-grid"><article><span className="metric-icon">O</span><strong>Organization</strong><span>Tenant and policy boundary</span></article><article><span className="metric-icon">P</span><strong>Projects</strong><span>Agent and domain collaboration</span></article><article><span className="metric-icon">M</span><strong>Memory Bank</strong><span>Profiles created lazily per user</span></article></div></section>;
-  if (section === "create-setup") return <MemorySetupWizard api={api} />;
+  if (section === "dashboard") return <PlatformOverview />;
+  if (section === "create-setup") return canMutate(identity, section) ? <MemorySetupWizard api={api} /> : <p className="read-only">Platform Administrator role is required to create a memory setup.</p>;
   if (section === "organizations") return <OrganizationManagement identity={identity} api={api} {...organizationNavigation} />;
   const writable = canMutate(identity, section);
   const hasPendingApprovals = changeRequests.some((record) => record.status === "PENDING") || records.some((record) => record.status === "PENDING");
+  if (section === "approvals" && !writable) return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} /><ResourceTable records={[...changeRequests, ...records]} /><p className="read-only">Platform Administrator role is required to approve or reject requests.</p></section>;
   return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} />{loading ? <p>Loading…</p> : section === "approvals" ? <>{!hasPendingApprovals && <div className="empty-state"><strong>No pending approvals</strong><p>Domain change and cross-project access requests will appear here for review.</p></div>}<ResourceChangeActions records={changeRequests} api={api} reload={reload} approvalsOnly /><AccessActions records={records} api={api} reload={reload} approvalsOnly /></> : section === "access-requests" ? <AccessActions records={records} api={api} reload={reload} approvalsOnly={false} /> : <ResourceTable records={records} onSelect={setSelectedRecord} />}{section !== "approvals" && writable && templates[resource] && <JsonCreateForm resource={resource} onCreate={async (payload) => { await api.create(resource, payload); reload(); }} />}{!writable && <p className="read-only">Read-only for the selected role.</p>}{selectedRecord && <ResourceDetailPanel resource={resource} record={selectedRecord} writable={writable} api={api} contextOrganizationId={organizationNavigation.selectedOrganization?.id} onClose={() => setSelectedRecord(null)} onSaved={reload} />}</section>;
 }
 
@@ -698,17 +996,18 @@ export function ConsoleShell({ identity, section, status, onSection }: { identit
   function chooseOrganizationTab(tab: OrganizationTab) { setSelectedProject(null); setOrganizationTab(tab); onSection("organizations"); }
   function chooseProjectTab(tab: ProjectTab) { setProjectTab(tab); onSection("organizations"); }
   const organizationNavigation = { selectedOrganization, selectedProject, organizationTab, projectTab, onSelectOrganization: selectOrganization, onSelectProject: selectProject, onOrganizationTab: chooseOrganizationTab, onProjectTab: chooseProjectTab };
-  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Portal</strong><small>Control plane</small></div></div><button className="context-switcher" type="button" onClick={openOrganizations}><span>{selectedOrganization ? selectedOrganization.name.slice(0, 1).toUpperCase() : "O"}</span><strong>{selectedOrganization?.name ?? "Organizations"}</strong><b>›</b></button><nav aria-label="Administration">{primarySections.map(([id, label]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}>{label}</button>)}{selectedOrganization && <div className="contextual-nav"><span>Organization</span><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "overview" ? "active" : ""} onClick={() => chooseOrganizationTab("overview")}>Overview</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "projects" ? "active" : ""} onClick={() => chooseOrganizationTab("projects")}>Projects</button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "members" ? "active" : ""} onClick={() => chooseOrganizationTab("members")}>Members &amp; Roles</button></div>}{selectedProject && <div className="contextual-nav project-context-nav"><span>Project · {selectedProject.name}</span><button type="button" className={section === "organizations" && projectTab === "overview" ? "active" : ""} onClick={() => chooseProjectTab("overview")}>Overview</button><button type="button" className={section === "organizations" && projectTab === "domains" ? "active" : ""} onClick={() => chooseProjectTab("domains")}>Domains</button><button type="button" className={section === "organizations" && projectTab === "agents" ? "active" : ""} onClick={() => chooseProjectTab("agents")}>Agents</button><button type="button" className={section === "organizations" && projectTab === "members" ? "active" : ""} onClick={() => chooseProjectTab("members")}>Members &amp; Roles</button></div>}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section && id !== "organizations")}><summary>Govern &amp; manage</summary>{advancedSections.filter(([id]) => id !== "organizations").map(([id, label]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}>{label}</button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Control Plane API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} organizationNavigation={organizationNavigation} /></main></div>;
+  return <div className="app-shell"><aside><div className="brand"><span>GEAP</span><div><strong>Portal</strong><small>Control plane</small></div></div><button className="context-switcher" type="button" onClick={openOrganizations}><span><UiIcon name="building" /></span><strong>{selectedOrganization?.name ?? "Organizations"}</strong><b>›</b></button><nav aria-label="Administration">{primarySections.map(([id, label, icon]) => <button type="button" key={id} className={`${id === "create-setup" ? "create-action " : ""}${section === id ? "active" : ""}`} onClick={() => onSection(id)}><UiIcon name={icon} /><span>{label}</span></button>)}{selectedOrganization && <div className="contextual-nav"><span>Organization</span><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "overview" ? "active" : ""} onClick={() => chooseOrganizationTab("overview")}><UiIcon name="home" /><span>Overview</span></button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "projects" ? "active" : ""} onClick={() => chooseOrganizationTab("projects")}><UiIcon name="project" /><span>Projects</span></button><button type="button" className={section === "organizations" && !selectedProject && organizationTab === "members" ? "active" : ""} onClick={() => chooseOrganizationTab("members")}><UiIcon name="users" /><span>Members &amp; Roles</span></button></div>}{selectedProject && <div className="contextual-nav project-context-nav"><span>Project · {selectedProject.name}</span><button type="button" className={section === "organizations" && projectTab === "overview" ? "active" : ""} onClick={() => chooseProjectTab("overview")}><UiIcon name="home" /><span>Overview</span></button><button type="button" className={section === "organizations" && projectTab === "domains" ? "active" : ""} onClick={() => chooseProjectTab("domains")}><UiIcon name="domain" /><span>Domains</span></button><button type="button" className={section === "organizations" && projectTab === "agents" ? "active" : ""} onClick={() => chooseProjectTab("agents")}><UiIcon name="agent" /><span>Agents</span></button><button type="button" className={section === "organizations" && projectTab === "members" ? "active" : ""} onClick={() => chooseProjectTab("members")}><UiIcon name="users" /><span>Members &amp; Roles</span></button></div>}<details className="advanced-nav" open={advancedSections.some(([id]) => id === section && id !== "organizations")}><summary>Govern &amp; manage</summary>{advancedSections.filter(([id]) => id !== "organizations").map(([id, label, icon]) => <button type="button" key={id} className={section === id ? "active" : ""} onClick={() => onSection(id)}><UiIcon name={icon} /><span>{label}</span></button>)}</details></nav></aside><main><header className="topbar"><div><span className={`connection ${status}`}></span>Control Plane API {status}</div><div className="identity"><strong>{identity.user}</strong><span>{identity.roles.join(", ")}</span></div></header><ConsolePage section={section} identity={identity} api={api} organizationNavigation={organizationNavigation} /></main></div>;
 }
 
-export default function App() {
-  const [section, setSection] = useState("organizations");
+export default function App({ authenticatedIdentity }: { authenticatedIdentity?: AdminIdentity }) {
+  const [section, setSection] = useState("dashboard");
   const [status, setStatus] = useState("checking");
-  const [user, setUser] = useState("platform-admin@example.com");
-  const [role, setRole] = useState<AdminRole>("PLATFORM_ADMIN");
-  const [domains, setDomains] = useState("grocery,customer");
-  const identity = useMemo<AdminIdentity>(() => ({ user, roles: [role], domains: domains.split(",").map((value) => value.trim()).filter(Boolean) }), [user, role, domains]);
+  const identity = useMemo<AdminIdentity>(() => authenticatedIdentity ?? ({
+    user: import.meta.env.VITE_LOCAL_ADMIN_USER || "platform-admin@example.com",
+    roles: [(import.meta.env.VITE_LOCAL_ADMIN_ROLE || "PLATFORM_ADMIN") as AdminRole],
+    domains: String(import.meta.env.VITE_LOCAL_ADMIN_DOMAINS || "grocery,customer").split(",").map((value) => value.trim()).filter(Boolean),
+  }), [authenticatedIdentity]);
   const api = useMemo(() => new AdminApiClient(import.meta.env.VITE_CONTROL_PLANE_API_URL ?? "/control-plane-api/api/v1/admin", identity), [identity]);
   useEffect(() => { api.health().then((ok) => setStatus(ok ? "connected" : "unavailable")).catch(() => setStatus("unavailable")); }, [api]);
-  return <><div className="persona"><label>User<input value={user} onChange={(event) => setUser(event.target.value)} /></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value as AdminRole)}><option>PLATFORM_ADMIN</option><option>DOMAIN_ADMIN</option><option>SCHEMA_OWNER</option><option>AGENT_OWNER</option><option>VIEWER</option></select></label><label>Domains<input value={domains} onChange={(event) => setDomains(event.target.value)} /></label></div><ConsoleShell identity={identity} section={section} status={status} onSection={setSection} /></>;
+  return <ConsoleShell identity={identity} section={section} status={status} onSection={setSection} />;
 }

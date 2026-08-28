@@ -57,6 +57,18 @@ function move<T>(items: T[], index: number, direction: -1 | 1): T[] {
   return next;
 }
 
+export function projectDomainOptions(
+  domains: AdminRecord[],
+  organizationId: string,
+  projectId: string,
+): AdminRecord[] {
+  return domains.filter(
+    (item) =>
+      String(item.organization_id ?? "") === organizationId &&
+      String(item.project_id ?? "") === projectId,
+  );
+}
+
 export function wizardSteps(sharingEnabled: boolean, schemaCount: number): WizardStep[] {
   const items: WizardStep[] = ["Use Case", "Preferences", "Scope", "Memory", "Agents"];
   if (sharingEnabled) items.push("Sharing");
@@ -65,10 +77,59 @@ export function wizardSteps(sharingEnabled: boolean, schemaCount: number): Wizar
   return items;
 }
 
+type SetupCounts = {
+  organizations: number;
+  projects: number;
+  schemas: number;
+  agents: number;
+};
+
+const setupOutline: Array<[string, string, string]> = [
+  ["Domain", "D", "A line-of-business area that owns its preferences, such as grocery or delivery."],
+  ["Scope", "S", "Who the memory belongs to. Per-user memory compiles to organization_id + user_id."],
+  ["Schemas", "M", "Typed profile fields. A domain can hold more than one; activation registers them."],
+  ["Preferences", "P", "The catalog attributes each schema exposes, reused across teams where approved."],
+  ["Agents", "A", "The agents that may read or write, with least-privilege permissions."],
+  ["Sharing", "H", "Read access other projects request. Requests stay pending until the owner approves."],
+];
+
+export function MemorySetupIntro({ counts, organizationLabel, onStart }: { counts: SetupCounts; organizationLabel: string; onStart: () => void }) {
+  return <section className="wizard setup-intro">
+    <div className="wizard-heading">
+      <div>
+        <span className="eyebrow">Guided onboarding</span>
+        <h2>Create Memory Setup</h2>
+        <p>Governed memory, ready for every journey. Organize agents by line of business and project, reuse approved preference domains, and keep cross-project sharing read-only — without writing YAML or scope dictionaries.</p>
+      </div>
+    </div>
+    <div className="setup-outline">
+      {setupOutline.map(([title, mark, detail]) => <article key={title}>
+        <span className="setup-outline-mark">{mark}</span>
+        <div><strong>{title}</strong><p>{detail}</p></div>
+      </article>)}
+    </div>
+    <div className="scope-callout">
+      <strong>Activation never pre-creates user profiles</strong>
+      <span>Registering a setup makes its schemas available. A profile is created lazily on the first authorized write, so there is nothing to clean up if a user never sets a preference.</span>
+    </div>
+    <div className="overview-grid setup-inventory">
+      <article><span>Organizations</span><strong>{counts.organizations}</strong><p>Tenant and policy boundaries</p></article>
+      <article><span>Projects</span><strong>{counts.projects}</strong><p>Collaboration boundaries</p></article>
+      <article><span>Schemas</span><strong>{counts.schemas}</strong><p>In {organizationLabel || "the selected organization"}</p></article>
+      <article><span>Agents</span><strong>{counts.agents}</strong><p>In {organizationLabel || "the selected organization"}</p></article>
+    </div>
+    <div className="setup-intro-actions">
+      <button className="primary" type="button" onClick={onStart}>Start setup</button>
+      <span>Six guided steps. You can review a non-mutating preview before anything is activated.</span>
+    </div>
+  </section>;
+}
+
 export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [catalog, setCatalog] = useState<AdminRecord[]>([]);
   const [organizations, setOrganizations] = useState<AdminRecord[]>([]);
   const [projects, setProjects] = useState<AdminRecord[]>([]);
+  const [domains, setDomains] = useState<AdminRecord[]>([]);
   const [schemas, setSchemas] = useState<AdminRecord[]>([]);
   const [agents, setAgents] = useState<AdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +168,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [sharingEnabled, setSharingEnabled] = useState(false);
   const [sharedSchemaIds, setSharedSchemaIds] = useState<string[]>([]);
   const [precedence, setPrecedence] = useState<string[]>([]);
+  const [started, setStarted] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [preview, setPreview] = useState<AdminRecord | null>(null);
   const [activation, setActivation] = useState<AdminRecord | null>(null);
@@ -132,11 +194,13 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       api.list("preference-catalog", organizationId),
       api.list("schemas", organizationId),
       api.list("agents", organizationId),
+      api.list("domains", organizationId),
     ])
-      .then(([preferences, profileSchemas, registeredAgents]) => {
+      .then(([preferences, profileSchemas, registeredAgents, domainRows]) => {
         setCatalog(preferences);
         setSchemas(profileSchemas);
         setAgents(registeredAgents);
+        setDomains(domainRows);
         setSharedSchemaIds((current) => current.filter((id) => profileSchemas.some((item) => text(item, "id") === id)));
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load organization catalog"))
@@ -152,6 +216,20 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     setAgentId(`${domain}-assistant`);
     setAgentName(`${domain.charAt(0).toUpperCase()}${domain.slice(1)} Assistant`);
   }, [catalog, domain]);
+
+  const projectDomains = useMemo(
+    () => projectDomainOptions(domains, organizationId, projectId),
+    [domains, organizationId, projectId],
+  );
+
+  useEffect(() => {
+    if (!projectDomains.length) return;
+    setDomain((current) =>
+      projectDomains.some((item) => text(item, "id") === current)
+        ? current
+        : text(projectDomains[0], "id"),
+    );
+  }, [projectDomains]);
 
   const externalOwners = useMemo(() => {
     const selected = new Set(selectedPreferences);
@@ -296,6 +374,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     setStepIndex((current) => Math.min(current + 1, steps.length - 1));
   }
 
+  if (!started) return <MemorySetupIntro counts={{ organizations: organizations.length, projects: projects.length, schemas: schemas.length, agents: agents.length }} organizationLabel={organizationId} onStart={() => setStarted(true)} />;
+
   if (loading) return <section className="wizard"><p>Loading enterprise catalog…</p></section>;
 
   return <section className="wizard">
@@ -314,7 +394,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
           <label>Use case name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>Organization<select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setProjectId(""); }}><option value="">Select organization</option>{organizations.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Line-of-business and tenant boundary</small></label>
           <label>Project<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Select project</option>{projects.filter((item) => text(item, "organization_id") === organizationId).map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Agents share project-owned domains</small></label>
-          <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options"><option value="grocery" /><option value="customer" /><option value="delivery" /></datalist></label>
+          <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options">{projectDomains.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</datalist><small>{projectDomains.length ? "Choose an existing domain in this project, or type a new one to create it." : "No domains in this project yet — type a name to create the first."}</small></label>
           <label className="wide">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <label>Owning team<input value={team} onChange={(event) => setTeam(event.target.value)} /></label>
           <label>Environment<select value={environment} onChange={(event) => setEnvironment(event.target.value)}><option value="development">Development</option><option value="test">Test</option><option value="production">Production</option></select></label>

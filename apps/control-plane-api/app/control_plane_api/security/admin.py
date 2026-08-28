@@ -11,6 +11,7 @@ from .authentication import AgentAuthenticator, AuthenticationError
 
 class AdminRole(StrEnum):
     PLATFORM_ADMIN = "PLATFORM_ADMIN"
+    PLATFORM_USER = "PLATFORM_USER"
     DOMAIN_ADMIN = "DOMAIN_ADMIN"
     SCHEMA_OWNER = "SCHEMA_OWNER"
     AGENT_OWNER = "AGENT_OWNER"
@@ -37,9 +38,11 @@ class AdminAuthenticator:
         auth_enabled: bool,
         google_authenticator: AgentAuthenticator,
         role_bindings_json: str = "{}",
+        token_role_mapping: dict[str, AdminRole] | None = None,
     ) -> None:
         self.auth_enabled = auth_enabled
         self.google_authenticator = google_authenticator
+        self.token_role_mapping = token_role_mapping or {}
         try:
             bindings = json.loads(role_bindings_json or "{}")
         except json.JSONDecodeError as error:
@@ -76,6 +79,24 @@ class AdminAuthenticator:
             )
 
         identity = await self.google_authenticator.authenticate(request)
+        if self.token_role_mapping:
+            claims = identity.claims or {}
+            token_roles = claims.get("roles", [])
+            if not isinstance(token_roles, list):
+                raise AuthenticationError("verified token roles claim must be an array")
+            roles = frozenset(
+                mapped
+                for value in token_roles
+                if (mapped := self.token_role_mapping.get(str(value))) is not None
+            )
+            if not roles:
+                raise AuthenticationError("verified user has no supported platform app role")
+            return AdminPrincipal(
+                subject=identity.subject,
+                principal=identity.principal,
+                roles=roles,
+                domain_ids=frozenset(),
+            )
         binding = self.bindings.get(identity.principal)
         if not isinstance(binding, dict):
             raise AuthenticationError("verified admin principal has no role binding")

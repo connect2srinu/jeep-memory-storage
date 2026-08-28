@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from control_plane_api.security.admin import AdminAuthenticator
+from control_plane_api.security.admin import AdminAuthenticator, AdminRole
 from control_plane_api.security.authentication import (
     AgentAuthenticator,
+    EntraAccessTokenAuthenticator,
     GoogleIdTokenAuthenticator,
     IapJwtAuthenticator,
     LocalAgentAuthenticator,
@@ -36,6 +37,12 @@ class ControlPlaneApiSettings:
     memory_bank_resource_id: str | None = None
     admin_auth_mode: str = "bearer"
     iap_jwt_audience: str | None = None
+    entra_auth_enabled: bool = False
+    entra_tenant_id: str | None = None
+    entra_api_audience: str | None = None
+    entra_required_scope: str = "access_as_user"
+    entra_platform_admin_role: str = "Platform.Admin"
+    entra_platform_user_role: str = "Platform.User"
 
     @classmethod
     def from_environment(cls) -> ControlPlaneApiSettings:
@@ -55,6 +62,12 @@ class ControlPlaneApiSettings:
             ),
             admin_auth_mode=os.getenv("ADMIN_AUTH_MODE", "bearer").strip().lower(),
             iap_jwt_audience=os.getenv("IAP_JWT_AUDIENCE"),
+            entra_auth_enabled=environment_bool("ENTRA_AUTH_ENABLED", False),
+            entra_tenant_id=os.getenv("ENTRA_TENANT_ID"),
+            entra_api_audience=os.getenv("ENTRA_API_AUDIENCE"),
+            entra_required_scope=os.getenv("ENTRA_REQUIRED_SCOPE", "access_as_user"),
+            entra_platform_admin_role=os.getenv("ENTRA_PLATFORM_ADMIN_ROLE", "Platform.Admin"),
+            entra_platform_user_role=os.getenv("ENTRA_PLATFORM_USER_ROLE", "Platform.User"),
         )
 
     def memory_store(self):
@@ -76,14 +89,28 @@ class ControlPlaneApiSettings:
         return GoogleIdTokenAuthenticator(self.google_id_token_audience or "")
 
     def admin_authenticator(self) -> AdminAuthenticator:
-        if self.auth_enabled and self.admin_auth_mode == "iap":
+        token_role_mapping: dict[str, AdminRole] | None = None
+        admin_auth_enabled = self.auth_enabled
+        if self.entra_auth_enabled:
+            admin_auth_enabled = True
+            identity_authenticator = EntraAccessTokenAuthenticator(
+                tenant_id=self.entra_tenant_id or "",
+                audience=self.entra_api_audience or "",
+                required_scope=self.entra_required_scope,
+            )
+            token_role_mapping = {
+                self.entra_platform_admin_role: AdminRole.PLATFORM_ADMIN,
+                self.entra_platform_user_role: AdminRole.PLATFORM_USER,
+            }
+        elif self.auth_enabled and self.admin_auth_mode == "iap":
             identity_authenticator = IapJwtAuthenticator(self.iap_jwt_audience or "")
         elif self.admin_auth_mode == "bearer":
             identity_authenticator = self.authenticator()
         else:
             raise ValueError("ADMIN_AUTH_MODE must be 'bearer' or 'iap'")
         return AdminAuthenticator(
-            auth_enabled=self.auth_enabled,
+            auth_enabled=admin_auth_enabled,
             google_authenticator=identity_authenticator,
             role_bindings_json=self.admin_role_bindings_json,
+            token_role_mapping=token_role_mapping,
         )

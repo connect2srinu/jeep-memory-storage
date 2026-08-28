@@ -17,6 +17,7 @@ export function findNormalizedDuplicates(values: string[]): string[] {
 
 export function canMutate(identity: AdminIdentity, section: string): boolean {
   if (identity.roles.includes("PLATFORM_ADMIN")) return true;
+  if (identity.roles.includes("PLATFORM_USER")) return false;
   if (identity.roles.includes("VIEWER") && identity.roles.length === 1) return false;
   if (section === "access-requests") {
     return identity.roles.some((role) => role === "AGENT_OWNER" || role === "DOMAIN_ADMIN");

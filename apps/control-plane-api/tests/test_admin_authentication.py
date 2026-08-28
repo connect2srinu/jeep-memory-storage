@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 from control_plane_api.security.admin import AdminAuthenticator, AdminRole
-from control_plane_api.security.authentication import AuthenticatedPrincipal, AuthenticationError
+from control_plane_api.security.authentication import (
+    AuthenticatedPrincipal,
+    AuthenticationError,
+    EntraAccessTokenAuthenticator,
+)
 from fastapi import Request
 
 
@@ -41,3 +45,55 @@ async def test_verified_admin_without_binding_is_rejected() -> None:
     )
     with pytest.raises(AuthenticationError, match="no role binding"):
         await authenticator.authenticate(request())
+
+
+class VerifiedEntraAuthenticator:
+    async def authenticate(self, _request: Request) -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            subject="entra-object-id",
+            principal="platform.admin@example.com",
+            issuer="https://login.microsoftonline.com/tenant-id/v2.0",
+            claims={"roles": ["Platform.Admin"]},
+        )
+
+
+@pytest.mark.asyncio
+async def test_entra_app_role_maps_to_internal_platform_role() -> None:
+    authenticator = AdminAuthenticator(
+        auth_enabled=True,
+        google_authenticator=VerifiedEntraAuthenticator(),
+        token_role_mapping={
+            "Platform.Admin": AdminRole.PLATFORM_ADMIN,
+            "Platform.User": AdminRole.PLATFORM_USER,
+        },
+    )
+    principal = await authenticator.authenticate(request())
+    assert principal.roles == frozenset({AdminRole.PLATFORM_ADMIN})
+    assert principal.principal == "platform.admin@example.com"
+
+
+@pytest.mark.asyncio
+async def test_entra_token_requires_configured_scope(monkeypatch: pytest.MonkeyPatch) -> None:
+    authenticator = EntraAccessTokenAuthenticator(
+        tenant_id="tenant-id", audience="api-client-id", required_scope="access_as_user"
+    )
+    monkeypatch.setattr(
+        authenticator,
+        "_verify",
+        lambda _token: {
+            "tid": "tenant-id",
+            "oid": "user-object-id",
+            "preferred_username": "User@Example.com",
+            "scp": "openid profile",
+        },
+    )
+    bearer_request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [(b"authorization", b"Bearer token")],
+        }
+    )
+    with pytest.raises(AuthenticationError, match="lacks delegated scope"):
+        await authenticator.authenticate(bearer_request)

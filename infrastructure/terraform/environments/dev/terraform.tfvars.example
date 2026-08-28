@@ -6,6 +6,12 @@ iap_oauth_client_secret = "<IAP_OAUTH_CLIENT_SECRET>"
 iap_jwt_audience        = "/projects/<PROJECT_NUMBER>/global/backendServices/<CONTROL_PLANE_API_BACKEND_ID>"
 iap_members             = ["group:<ADMIN_GROUP_EMAIL>"]
 
+# Keep false while Google IAP remains the interactive edge authentication layer.
+entra_auth_enabled = false
+entra_tenant_id    = "<ENTRA_TENANT_ID>"
+entra_api_audience = "<ENTRA_CONTROL_PLANE_API_CLIENT_ID>"
+entra_required_scope = "access_as_user"
+
 admin_role_bindings_json = <<EOT
 {"<PLATFORM_ADMIN_EMAIL>":{"roles":["PLATFORM_ADMIN"],"domains":[]}}
 EOT

@@ -4,18 +4,21 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from control_plane_api.api.admin.models import (
     AccessRequestCreate,
     AgentCreate,
+    AgentRuntimeBindingUpdate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
     MembershipCreate,
     OrganizationCreate,
+    OrganizationSettingsUpdate,
     PreferenceCreate,
     ProjectCreate,
+    ProjectSettingsUpdate,
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
@@ -23,20 +26,25 @@ from control_plane_api.api.admin.models import (
     ScopeCreate,
 )
 from control_plane_api.domain import AccessPermission, AccessRequestStatus, LifecycleStatus
+from control_plane_api.integrations.agent_health import AgentHealthProvider
 from control_plane_api.observability.runtime import correlation_id_context
 from control_plane_api.persistence.models import (
     AccessRequestRecord,
+    AgentHealthSnapshotRecord,
+    AgentRuntimeBindingRecord,
     AgentSchemaGrantRecord,
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
     OrganizationMembershipRecord,
     OrganizationRecord,
+    OrganizationSettingsRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
     ProjectMembershipRecord,
     ProjectRecord,
+    ProjectSettingsRecord,
     RegisteredAgentRecord,
     ResolutionAttributeOverrideRecord,
     ResolutionPolicyRecord,
@@ -171,9 +179,12 @@ def _audit_metadata(data: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 class AdminControlPlaneService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self, session: AsyncSession, health_provider: AgentHealthProvider | None = None
+    ) -> None:
         self.session = session
         self.authorizer = AdminAuthorizer()
+        self.health_provider = health_provider or AgentHealthProvider()
 
     async def _audit(
         self,
@@ -438,6 +449,274 @@ class AdminControlPlaneService:
         data["attribute_overrides"] = [_record_data(item) for item in overrides]
         return data
 
+    async def schema_agent_access(
+        self, principal: AdminPrincipal, schema_id: str
+    ) -> list[dict[str, Any]]:
+        """Which agents can access a schema, and how they qualify for that access.
+
+        Access is explicit-grant-only: an agent in the schema's owning project is
+        eligible but is not granted access until an explicit grant exists.
+        """
+        self.authorizer.require_read(principal)
+        schema = await self.session.get(ProfileSchemaRecord, schema_id)
+        if schema is None:
+            raise ResourceNotFoundError(f"schema {schema_id} was not found")
+        domain = await self.session.get(MemoryDomainRecord, schema.domain_id)
+        schema_project_id = domain.project_id if domain else None
+        schema_organization_id = domain.organization_id if domain else None
+
+        agents = (
+            (
+                await self.session.scalars(
+                    select(RegisteredAgentRecord)
+                    .where(
+                        RegisteredAgentRecord.organization_id == schema_organization_id,
+                        RegisteredAgentRecord.status == "ACTIVE",
+                    )
+                    .order_by(RegisteredAgentRecord.display_name)
+                )
+            ).all()
+            if schema_organization_id
+            else []
+        )
+        grants = {
+            item.agent_id: item
+            for item in (
+                await self.session.scalars(
+                    select(AgentSchemaGrantRecord).where(
+                        AgentSchemaGrantRecord.schema_id == schema_id
+                    )
+                )
+            ).all()
+        }
+        requests = (
+            await self.session.scalars(
+                select(AccessRequestRecord)
+                .where(AccessRequestRecord.target_schema_id == schema_id)
+                .order_by(AccessRequestRecord.requested_at.desc())
+            )
+        ).all()
+        latest_requests: dict[str, AccessRequestRecord] = {}
+        for request in requests:
+            latest_requests.setdefault(request.requesting_agent_id, request)
+
+        result: list[dict[str, Any]] = []
+        for agent in agents:
+            grant = grants.get(agent.id)
+            request = latest_requests.get(agent.id)
+            grant_active = grant is not None and grant.status == LifecycleStatus.ACTIVE.value
+            same_project = schema_project_id is not None and agent.project_id == schema_project_id
+            request_status = (
+                request.status if request is not None else AccessRequestStatus.PENDING.value
+            )
+            if grant_active:
+                access_kind = "OWNING_PROJECT_GRANT" if same_project else "CROSS_PROJECT_GRANT"
+                access_status = "APPROVED"
+            elif request is not None and request.status == AccessRequestStatus.PENDING.value:
+                access_kind = "REQUEST_PENDING"
+                access_status = "PENDING"
+            elif same_project:
+                access_kind = "ELIGIBLE_NOT_GRANTED"
+                access_status = request_status if request is not None else "NOT_REQUESTED"
+            else:
+                access_kind = "NONE"
+                access_status = request_status if request is not None else "NOT_REQUESTED"
+            result.append(
+                {
+                    "agent_id": agent.id,
+                    "display_name": agent.display_name,
+                    "project_id": agent.project_id,
+                    "domain_id": agent.domain_id,
+                    "same_project": same_project,
+                    "permission": grant.permission if grant_active else None,
+                    "access_kind": access_kind,
+                    "access_status": access_status,
+                    "request_id": request.id if request is not None else None,
+                    "requested_permission": (
+                        request.requested_permission if request is not None else None
+                    ),
+                }
+            )
+        return result
+
+    async def domain_detail(self, principal: AdminPrincipal, domain_id: str) -> dict[str, Any]:
+        """Aggregate everything associated with a domain for its detail page."""
+        self.authorizer.require_read(principal)
+        domain = await self.session.get(MemoryDomainRecord, domain_id)
+        if domain is None:
+            raise ResourceNotFoundError(f"domain {domain_id} was not found")
+        organization = await self.session.get(OrganizationRecord, domain.organization_id)
+        project = await self.session.get(ProjectRecord, domain.project_id)
+
+        scopes = (
+            await self.session.scalars(
+                select(ScopeDefinitionRecord)
+                .where(ScopeDefinitionRecord.owner_domain_id == domain_id)
+                .order_by(ScopeDefinitionRecord.id)
+            )
+        ).all()
+
+        schema_records = (
+            await self.session.scalars(
+                select(ProfileSchemaRecord)
+                .where(ProfileSchemaRecord.domain_id == domain_id)
+                .order_by(ProfileSchemaRecord.id)
+            )
+        ).all()
+        schemas: list[dict[str, Any]] = []
+        schema_ids: list[str] = []
+        for schema in schema_records:
+            schema_ids.append(schema.id)
+            data = await self._schema_data(schema)
+            data["access_status"] = await self._schema_access_status(
+                domain.organization_id, schema.id
+            )
+            grant_count = await self.session.scalar(
+                select(func.count())
+                .select_from(AgentSchemaGrantRecord)
+                .where(
+                    AgentSchemaGrantRecord.schema_id == schema.id,
+                    AgentSchemaGrantRecord.status == "ACTIVE",
+                )
+            )
+            data["active_grant_count"] = int(grant_count or 0)
+            schemas.append(data)
+
+        home_agents = (
+            await self.session.scalars(
+                select(RegisteredAgentRecord)
+                .where(RegisteredAgentRecord.domain_id == domain_id)
+                .order_by(RegisteredAgentRecord.display_name)
+            )
+        ).all()
+        home_agent_ids = [agent.id for agent in home_agents]
+
+        policy_clauses = [ResolutionPolicyRecord.id.like(f"{domain_id}:%")]
+        if home_agent_ids:
+            policy_clauses.append(ResolutionPolicyRecord.agent_id.in_(home_agent_ids))
+        policy_rows = (
+            await self.session.scalars(
+                select(ResolutionPolicyRecord).where(
+                    ResolutionPolicyRecord.status == "ACTIVE",
+                    or_(*policy_clauses),
+                )
+            )
+        ).all()
+        domain_default: dict[str, Any] | None = None
+        agent_policies: list[dict[str, Any]] = []
+        for policy in policy_rows:
+            detail = await self._resolution_policy_data(policy)
+            if policy.agent_id is None and policy.id.startswith(f"{domain_id}:"):
+                domain_default = detail
+            else:
+                agent_policies.append(detail)
+
+        pending_access = (
+            (
+                await self.session.scalars(
+                    select(AccessRequestRecord)
+                    .where(
+                        AccessRequestRecord.target_schema_id.in_(schema_ids),
+                        AccessRequestRecord.status == AccessRequestStatus.PENDING.value,
+                    )
+                    .order_by(AccessRequestRecord.requested_at.desc())
+                )
+            ).all()
+            if schema_ids
+            else []
+        )
+        pending_changes = (
+            await self.session.scalars(
+                select(ResourceChangeRequestRecord)
+                .where(
+                    ResourceChangeRequestRecord.domain_id == domain_id,
+                    ResourceChangeRequestRecord.status == AccessRequestStatus.PENDING.value,
+                )
+                .order_by(ResourceChangeRequestRecord.requested_at.desc())
+            )
+        ).all()
+
+        audit_targets = {domain_id, *schema_ids, *[scope.id for scope in scopes]}
+        audit_rows = (
+            await self.session.scalars(
+                select(AuditEventRecord)
+                .where(AuditEventRecord.target_id.in_(audit_targets))
+                .order_by(AuditEventRecord.timestamp.desc())
+                .limit(25)
+            )
+        ).all()
+
+        return {
+            "domain": _record_data(domain),
+            "organization": _record_data(organization) if organization else None,
+            "project": _record_data(project) if project else None,
+            "scopes": [_record_data(scope) for scope in scopes],
+            "schemas": schemas,
+            "home_agents": [_record_data(agent) for agent in home_agents],
+            "resolution": {
+                "domain_default": domain_default,
+                "agent_policies": agent_policies,
+            },
+            "pending_requests": {
+                "access": [_record_data(item) for item in pending_access],
+                "changes": [_record_data(item) for item in pending_changes],
+            },
+            "audit": [_record_data(item) for item in audit_rows],
+        }
+
+    async def _organization_membership(
+        self, principal: AdminPrincipal, organization_id: str
+    ) -> OrganizationMembershipRecord | None:
+        return await self.session.scalar(
+            select(OrganizationMembershipRecord).where(
+                OrganizationMembershipRecord.organization_id == organization_id,
+                OrganizationMembershipRecord.member_principal == principal.principal.casefold(),
+                OrganizationMembershipRecord.status == "ACTIVE",
+            )
+        )
+
+    async def _project_membership(
+        self, principal: AdminPrincipal, project_id: str
+    ) -> ProjectMembershipRecord | None:
+        return await self.session.scalar(
+            select(ProjectMembershipRecord).where(
+                ProjectMembershipRecord.project_id == project_id,
+                ProjectMembershipRecord.member_principal == principal.principal.casefold(),
+                ProjectMembershipRecord.status == "ACTIVE",
+            )
+        )
+
+    async def _require_organization_access(
+        self, principal: AdminPrincipal, organization_id: str, *, manage: bool = False
+    ) -> None:
+        if AdminRole.PLATFORM_ADMIN in principal.roles:
+            return
+        membership = await self._organization_membership(principal, organization_id)
+        if membership is None or (manage and membership.role not in {"OWNER", "ADMIN"}):
+            action = "manage" if manage else "read"
+            raise PermissionError(
+                f"organization membership is required to {action} {organization_id}"
+            )
+
+    async def _require_project_access(
+        self, principal: AdminPrincipal, project: ProjectRecord, *, manage: bool = False
+    ) -> None:
+        if AdminRole.PLATFORM_ADMIN in principal.roles:
+            return
+        organization_membership = await self._organization_membership(
+            principal, project.organization_id
+        )
+        if organization_membership and (
+            not manage or organization_membership.role in {"OWNER", "ADMIN"}
+        ):
+            return
+        project_membership = await self._project_membership(principal, project.id)
+        if project_membership is None or (
+            manage and project_membership.role not in {"OWNER", "ADMIN"}
+        ):
+            action = "manage" if manage else "read"
+            raise PermissionError(f"project membership is required to {action} {project.id}")
+
     async def organization_hierarchy(self, principal: AdminPrincipal) -> dict[str, Any]:
         self.authorizer.require_read(principal)
         organizations = list(
@@ -483,9 +762,25 @@ class AdminControlPlaneService:
             ).all()
         )
 
+        is_platform_admin = AdminRole.PLATFORM_ADMIN in principal.roles
+        organization_roles = {
+            member.organization_id: member.role
+            for member in organization_members
+            if member.member_principal == principal.principal.casefold()
+            and member.status == "ACTIVE"
+        }
+        project_roles = {
+            member.project_id: member.role
+            for member in project_members
+            if member.member_principal == principal.principal.casefold()
+            and member.status == "ACTIVE"
+        }
         projects_by_organization: dict[str, list[dict[str, Any]]] = {}
         for project in projects:
             project_data = _record_data(project)
+            project_data["current_member_role"] = (
+                "PLATFORM_ADMIN" if is_platform_admin else project_roles.get(project.id)
+            )
             project_data["members"] = [
                 _record_data(member)
                 for member in project_members
@@ -503,6 +798,11 @@ class AdminControlPlaneService:
             "organizations": [
                 {
                     **_record_data(organization),
+                    "current_member_role": (
+                        "PLATFORM_ADMIN"
+                        if is_platform_admin
+                        else organization_roles.get(organization.id)
+                    ),
                     "members": [
                         _record_data(member)
                         for member in organization_members
@@ -520,8 +820,8 @@ class AdminControlPlaneService:
         organization_id: str,
         payload: MembershipCreate,
     ) -> dict[str, Any]:
-        self.authorizer.require_platform(principal)
         await self._require_existing_organization(organization_id)
+        await self._require_organization_access(principal, organization_id, manage=True)
         member_principal = payload.member_principal.strip().casefold()
         existing = await self.session.scalar(
             select(OrganizationMembershipRecord).where(
@@ -555,16 +855,230 @@ class AdminControlPlaneService:
         )
         return after
 
+    async def get_organization_settings(
+        self, principal: AdminPrincipal, organization_id: str
+    ) -> dict[str, Any]:
+        await self._require_existing_organization(organization_id)
+        await self._require_organization_access(principal, organization_id)
+        record = await self.session.get(OrganizationSettingsRecord, organization_id)
+        if record is None:
+            return {
+                "organization_id": organization_id,
+                "budget_amount": None,
+                "currency": "USD",
+                "budget_period": "MONTHLY",
+                "budget_enabled": False,
+                "thresholds": [{"percent": 80, "basis": "ACTUAL"}],
+                "email_recipients": [],
+                "monitoring_channel_ids": [],
+                "pubsub_topic": None,
+                "billing_account_id": None,
+                "billing_project_ids": [],
+                "external_budget_name": None,
+                "sync_status": "LOCAL_ONLY",
+            }
+        return _record_data(record)
+
+    async def update_organization_settings(
+        self,
+        principal: AdminPrincipal,
+        organization_id: str,
+        payload: OrganizationSettingsUpdate,
+    ) -> dict[str, Any]:
+        await self._require_existing_organization(organization_id)
+        await self._require_organization_access(principal, organization_id, manage=True)
+        if payload.budget_enabled and payload.budget_amount is None:
+            raise ValueError("budgetAmount is required when budget notifications are enabled")
+        record = await self.session.get(OrganizationSettingsRecord, organization_id)
+        before = _record_data(record) if record else None
+        values = payload.model_dump(by_alias=False)
+        values["thresholds"] = [item.model_dump() for item in payload.thresholds]
+        if record is None:
+            record = OrganizationSettingsRecord(
+                organization_id=organization_id,
+                external_budget_name=None,
+                sync_status="PENDING_SYNC" if payload.budget_enabled else "LOCAL_ONLY",
+                **values,
+            )
+            self.session.add(record)
+        else:
+            for key, value in values.items():
+                setattr(record, key, value)
+            record.sync_status = "PENDING_SYNC" if payload.budget_enabled else "LOCAL_ONLY"
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "organization.settings_updated",
+            "organization",
+            organization_id,
+            before,
+            after,
+        )
+        return after
+
+    async def get_project_settings(
+        self, principal: AdminPrincipal, project_id: str
+    ) -> dict[str, Any]:
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {project_id} was not found")
+        await self._require_project_access(principal, project)
+        record = await self.session.get(ProjectSettingsRecord, project_id)
+        if record is None:
+            return {
+                "project_id": project_id,
+                "health_refresh_seconds": 300,
+                "latency_warning_ms": 2000,
+                "error_rate_warning": 0.05,
+                "notifications_enabled": True,
+                "notification_channel_ids": [],
+            }
+        return _record_data(record)
+
+    async def update_project_settings(
+        self, principal: AdminPrincipal, project_id: str, payload: ProjectSettingsUpdate
+    ) -> dict[str, Any]:
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {project_id} was not found")
+        await self._require_project_access(principal, project, manage=True)
+        record = await self.session.get(ProjectSettingsRecord, project_id)
+        before = _record_data(record) if record else None
+        values = payload.model_dump(by_alias=False)
+        if record is None:
+            record = ProjectSettingsRecord(project_id=project_id, **values)
+            self.session.add(record)
+        else:
+            for key, value in values.items():
+                setattr(record, key, value)
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal, "project.settings_updated", "project", project_id, before, after
+        )
+        return after
+
+    async def upsert_agent_runtime_binding(
+        self, principal: AdminPrincipal, agent_id: str, payload: AgentRuntimeBindingUpdate
+    ) -> dict[str, Any]:
+        agent = await self.session.get(RegisteredAgentRecord, agent_id)
+        if agent is None:
+            raise ResourceNotFoundError(f"agent {agent_id} was not found")
+        project = await self.session.get(ProjectRecord, agent.project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {agent.project_id} was not found")
+        await self._require_project_access(principal, project, manage=True)
+        if payload.provider == "GOOGLE_AGENT_RUNTIME" and (
+            not payload.gcp_project_id or not payload.resource_name
+        ):
+            raise ValueError("gcpProjectId and resourceName are required for Google Agent Runtime")
+        record = await self.session.get(AgentRuntimeBindingRecord, agent_id)
+        before = _record_data(record) if record else None
+        values = payload.model_dump(by_alias=False)
+        if record is None:
+            record = AgentRuntimeBindingRecord(agent_id=agent_id, status="CONFIGURED", **values)
+            self.session.add(record)
+        else:
+            for key, value in values.items():
+                setattr(record, key, value)
+            record.status = "CONFIGURED"
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal, "agent.runtime_binding_updated", "agent", agent_id, before, after
+        )
+        return after
+
+    async def get_agent_runtime_binding(
+        self, principal: AdminPrincipal, agent_id: str
+    ) -> dict[str, Any]:
+        agent = await self.session.get(RegisteredAgentRecord, agent_id)
+        if agent is None:
+            raise ResourceNotFoundError(f"agent {agent_id} was not found")
+        project = await self.session.get(ProjectRecord, agent.project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {agent.project_id} was not found")
+        await self._require_project_access(principal, project)
+        record = await self.session.get(AgentRuntimeBindingRecord, agent_id)
+        return (
+            _record_data(record) if record else {"agent_id": agent_id, "status": "NOT_CONFIGURED"}
+        )
+
+    async def project_health(
+        self, principal: AdminPrincipal, project_id: str, *, refresh: bool = False
+    ) -> dict[str, Any]:
+        project = await self.session.get(ProjectRecord, project_id)
+        if project is None:
+            raise ResourceNotFoundError(f"project {project_id} was not found")
+        await self._require_project_access(principal, project)
+        agents = list(
+            (
+                await self.session.scalars(
+                    select(RegisteredAgentRecord)
+                    .where(RegisteredAgentRecord.project_id == project_id)
+                    .order_by(RegisteredAgentRecord.display_name)
+                )
+            ).all()
+        )
+        items: list[dict[str, Any]] = []
+        for agent in agents:
+            binding = await self.session.get(AgentRuntimeBindingRecord, agent.id)
+            snapshot = await self.session.get(AgentHealthSnapshotRecord, agent.id)
+            if refresh and binding is not None:
+                result = await self.health_provider.collect(binding)
+                now = datetime.now(UTC)
+                values = {
+                    "health_status": result.health_status,
+                    "provider_status": result.provider_status,
+                    "request_count": result.request_count,
+                    "error_rate": result.error_rate,
+                    "p95_latency_ms": result.p95_latency_ms,
+                    "last_success_at": result.last_success_at,
+                    "observed_at": now,
+                    "details": result.details or {},
+                }
+                if snapshot is None:
+                    snapshot = AgentHealthSnapshotRecord(agent_id=agent.id, **values)
+                    self.session.add(snapshot)
+                else:
+                    for key, value in values.items():
+                        setattr(snapshot, key, value)
+            items.append(
+                {
+                    "agent": _record_data(agent),
+                    "binding": _record_data(binding) if binding else None,
+                    "health": _record_data(snapshot)
+                    if snapshot
+                    else {
+                        "health_status": "UNKNOWN",
+                        "provider_status": "NOT_CONFIGURED" if binding is None else "NOT_CHECKED",
+                    },
+                    "resource_tags": {
+                        "organization_id": project.organization_id,
+                        "project_id": project.id,
+                        "agent_id": agent.id,
+                        "environment": binding.environment if binding else "unknown",
+                    },
+                }
+            )
+        if refresh:
+            await self.session.flush()
+        return {"project": _record_data(project), "agents": items}
+
     async def add_project_member(
         self,
         principal: AdminPrincipal,
         project_id: str,
         payload: MembershipCreate,
     ) -> dict[str, Any]:
-        self.authorizer.require_platform(principal)
         project = await self.session.get(ProjectRecord, project_id)
         if project is None:
             raise ResourceNotFoundError(f"project {project_id} was not found")
+        await self._require_project_access(principal, project, manage=True)
         member_principal = payload.member_principal.strip().casefold()
         organization_member = await self.session.scalar(
             select(OrganizationMembershipRecord).where(
@@ -1219,6 +1733,61 @@ class AdminControlPlaneService:
         )
         return [_record_data(record) for record in records]
 
+    async def organization_approvals(
+        self, principal: AdminPrincipal, organization_id: str
+    ) -> dict[str, Any]:
+        await self._require_existing_organization(organization_id)
+        await self._require_organization_access(principal, organization_id)
+        requests = list(
+            (
+                await self.session.scalars(
+                    select(AccessRequestRecord).order_by(AccessRequestRecord.requested_at.desc())
+                )
+            ).all()
+        )
+        enriched: list[dict[str, Any]] = []
+        for request in requests:
+            agent = await self.session.get(RegisteredAgentRecord, request.requesting_agent_id)
+            schema = await self.session.get(ProfileSchemaRecord, request.target_schema_id)
+            target_domain = (
+                await self.session.get(MemoryDomainRecord, schema.domain_id) if schema else None
+            )
+            item = _record_data(request)
+            item.update(
+                {
+                    "requesting_organization_id": agent.organization_id if agent else None,
+                    "requesting_project_id": agent.project_id if agent else None,
+                    "requesting_agent_name": agent.display_name if agent else None,
+                    "owning_organization_id": (
+                        target_domain.organization_id if target_domain else None
+                    ),
+                    "owning_domain_id": target_domain.id if target_domain else None,
+                }
+            )
+            enriched.append(item)
+        incoming = [
+            item
+            for item in enriched
+            if item["owning_organization_id"] == organization_id
+            and item["status"] == AccessRequestStatus.PENDING.value
+        ]
+        outgoing = [
+            item
+            for item in enriched
+            if item["requesting_organization_id"] == organization_id
+            and item["status"] == AccessRequestStatus.PENDING.value
+        ]
+        history = [
+            item
+            for item in enriched
+            if (
+                item["owning_organization_id"] == organization_id
+                or item["requesting_organization_id"] == organization_id
+            )
+            and item["status"] != AccessRequestStatus.PENDING.value
+        ]
+        return {"incoming": incoming, "outgoing": outgoing, "history": history}
+
     async def decide_access_request(
         self,
         principal: AdminPrincipal,
@@ -1234,9 +1803,16 @@ class AdminControlPlaneService:
         schema = await self.session.get(ProfileSchemaRecord, record.target_schema_id)
         if schema is None:
             raise ResourceNotFoundError(f"schema {record.target_schema_id} was not found")
-        self.authorizer.require_domain(
-            principal, schema.domain_id, AdminRole.SCHEMA_OWNER, AdminRole.DOMAIN_ADMIN
-        )
+        target_domain = await self._require_existing_domain(schema.domain_id)
+        membership = await self._organization_membership(principal, target_domain.organization_id)
+        if not (
+            AdminRole.PLATFORM_ADMIN in principal.roles
+            or membership is not None
+            and membership.role in {"OWNER", "ADMIN"}
+        ):
+            self.authorizer.require_domain(
+                principal, schema.domain_id, AdminRole.SCHEMA_OWNER, AdminRole.DOMAIN_ADMIN
+            )
         before = _record_data(record)
         now = datetime.now(UTC)
 

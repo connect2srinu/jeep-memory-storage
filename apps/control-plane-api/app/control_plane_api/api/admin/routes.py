@@ -12,6 +12,7 @@ from control_plane_api.api.admin.models import (
     AdminRecord,
     AdminRecordList,
     AgentCreate,
+    AgentRuntimeBindingUpdate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
     GuidedMemorySetupActivation,
@@ -19,8 +20,10 @@ from control_plane_api.api.admin.models import (
     GuidedMemorySetupRequest,
     MembershipCreate,
     OrganizationCreate,
+    OrganizationSettingsUpdate,
     PreferenceCreate,
     ProjectCreate,
+    ProjectSettingsUpdate,
     ResolutionPolicyCreate,
     ResourceUpdate,
     SchemaCreate,
@@ -116,6 +119,87 @@ def create_admin_router(
     ) -> AdminRecord:
         return AdminRecord(
             data=await service.add_organization_member(identity, organization_id, payload)
+        )
+
+    @router.get("/organizations/{organization_id}/settings", response_model=AdminRecord)
+    async def get_organization_settings(
+        organization_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.get_organization_settings(identity, organization_id))
+
+    @router.put("/organizations/{organization_id}/settings", response_model=AdminRecord)
+    async def update_organization_settings(
+        organization_id: str,
+        payload: OrganizationSettingsUpdate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.update_organization_settings(identity, organization_id, payload)
+        )
+
+    @router.get("/organizations/{organization_id}/approvals", response_model=AdminRecord)
+    async def get_organization_approvals(
+        organization_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.organization_approvals(identity, organization_id))
+
+    @router.get("/projects/{project_id}/settings", response_model=AdminRecord)
+    async def get_project_settings(
+        project_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.get_project_settings(identity, project_id))
+
+    @router.put("/projects/{project_id}/settings", response_model=AdminRecord)
+    async def update_project_settings(
+        project_id: str,
+        payload: ProjectSettingsUpdate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.update_project_settings(identity, project_id, payload)
+        )
+
+    @router.get("/projects/{project_id}/health", response_model=AdminRecord)
+    async def get_project_health(
+        project_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.project_health(identity, project_id))
+
+    @router.post("/projects/{project_id}/health/refresh", response_model=AdminRecord)
+    async def refresh_project_health(
+        project_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.project_health(identity, project_id, refresh=True))
+
+    @router.get("/agents/{agent_id}/runtime-binding", response_model=AdminRecord)
+    async def get_agent_runtime_binding(
+        agent_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.get_agent_runtime_binding(identity, agent_id))
+
+    @router.put("/agents/{agent_id}/runtime-binding", response_model=AdminRecord)
+    async def update_agent_runtime_binding(
+        agent_id: str,
+        payload: AgentRuntimeBindingUpdate,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.upsert_agent_runtime_binding(identity, agent_id, payload)
         )
 
     @router.post(
@@ -219,6 +303,14 @@ def create_admin_router(
     ) -> AdminRecord:
         return await fetched("domains", resource_id, identity, service)
 
+    @router.get("/domains/{resource_id}/detail", response_model=AdminRecord)
+    async def get_domain_detail(
+        resource_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(data=await service.domain_detail(identity, resource_id))
+
     @router.patch("/domains/{resource_id}", response_model=AdminRecord)
     async def update_domain(
         resource_id: str,
@@ -284,6 +376,14 @@ def create_admin_router(
         service: AdminControlPlaneService = Depends(service_dependency),
     ) -> AdminRecord:
         return await fetched("schemas", resource_id, identity, service)
+
+    @router.get("/schemas/{resource_id}/agents", response_model=AdminRecordList)
+    async def get_schema_agents(
+        resource_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(items=await service.schema_agent_access(identity, resource_id))
 
     @router.patch("/schemas/{resource_id}", response_model=AdminRecord)
     async def update_schema(

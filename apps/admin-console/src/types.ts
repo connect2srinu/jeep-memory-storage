@@ -1,5 +1,6 @@
 export type AdminRole =
   | "PLATFORM_ADMIN"
+  | "PLATFORM_USER"
   | "DOMAIN_ADMIN"
   | "SCHEMA_OWNER"
   | "AGENT_OWNER"
@@ -9,6 +10,7 @@ export interface AdminIdentity {
   user: string;
   roles: AdminRole[];
   domains: string[];
+  accessToken?: string;
 }
 
 export type AdminRecord = Record<string, unknown>;
