@@ -182,7 +182,7 @@ deterministic platform contracts belong in code tests.
 ## Related guides
 
 - [Guided Memory Setup](guided-memory-setup.md)
-- [ADK Web Demo](adk-web-demo.md)
+- [Reference Agent](../apps/reference-agent/README.md)
 - [Vertex Memory Bank](vertex-memory-bank.md)
 - [Admin API](admin-api.md)
 - [Deployment and Operations](deployment-operations.md)

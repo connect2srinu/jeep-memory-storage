@@ -69,8 +69,8 @@ adk web --host 0.0.0.0 --port 8000 app
 The user speaks naturally. The model selects from `writablePreferences`; it does not receive or
 invent a schema ID.
 
-For a complete UI-to-ADK demonstration, including later-Session recall and isolation checks, follow
-[ADK Web End-to-End Demo](adk-web-demo.md).
+For a complete UI-to-ADK demonstration, including later-Session recall and isolation checks, run the
+[reference ADK agent](../apps/reference-agent/README.md).
 
 ## Completion checklist
 

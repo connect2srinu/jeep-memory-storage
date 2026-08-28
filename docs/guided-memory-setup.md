@@ -1,14 +1,22 @@
 # Guided Memory Setup
 
 The Admin Console provides the preferred onboarding path for a new domain. Open
-`http://localhost:3000`, create or select the owning organization and project, choose **Create
-Memory Setup**, and follow:
+`http://localhost:3000`, create or select the owning organization and project, and choose **Create
+Memory Setup**.
+
+The flow opens on a short **overview page** that explains what a setup configures — domain, scope,
+schemas, preferences, agents, and sharing — and shows a live inventory of the organizations,
+projects, schemas, and agents that already exist. Select **Start setup** to enter the wizard:
 
 ```text
 Use Case -> Preferences -> Scope -> Memory -> Agent -> Sharing -> Resolution -> Review -> Activate
 ```
 
 Sharing and Resolution appear only when external schemas are selected.
+
+On the **Use Case** step, the **Domain** field is populated from the domains that already exist in
+the selected organization and project; choosing a different project updates the list. Type a new
+name to create a new domain, or pick an existing one to extend it.
 
 ## Information to prepare
 
@@ -69,7 +77,7 @@ authorized write or provider generation event creates user-scoped memory lazily.
 
 Configure the reference agent with the agent ID and domain created by the wizard. The agent receives
 `writablePreferences` during snapshot resolution, sends only the chosen canonical attribute and
-value, and never asks for a schema ID. See [ADK Web Demo](adk-web-demo.md).
+value, and never asks for a schema ID. See the [reference ADK agent](../apps/reference-agent/README.md).
 
 ## Existing schemas
 

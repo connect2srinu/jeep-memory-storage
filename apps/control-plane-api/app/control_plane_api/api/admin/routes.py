@@ -303,7 +303,16 @@ def create_admin_router(
     ) -> AdminRecord:
         return await fetched("domains", resource_id, identity, service)
 
-    @router.get("/domains/{resource_id}/detail", response_model=AdminRecord)
+    @router.get(
+        "/domains/{resource_id}/detail",
+        response_model=AdminRecord,
+        summary="Aggregate domain detail",
+        description=(
+            "Returns a domain with its scopes, schemas (including active version and preference "
+            "mappings), home agents, resolution policies, pending requests, and a recent audit slice "
+            "in a single call."
+        ),
+    )
     async def get_domain_detail(
         resource_id: str,
         identity: AdminPrincipal = Depends(principal),
@@ -377,7 +386,16 @@ def create_admin_router(
     ) -> AdminRecord:
         return await fetched("schemas", resource_id, identity, service)
 
-    @router.get("/schemas/{resource_id}/agents", response_model=AdminRecordList)
+    @router.get(
+        "/schemas/{resource_id}/agents",
+        response_model=AdminRecordList,
+        summary="Agents with access to a schema",
+        description=(
+            "Lists agents in the schema's organization and how each qualifies for access: an owning- "
+            "or cross-project grant, a pending request, or (explicit-grant-only model) eligible but "
+            "not yet granted. Access reflects permission, not observed read activity."
+        ),
+    )
     async def get_schema_agents(
         resource_id: str,
         identity: AdminPrincipal = Depends(principal),
@@ -468,7 +486,12 @@ def create_admin_router(
     ) -> AdminRecord:
         return await fetched("agents", resource_id, identity, service)
 
-    @router.get("/agents/{resource_id}/schema-access", response_model=AdminRecordList)
+    @router.get(
+        "/agents/{resource_id}/schema-access",
+        response_model=AdminRecordList,
+        summary="Schema access matrix for an agent",
+        description="Lists every schema in the agent's organization with the agent's grant and request status.",
+    )
     async def get_agent_schema_access(
         resource_id: str,
         identity: AdminPrincipal = Depends(principal),

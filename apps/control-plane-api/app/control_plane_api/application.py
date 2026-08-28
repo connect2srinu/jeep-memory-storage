@@ -29,6 +29,58 @@ from control_plane_api.services.runtime_service import RuntimeMemoryService
 from control_plane_api.services.scope_registry import ScopeRegistry
 from control_plane_api.services.vertex_provisioning import VertexContextProvisioner
 
+API_DESCRIPTION = """
+The **Control Plane API** is the single backend for the GEAP Control Panel. It exposes two planes:
+
+* **Admin plane** (`/api/v1/admin`) — used by the Admin Console to govern organizations, projects,
+  domains, scopes, schemas, the preference catalog, agents, grants, resolution and dynamic-memory
+  policies, approvals, settings, health, and audit. PostgreSQL is the system of record.
+* **Runtime plane** (`/api/v1/runtime`) — used by ADK agents to resolve their effective preference
+  snapshot and submit governed writes. Schema selection, authorization, and conflict resolution are
+  deterministic server operations; agents never call Memory Bank directly.
+
+### Response envelope
+
+Admin reads return `{ "data": {...} }` for a single record or `{ "items": [...] }` for a list.
+Errors return `{ "code": ..., "message": ..., "correlationId": ... }` with the codes below. Every
+response carries an `X-Correlation-Id` header that also appears in structured logs and audit events.
+
+| HTTP | Code | Meaning |
+|---|---|---|
+| 400 | `INVALID_ARGUMENT` | Validation or cross-reference failure |
+| 401 | `UNAUTHENTICATED` | Missing or invalid identity |
+| 403 | `PERMISSION_DENIED` | Role, domain, or grant denial |
+| 404 | `NOT_FOUND` | Resource does not exist |
+| 409 | `CONFLICT` | Existing active resource is incompatible |
+
+### Authentication
+
+Local development (`AUTH_ENABLED=false`) trusts the `X-Admin-User` / `X-Admin-Roles` /
+`X-Admin-Domains` headers for the admin plane and `X-Agent-ID` for the runtime plane. Deployed
+environments verify a Microsoft Entra ID or Google-signed token (or an IAP JWT assertion) and derive
+roles from persisted organization/project membership.
+
+Interactive docs: **Swagger UI** at `/docs`, **ReDoc** at `/redoc`, raw schema at `/openapi.json`.
+"""
+
+OPENAPI_TAGS = [
+    {
+        "name": "admin",
+        "description": (
+            "Control Panel plane. Governs the organization to project to domain hierarchy and every "
+            "memory resource, with role- and membership-based authorization and immutable audit."
+        ),
+    },
+    {
+        "name": "runtime",
+        "description": (
+            "Agent-facing plane. Authenticated agents resolve their authorized preference snapshot "
+            "and submit explicit or event-based writes; the platform selects the schema and resolves "
+            "conflicts deterministically."
+        ),
+    },
+]
+
 
 def create_app(
     settings: ControlPlaneApiSettings | None = None,
@@ -58,6 +110,11 @@ def create_app(
     api = FastAPI(
         title="Control Plane API",
         version="1.0.0",
+        summary="Governance and runtime API for the GEAP Control Panel.",
+        description=API_DESCRIPTION,
+        openapi_tags=OPENAPI_TAGS,
+        contact={"name": "GEAP Platform Engineering"},
+        license_info={"name": "Proprietary"},
         lifespan=lifespan,
     )
     api.state.database = runtime_database

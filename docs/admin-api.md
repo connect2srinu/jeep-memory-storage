@@ -63,6 +63,22 @@ GET  /agents/{agent_id}/runtime-binding
 PUT  /agents/{agent_id}/runtime-binding
 ```
 
+Domain and access inspection endpoints:
+
+```text
+GET /domains/{domain_id}/detail        Aggregated domain view: scopes, schemas (with active version
+                                       and preference mappings), home agents, resolution policies,
+                                       pending requests, and a recent audit slice, in one call.
+GET /schemas/{schema_id}/agents        Agents that can access a schema, each labelled owning-project
+                                       grant, cross-project grant, request-pending, or eligible but
+                                       not granted.
+GET /agents/{agent_id}/schema-access   Per-agent schema access matrix across the organization.
+```
+
+Access is explicit-grant-only: an agent in the schema's owning project is *eligible* but is not
+granted access until an explicit grant exists. These endpoints report configured permission, not
+observed read activity, which the platform does not currently track.
+
 The hierarchy response groups organization members, projects, project members, domains, and agents.
 A principal must be an active member of the parent organization before receiving a direct project
 role. Organizations are created as `ACTIVE` immediately in this POC; other governed resources use
@@ -94,7 +110,16 @@ curl http://localhost:8080/api/v1/admin/domains \
   -H 'X-Admin-Roles: PLATFORM_ADMIN'
 ```
 
-OpenAPI is available at `http://localhost:8080/docs`.
+## Interactive API documentation
+
+The service publishes an OpenAPI 3 schema with per-plane tags (`admin`, `runtime`), a description of
+the response envelope and error model, and operation summaries. Browse it locally at:
+
+- Swagger UI — `http://localhost:8080/docs`
+- ReDoc — `http://localhost:8080/redoc`
+- Raw schema — `http://localhost:8080/openapi.json`
+
+Operational endpoints (`/healthz`, `/internal/metrics`) are intentionally excluded from the schema.
 
 ## Error codes
 

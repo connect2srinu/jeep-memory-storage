@@ -719,7 +719,8 @@ def test_openapi_exposes_versioned_admin_resources() -> None:
             google_id_token_audience=None,
         )
     )
-    paths = app.openapi()["paths"]
+    schema = app.openapi()
+    paths = schema["paths"]
     expected = {
         "/api/v1/admin/domains",
         "/api/v1/admin/domains/{resource_id}/detail",
@@ -736,6 +737,31 @@ def test_openapi_exposes_versioned_admin_resources() -> None:
         "/api/v1/admin/memory-setups/activate",
     }
     assert expected <= set(paths)
+
+
+def test_openapi_documents_planes_tags_and_summaries() -> None:
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="sqlite+aiosqlite:///:memory:",
+            auth_enabled=False,
+            google_id_token_audience=None,
+        )
+    )
+    schema = app.openapi()
+    info = schema["info"]
+    assert "Control Plane API" in info["description"]
+    assert "/docs" in info["description"]
+    tag_names = {tag["name"] for tag in schema.get("tags", [])}
+    assert {"admin", "runtime"} <= tag_names
+    # Operation-level summaries surface on the new aggregation endpoints.
+    detail = schema["paths"]["/api/v1/admin/domains/{resource_id}/detail"]["get"]
+    assert detail["summary"] == "Aggregate domain detail"
+    assert detail["tags"] == ["admin"]
+    agents = schema["paths"]["/api/v1/admin/schemas/{resource_id}/agents"]["get"]
+    assert agents["summary"] == "Agents with access to a schema"
+    # Operational endpoints stay out of the public schema.
+    assert "/healthz" not in schema["paths"]
+    assert "/internal/metrics" not in schema["paths"]
 
 
 @pytest.mark.asyncio
