@@ -33,7 +33,11 @@ class AgentPlatformMemoryBankClient:
         import agentplatform
 
         client = agentplatform.Client(project=project, location=location)
-        self._memories = client.agent_engines.memories
+        # agentplatform 2.x exposes memory operations under ``memory_banks`` (with the
+        # per-scope reads/writes under ``memory_banks.memories``); the 1.x ``agent_engines``
+        # accessor was removed.
+        self._banks = client.memory_banks
+        self._memories = client.memory_banks.memories
         self._name = f"projects/{project}/locations/{location}/reasoningEngines/{resource_id}"
 
     def retrieve_profiles(self, *, scope: dict[str, str]) -> Any:
@@ -46,7 +50,7 @@ class AgentPlatformMemoryBankClient:
         return self._memories.create(name=self._name, fact=fact, scope=scope)
 
     def ingest_event(self, *, text: str, scope: dict[str, str], stream_id: str) -> Any:
-        return self._memories.ingest_events(
+        return self._banks.ingest_events(
             name=self._name,
             scope=scope,
             stream_id=stream_id,
