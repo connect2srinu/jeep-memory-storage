@@ -11,6 +11,7 @@ Official pricing checked on 2026-08-28:
 - [Cloud SQL pricing](https://cloud.google.com/sql/pricing)
 - [Pub/Sub pricing](https://cloud.google.com/pubsub/pricing)
 - [Cloud Run pricing](https://cloud.google.com/run/pricing)
+- [Memory Bank  pricing](https://cloud.google.com/products/gemini-enterprise-agent-platform/pricing)
 
 ## Comparison unit
 
