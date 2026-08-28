@@ -79,11 +79,16 @@ class VertexContextProvisioner:
             import agentplatform
 
             client = agentplatform.Client(project=self.project, location=self.location)
-            result = client.agent_engines.update(
+            # agentplatform 2.x updates the reasoning engine's context spec through
+            # ``runtimes.update`` (the 1.x ``agent_engines.update`` accessor was removed).
+            result = client.runtimes.update(
                 name=resource_name,
                 config={"context_spec": context_spec},
             )
-            return str(getattr(getattr(result, "api_resource", None), "name", resource_name))
+            return str(
+                getattr(result, "name", None)
+                or getattr(getattr(result, "api_resource", None), "name", resource_name)
+            )
 
         updated_resource = await asyncio.to_thread(update)
         return {

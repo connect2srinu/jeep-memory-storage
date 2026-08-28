@@ -41,18 +41,16 @@ async def test_context_provisioner_performs_context_only_update(
 
     calls: list[dict[str, object]] = []
 
-    class FakeAgentEngines:
+    class FakeRuntimes:
         def update(self, **kwargs):
             calls.append(kwargs)
             return SimpleNamespace(
-                api_resource=SimpleNamespace(
-                    name="projects/test/locations/us-central1/reasoningEngines/123"
-                )
+                name="projects/test/locations/us-central1/reasoningEngines/123"
             )
 
     class FakeClient:
         def __init__(self, **kwargs):
-            self.agent_engines = FakeAgentEngines()
+            self.runtimes = FakeRuntimes()
 
     monkeypatch.setitem(sys.modules, "agentplatform", SimpleNamespace(Client=FakeClient))
     try:
