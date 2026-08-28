@@ -2,7 +2,7 @@ import { InteractionRequiredAuthError, PublicClientApplication } from "@azure/ms
 import { MsalProvider, useMsal } from "@azure/msal-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { AdminIdentity, AdminRole } from "./types";
+import type { AdminIdentity, AdminRole } from "../../types";
 
 const entraEnabled = import.meta.env.VITE_ENTRA_AUTH_ENABLED === "true";
 const tenantId = import.meta.env.VITE_ENTRA_TENANT_ID ?? "";

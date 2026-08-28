@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { AdminApiClient } from "./api";
-import type { AdminRecord } from "./types";
+import { AdminApiClient } from "../../api";
+import type { AdminRecord } from "../../types";
 
 type WizardStep =
   | "Use Case"

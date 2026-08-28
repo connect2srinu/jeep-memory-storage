@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AdminApiClient } from "./api";
-import { ApprovalsTable, ConsolePage, ConsoleShell, OrganizationHierarchyView, ResourceTable } from "./App";
+import { ConsolePage, ConsoleShell } from "./App";
+import { ResourceTable } from "./components/ResourceTable";
+import { ApprovalsTable } from "./features/approvals/ApprovalsTable";
+import { OrganizationHierarchyView } from "./features/organizations/OrganizationWorkspace";
 import type { AdminIdentity } from "./types";
 
 const viewer: AdminIdentity = { user: "viewer@example.com", roles: ["VIEWER"], domains: [] };
