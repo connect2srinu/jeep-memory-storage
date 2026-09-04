@@ -35,6 +35,7 @@ class ControlPlaneApiSettings:
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
     memory_bank_resource_id: str | None = None
+    memory_bank_generation_model: str | None = None
     admin_auth_mode: str = "bearer"
     iap_jwt_audience: str | None = None
     entra_auth_enabled: bool = False
@@ -59,6 +60,9 @@ class ControlPlaneApiSettings:
             memory_bank_resource_id=(
                 os.getenv("AGENT_PLATFORM_MEMORY_BANK_ID")
                 or os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ID")
+            ),
+            memory_bank_generation_model=(
+                os.getenv("MEMORY_BANK_GENERATION_MODEL", "").strip() or None
             ),
             admin_auth_mode=os.getenv("ADMIN_AUTH_MODE", "bearer").strip().lower(),
             iap_jwt_audience=os.getenv("IAP_JWT_AUDIENCE"),

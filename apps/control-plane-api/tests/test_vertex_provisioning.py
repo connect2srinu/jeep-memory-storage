@@ -56,7 +56,10 @@ async def test_context_provisioner_performs_context_only_update(
     try:
         async with database.session() as session:
             result = await VertexContextProvisioner(
-                project="test", location="us-central1", resource_id="123"
+                project="test",
+                location="us-central1",
+                resource_id="123",
+                generation_model="gemini-2.5-flash",
             ).provision(session)
     finally:
         await database.dispose()
@@ -64,5 +67,34 @@ async def test_context_provisioner_performs_context_only_update(
     assert result["status"] == "PROVISIONED"
     assert result["profileInstancesCreated"] == 0
     assert calls[0]["name"].endswith("/reasoningEngines/123")
-    assert calls[0]["config"]["context_spec"]["memory_bank_config"]
+    memory_bank_config = calls[0]["config"]["context_spec"]["memory_bank_config"]
+    assert memory_bank_config["structured_memory_configs"]
+    # A bare model id is resolved to a Google publisher-model resource.
+    assert memory_bank_config["generation_config"] == {
+        "model": "projects/test/locations/us-central1/publishers/google/models/gemini-2.5-flash"
+    }
+    assert result["generationModel"].endswith("/publishers/google/models/gemini-2.5-flash")
     assert "agent" not in calls[0]
+
+
+@pytest.mark.asyncio
+async def test_generation_model_defaults_to_provider_and_accepts_full_resource(
+    tmp_path: Path,
+) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'genmodel.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    try:
+        async with database.session() as session:
+            # No generation model configured → provider default, no generation_config key.
+            default_spec = await build_vertex_context_spec(session)
+            assert "generation_config" not in default_spec["memory_bank_config"]
+
+            # A full resource path is passed through unchanged.
+            full = (
+                "projects/other/locations/europe-west1/publishers/google/models/gemini-2.5-pro"
+            )
+            passthrough = await build_vertex_context_spec(session, generation_model=full)
+            assert passthrough["memory_bank_config"]["generation_config"] == {"model": full}
+    finally:
+        await database.dispose()

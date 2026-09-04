@@ -96,6 +96,7 @@ def create_app(
             project=configured.google_cloud_project or "",
             location=configured.google_cloud_location,
             resource_id=configured.memory_bank_resource_id or "",
+            generation_model=configured.memory_bank_generation_model,
         )
         if configured.memory_backend == "vertex"
         else None
