@@ -41,12 +41,12 @@ async def main() -> None:
 
     # Session 1 — short-term state persists to Postgres; save_preference writes the governed profile.
     first = await runner.session_service.create_session(app_name=settings.app_name, user_id=user_id)
-    await _say(runner, user_id, first.id, "I always prefer a window seat when I fly.")
+    await _say(runner, user_id, first.id, "I always buy almond milk.")
 
     # Session 2 — a fresh session (empty short-term state) recalls the fact from the resolved
     # long-term preference snapshot.
     second = await runner.session_service.create_session(app_name=settings.app_name, user_id=user_id)
-    await _say(runner, user_id, second.id, "Which seat do I prefer on flights?")
+    await _say(runner, user_id, second.id, "What kind of milk do I prefer?")
 
 
 if __name__ == "__main__":
