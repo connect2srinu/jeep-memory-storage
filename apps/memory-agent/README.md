@@ -48,16 +48,22 @@ python -m memory_agent.demo
 
 Session 1 states a preference; session 2 (a fresh conversation) recalls it from Memory Bank.
 
-## Run with ADK Web
+## Run the dev UI
 
-The same split can be wired without custom code via ADK CLI service URIs:
+`adk web`'s built-in Postgres session support registers only the bare `postgresql` scheme, but
+`DatabaseSessionService` needs an async driver URL (`postgresql+asyncpg://`) whose scheme the CLI
+does not recognize — so a plain `adk web --session_service_uri postgresql+asyncpg://...` silently
+falls back to SQLite. The `serve` launcher registers the async scheme and then starts the standard
+ADK dev UI wired to Postgres (short-term) + Memory Bank (long-term):
 
 ```bash
-adk web \
-  --session_service_uri "postgresql+asyncpg://shared_memory:local-development-only@localhost:5432/shared_memory" \
-  --memory_service_uri "agentengine://${AGENT_PLATFORM_MEMORY_BANK_ID}" \
-  app
+cd apps/memory-agent
+# same env as the demo (GOOGLE_CLOUD_PROJECT, AGENT_PLATFORM_MEMORY_BANK_ID, SESSIONS_DATABASE_URL, ...)
+python -m memory_agent.serve
 ```
+
+Then open `http://localhost:8000/dev-ui/?app=memory_agent`. `HOST`/`PORT` override the bind
+(default `127.0.0.1:8000`).
 
 ## Notes
 
