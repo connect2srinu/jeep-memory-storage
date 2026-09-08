@@ -1,10 +1,11 @@
-"""Serve the ADK dev UI with short-term sessions in Postgres and long-term memory in Memory Bank.
+"""Serve the ADK dev UI with short-term sessions in Postgres (long-term is the Control Plane).
 
 ADK's `adk web` CLI registers the Postgres session factory under the bare ``postgresql`` scheme,
 but ``DatabaseSessionService`` requires an async driver URL (``postgresql+asyncpg://``) whose URL
 scheme the CLI does not recognize. This launcher registers that async scheme on ADK's (singleton)
 service registry and then builds the standard ADK dev-UI app, so short-term sessions land in
-Postgres and long-term memory in Vertex AI Memory Bank.
+Postgres. Long-term memory is the governed preference profile reached through the runtime API from
+the agent's callbacks, so no ADK memory service is wired here.
 
 Run (same env as the demo):
 
@@ -36,13 +37,10 @@ def _async_postgres_session(uri: str, **kwargs: Any) -> DatabaseSessionService:
 
 
 def build_app():
-    if not settings.agent_engine_id:
-        raise ValueError("AGENT_PLATFORM_MEMORY_BANK_ID is required for Memory Bank")
     get_service_registry().register_session_service("postgresql+asyncpg", _async_postgres_session)
     return get_fast_api_app(
         agents_dir=AGENTS_DIR,
         session_service_uri=settings.sessions_database_url,
-        memory_service_uri=f"agentengine://{settings.agent_engine_id}",
         web=True,
     )
 
