@@ -1,15 +1,17 @@
-# Memory Agent — short-term in Postgres, long-term in governed preference profiles
+# Memory Agent — short-term in Postgres, long-term in governed memory
 
-A minimal ADK agent that splits memory across two stores:
+A minimal ADK agent that splits memory across stores and tiers:
 
 | Memory | Mechanism | Where it lives |
 |---|---|---|
 | **Short-term** (session / conversation state) | ADK `DatabaseSessionService` | Cloud SQL / **PostgreSQL** |
-| **Long-term** (durable facts across sessions) | Control Plane runtime API (`/api/v1/runtime`) | **Governed structured preference profiles** (`{domain}-preferences-v1`) |
+| **Long-term · canonical** (structured preferences) | Control Plane runtime API — `PUT /preferences/{attribute}` | **Governed schemas** (`{domain}-preferences-v1`) |
+| **Long-term · dynamic** (non-canonical facts) | Control Plane runtime API — `POST /memory/dynamic` | **Approved topics only** (per-domain policy) |
 
-Long-term memory is **not** ADK Memory Bank here. Instead of free-form generated memories, durable
-facts are written to the Control Plane's defined schemas, so they inherit deterministic resolution,
-grants/authorization, and audit — the same pipeline the `reference-agent` uses.
+Long-term memory is **not** ADK Memory Bank here. Durable facts are written to the Control Plane,
+so they inherit deterministic resolution, grants/authorization, and audit — the same pipeline the
+`reference-agent` uses. Dynamic memory is deliberately **not** an open store: the platform only
+persists non-canonical facts that fall inside the domain's **approved topics**.
 
 ## How it works
 
@@ -19,11 +21,19 @@ grants/authorization, and audit — the same pipeline the `reference-agent` uses
 - `before_agent_callback` resolves the effective preference snapshot for the Session
   (`POST /api/v1/runtime/preferences/resolve`, scope `{userId, appName, domain}`) and caches it in
   session state.
-- `before_model_callback` injects that snapshot into Gemini's context, so the agent answers from the
-  user's governed profile. Its `writablePreferences` list bounds what the agent may write.
-- The `save_preference` tool writes a durable preference
-  (`PUT /api/v1/runtime/preferences/{attribute}`); the platform resolves the owning writable schema
-  and applies authorization + audit, then the snapshot is re-resolved.
+- `before_model_callback` injects that snapshot into Gemini's context. The snapshot carries the
+  current values (`preferences`), the canonical attributes the agent may write
+  (`writablePreferences`), and the approved non-canonical categories (`approvedTopics`).
+- **Reading:** the agent answers preference questions **directly from the injected snapshot**. There
+  is no read/lookup tool by design.
+- **Writing** — the agent follows one governed decision order when asked to remember something:
+  1. Maps to a `writablePreferences` entry → `save_preference` (canonical;
+     `PUT /preferences/{attribute}`).
+  2. Else fits an `approvedTopics` entry → `remember_dynamic_preference` (dynamic;
+     `POST /memory/dynamic`).
+  3. Else it is declined — the agent never invents an attribute or a topic.
+- The **platform**, not the agent, enforces the boundaries: writes to an unregistered attribute or
+  an unapproved topic are rejected, and sensitive content (phone/SSN/card/email/secret) is blocked.
 
 ## Configuration
 
@@ -39,8 +49,11 @@ grants/authorization, and audit — the same pipeline the `reference-agent` uses
 | `ADK_APP_NAME` | ADK app name | `dual_memory_agent` |
 
 The control plane must have a **registered agent** (`REFERENCE_AGENT_ID`) with a **writable grant**
-for the `PREFERENCE_DOMAIN`, or writes are rejected. In dev (`AUTH_ENABLED=false`) the agent id is
-sent as `X-Agent-ID`; in prod set `CONTROL_PLANE_API_TOKEN` or `CONTROL_PLANE_API_AUDIENCE`.
+for the `PREFERENCE_DOMAIN`, or canonical writes are rejected. For **dynamic** memory the domain must
+also have an **enabled dynamic-memory policy with approved topics** (configured in the admin console's
+Create Memory Setup, stored in `dynamic_memory_policies.memory_topics`); otherwise every dynamic write
+is rejected. In dev (`AUTH_ENABLED=false`) the agent id is sent as `X-Agent-ID`; in prod set
+`CONTROL_PLANE_API_TOKEN` or `CONTROL_PLANE_API_AUDIENCE`.
 
 ## Run the demo
 
@@ -70,12 +83,33 @@ callbacks:
 
 ```bash
 cd apps/memory-agent
-# same env as the demo (CONTROL_PLANE_API_URL, REFERENCE_AGENT_ID, PREFERENCE_DOMAIN, SESSIONS_DATABASE_URL, ...)
+# same env as the demo:
+CONTROL_PLANE_API_URL=http://localhost:8080 \
+REFERENCE_AGENT_ID=grocery-agent \
+PREFERENCE_DOMAIN=grocery \
+SESSIONS_DATABASE_URL=postgresql+asyncpg://shared_memory:local-development-only@localhost:15432/shared_memory \
 python -m memory_agent.serve
 ```
 
 Then open `http://localhost:8000/dev-ui/?app=memory_agent`. `HOST`/`PORT` override the bind
 (default `127.0.0.1:8000`).
+
+### Test the two memory tiers from the dev UI
+
+With the `grocery` domain's approved topics set to e.g. `shopping, fulfillment`, try:
+
+| Prompt | Expected branch | Tool called |
+|---|---|---|
+| "I always shop at Whole Foods." | canonical | `save_preference("grocery.preferred_store", …)` |
+| "Remember I do a big shop early Sunday mornings." | approved dynamic | `remember_dynamic_preference("shopping", …)` |
+| "Remember to leave deliveries at the back door." | approved dynamic | `remember_dynamic_preference("fulfillment", …)` |
+| "Remember I'm training for a marathon." | declined | none — not an approved memory type |
+| "Remember my phone number is 555-123-4567." | blocked | tool returns 400 (sensitive) |
+| "What are my preferences?" | read | none — answered from the injected snapshot |
+
+Open the dev UI's **Events / trace** panel to confirm which tool fired (and to see the `403`/`400`
+rejections for the unapproved/sensitive cases). Start a **new session** and ask about a saved topic
+to confirm cross-session recall through `resolve`.
 
 ## Notes
 
@@ -84,3 +118,5 @@ Then open `http://localhost:8000/dev-ui/?app=memory_agent`. `HOST`/`PORT` overri
   `apps/memory-agent`.
 - `DatabaseSessionService` requires the `google-adk[db]` extra (SQLAlchemy); the `asyncpg` driver
   is included for Postgres.
+- The agent has **no read tool**: preferences and approved topics arrive in context via the snapshot
+  injection, so the model answers from context rather than fetching.

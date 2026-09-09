@@ -12,11 +12,16 @@ Tools:
 
 - `get_user_preferences`: return the cached snapshot;
 - `refresh_user_preferences`: refresh it explicitly;
-- `update_user_preference(attribute, value)`: save an explicit value;
+- `update_user_preference(attribute, value)`: save an explicit canonical value;
+- `remember_dynamic_preference(topic, value)`: save a non-canonical fact within an approved topic;
 - `submit_preference_event(text, attribute, value)`: ingest natural language and a candidate.
 
-Neither write tool exposes `schemaId`. The agent selects an attribute from `writablePreferences`;
-the Control Plane API resolves the correct same-domain writable schema.
+Neither canonical write tool exposes `schemaId`. The agent selects an attribute from
+`writablePreferences`; the Control Plane API resolves the correct same-domain writable schema. For
+non-canonical facts the agent selects a topic from `approvedTopics` and calls
+`remember_dynamic_preference`; the platform rejects any topic outside that list. If a request maps to
+neither list, the agent declines rather than inventing an attribute or topic. See
+[Dynamic Memory Topic Gating](../../docs/dynamic-memory-topic-gating.md).
 
 ## Run for a registered domain
 

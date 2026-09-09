@@ -9,7 +9,9 @@ longer represent the running system.
 | New platform user | [Guided Memory Setup](guided-memory-setup.md) |
 | Domain owner | [Domain Onboarding](domain-onboarding.md) |
 | Agent developer | [Reference Agent](../apps/reference-agent/README.md) |
+| Agent developer (split memory) | [Memory Agent](../apps/memory-agent/README.md) |
 | Platform developer | [Agent Memory Setup](agent-memory-setup.md) |
+| Memory governance | [Dynamic Memory Topic Gating](dynamic-memory-topic-gating.md) |
 | Platform administrator | [Admin API](admin-api.md) |
 | Identity administrator | [Microsoft Entra Authentication](entra-authentication.md) |
 | DevOps/SRE | [Deployment and Operations](deployment-operations.md) |
@@ -23,7 +25,7 @@ Architecture and analysis:
 - [Platform Reference Architecture](GEAP_Platform_Reference_Architecture.md) — current-vs-target analysis
 - [Control Panel UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and console redesign
 - [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phased plan
-- [Memory Flows](GEAP_Memory_Flows.drawio) — code-verified activation, preference write, session read, and resource-relationship diagrams
+- [Memory Flows](GEAP_Memory_Flows.drawio) — code-verified activation, preference write, session read, resource-relationship, and dynamic-memory topic-gate diagrams
 - [Target Architecture](geap-target-architecture.drawio) — Entra → Console → API → GEAP services
 - [Agent Memory Flows](agent-memory-flows.drawio) — runtime and onboarding view
 - [Google Cloud Services Architecture](google-cloud-services-architecture.drawio) — deployable Google Cloud services
