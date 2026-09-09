@@ -41,6 +41,7 @@ class EffectivePreferenceSnapshotResponse(ApiModel):
     policy_version: str = Field(alias="policyVersion")
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
     writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
+    approved_topics: tuple[str, ...] = Field(default=(), alias="approvedTopics")
     generated_at: datetime = Field(alias="generatedAt")
 
 
@@ -65,6 +66,13 @@ class ExplicitPreferenceUpdate(ApiModel):
     scope: RuntimeScope
     schema_id: str | None = Field(default=None, alias="schemaId", min_length=1)
     value: Any
+
+
+class DynamicMemoryWrite(ApiModel):
+    scope: RuntimeScope
+    topic: str = Field(min_length=1)
+    value: Any
+    confidence: float = Field(default=1.0, ge=0, le=1)
 
 
 class RuntimeMutationResponse(ApiModel):

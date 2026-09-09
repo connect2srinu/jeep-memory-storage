@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import UTC, datetime
+import re
+from datetime import UTC, datetime, timedelta
 
 from control_plane_api.api.runtime.models import (
+    DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     MemoryEventRequest,
@@ -34,6 +36,7 @@ from control_plane_api.domain.resolution import (
 )
 from control_plane_api.domain.runtime import (
     RuntimeAgent,
+    RuntimeDynamicPolicy,
     RuntimeResolutionConfig,
     RuntimeSchemaGrant,
 )
@@ -46,6 +49,25 @@ from control_plane_api.services.preference_resolver import PreferenceResolver
 from control_plane_api.services.scope_registry import ScopeRegistry
 
 logger = logging.getLogger("uvicorn.error.control_plane_api.preference_resolution")
+
+# Defense-in-depth: topics gate *categories*, not *content*. Even inside an approved topic, block
+# obvious secrets/identifiers from being persisted to long-term memory.
+_SENSITIVE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("phone_number", re.compile(r"(?:\+?\d[\s.-]?){10,}")),
+    ("ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    ("credit_card", re.compile(r"\b(?:\d[ -]?){13,16}\b")),
+    ("email", re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")),
+    ("secret", re.compile(r"(?i)\b(password|passwd|api[_-]?key|secret|token)\b")),
+)
+
+
+def _sensitive_match(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    for label, pattern in _SENSITIVE_PATTERNS:
+        if pattern.search(value):
+            return label
+    return None
 
 
 def _log_flow_step(step: str, **fields: object) -> None:
@@ -103,7 +125,12 @@ class RuntimeMemoryService:
             writable_schema_ids=[grant.schema_id for grant in writable],
         )
         config = await self.repository.get_resolution_config(agent.id, agent.domain_id)
-        catalog, policies = self._resolution_components(agent, grants, config)
+        dynamic_policies: dict[str, RuntimeDynamicPolicy] = {}
+        for domain_id in dict.fromkeys(grant.domain_id for grant in readable):
+            dynamic = await self.repository.get_dynamic_memory_policy(domain_id)
+            if dynamic is not None and dynamic.enabled and dynamic.approved_topics:
+                dynamic_policies[domain_id] = dynamic
+        catalog, policies = self._resolution_components(agent, grants, config, dynamic_policies)
         candidates: list[Preference] = []
         for grant in readable:
             await self._register_schema(grant)
@@ -142,6 +169,26 @@ class RuntimeMemoryService:
                     )
                     for field, value in profile.values.items()
                     if field in grant.field_to_attribute
+                )
+        seen_dynamic_domains: set[str] = set()
+        for grant in readable:
+            policy = dynamic_policies.get(grant.domain_id)
+            if policy is None or grant.domain_id in seen_dynamic_domains:
+                continue
+            seen_dynamic_domains.add(grant.domain_id)
+            owner_scope = self._owner_scope(request.scope, grant)
+            for memory in await self.store.get_dynamic_memories(owner_scope, policy.approved_topics):
+                candidates.append(
+                    Preference(
+                        key=f"{grant.domain_id}.topic.{memory.topic}",
+                        value=memory.value,
+                        source=PreferenceSource.DYNAMIC_MEMORY,
+                        owner_domain=grant.domain_id,
+                        confidence=memory.confidence,
+                        updated_at=memory.updated_at,
+                        expires_at=memory.expires_at,
+                        provenance={"topic": memory.topic, "dynamic_version": memory.version},
+                    )
                 )
         _log_flow_step(
             "configured_resolution_policy_loaded",
@@ -187,6 +234,8 @@ class RuntimeMemoryService:
                 for attribute in grant.field_to_attribute.values()
             )
         )
+        agent_dynamic_policy = dynamic_policies.get(agent.domain_id)
+        approved_topics = agent_dynamic_policy.approved_topics if agent_dynamic_policy else ()
         generated_at = datetime.now(UTC)
         version_payload = json.dumps(
             {
@@ -211,6 +260,7 @@ class RuntimeMemoryService:
             policy_version=policies.version,
             schema_versions=schema_versions,
             writable_preferences=writable_preferences,
+            approved_topics=approved_topics,
             generated_at=generated_at,
         )
         _log_flow_step(
@@ -288,6 +338,53 @@ class RuntimeMemoryService:
         scope = self._memory_scope(request.scope, agent)
         result = await self.store.ingest_event(scope, MemoryEvent(request.text, tuple(writes)))
         return RuntimeMutationResponse(status="accepted", reference=result.natural_memory.id)
+
+    async def write_dynamic_memory(
+        self, principal: AuthenticatedPrincipal, request: DynamicMemoryWrite
+    ) -> RuntimeMutationResponse:
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        policy = await self.repository.get_dynamic_memory_policy(agent.domain_id)
+        if policy is None or not policy.enabled:
+            raise PermissionError(
+                f"dynamic memory is not enabled for domain {agent.domain_id!r}"
+            )
+        if request.topic not in policy.approved_topics:
+            raise PermissionError(
+                f"topic {request.topic!r} is not an approved dynamic-memory topic for "
+                f"domain {agent.domain_id!r}"
+            )
+        sensitive = _sensitive_match(request.value)
+        if sensitive is not None:
+            raise ValueError(
+                f"value contains sensitive data ({sensitive}) and cannot be stored in memory"
+            )
+        expires_at = (
+            datetime.now(UTC) + timedelta(days=policy.retention_days)
+            if policy.retention_days
+            else None
+        )
+        scope = self._memory_scope(request.scope, agent)
+        memory = await self.store.write_dynamic_memory(
+            scope,
+            topic=request.topic,
+            value=request.value,
+            confidence=request.confidence,
+            expires_at=expires_at,
+        )
+        _log_flow_step(
+            "dynamic_memory_persisted",
+            agent_id=agent.id,
+            domain=agent.domain_id,
+            topic=memory.topic,
+            version=memory.version,
+        )
+        return RuntimeMutationResponse(
+            status="accepted",
+            reference=f"{agent.domain_id}.topic.{memory.topic}",
+            profile_version=memory.version,
+        )
 
     async def update_preference(
         self,
@@ -460,6 +557,7 @@ class RuntimeMemoryService:
         agent: RuntimeAgent,
         grants: tuple[RuntimeSchemaGrant, ...],
         config: RuntimeResolutionConfig | None,
+        dynamic_policies: dict[str, RuntimeDynamicPolicy] | None = None,
     ) -> tuple[PreferenceCatalog, ResolutionPolicyRegistry]:
         readable_domains = tuple(
             dict.fromkeys(
@@ -542,6 +640,28 @@ class RuntimeMemoryService:
                     else default_policy.minimum_confidence
                 ),
             )
+        # Register approved dynamic-memory topics as first-class resolution keys so dynamic
+        # candidates group correctly and are gated by the policy's confidence threshold. Their
+        # DYNAMIC_MEMORY source already ranks below canonical MEMORY_PROFILE in source_priority.
+        for domain_id, dynamic_policy in (dynamic_policies or {}).items():
+            for topic in dynamic_policy.approved_topics:
+                logical_key = f"topic:{topic}"
+                definitions.append(
+                    PreferenceDefinition(
+                        key=f"{domain_id}.topic.{topic}",
+                        owner_domain=domain_id,
+                        resolution_key=logical_key,
+                        allowed_readers=(agent.domain_id,),
+                        allowed_writers=(domain_id,),
+                    )
+                )
+                policies[logical_key] = ResolutionPolicy(
+                    id=f"{default_policy.id}:{logical_key}",
+                    source_priority=default_policy.source_priority,
+                    domain_priority=(),
+                    strategies=default_policy.strategies,
+                    minimum_confidence=dynamic_policy.confidence_threshold,
+                )
         return PreferenceCatalog(tuple(definitions)), ResolutionPolicyRegistry(
             domain_policies=(
                 DomainAccessPolicy(agent.domain_id, readable_domains, writable_domains),

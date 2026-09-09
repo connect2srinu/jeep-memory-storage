@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from control_plane_api.domain.memory import (
+    DynamicMemory,
     GenerationResult,
     MemoryEvent,
     MemoryProfile,
@@ -22,6 +23,7 @@ class MockMemoryStore:
         self._schemas: dict[str, MemoryProfileSchema] = {}
         self._profiles: dict[tuple[tuple[str, str], str], MemoryProfile] = {}
         self._natural_memories: dict[tuple[str, str], list[NaturalMemory]] = {}
+        self._dynamic: dict[tuple[str, str], dict[str, DynamicMemory]] = {}
         self._lock = asyncio.Lock()
 
     async def register_schema(self, schema: MemoryProfileSchema) -> None:
@@ -92,6 +94,38 @@ class MockMemoryStore:
                 attribute=attribute,
                 value=value,
             )
+
+    async def write_dynamic_memory(
+        self,
+        scope: MemoryScope,
+        *,
+        topic: str,
+        value: object,
+        confidence: float,
+        expires_at: datetime | None = None,
+    ) -> DynamicMemory:
+        async with self._lock:
+            current = self._dynamic.setdefault(scope.identity, {}).get(topic)
+            memory = DynamicMemory(
+                scope=scope,
+                topic=topic,
+                value=value,
+                confidence=confidence,
+                version=(current.version if current else 0) + 1,
+                updated_at=datetime.now(UTC),
+                expires_at=expires_at,
+            )
+            self._dynamic[scope.identity][topic] = memory
+            return memory
+
+    async def get_dynamic_memories(
+        self, scope: MemoryScope, topics: tuple[str, ...]
+    ) -> tuple[DynamicMemory, ...]:
+        approved = set(topics)
+        stored = self._dynamic.get(scope.identity, {})
+        return tuple(
+            memory for topic, memory in sorted(stored.items()) if topic in approved
+        )
 
     def _write_unlocked(
         self,

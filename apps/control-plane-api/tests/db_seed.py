@@ -53,6 +53,9 @@ AGENTS = {
     "store-agent": ("store", True, True),
 }
 
+# Approved dynamic-memory topics per domain (empty for domains that only use canonical memory).
+DYNAMIC_TOPICS = {"grocery": ["shopping", "fulfillment"]}
+
 GRANTS = {
     "customer-agent": {"customer": "READ_WRITE"},
     "grocery-agent": {
@@ -155,7 +158,7 @@ async def seed_control_plane(database: Database) -> None:
                     domain_id=domain,
                     enabled=domain not in {"customer", "inventory", "pharmacy"},
                     confidence_threshold=0.7,
-                    memory_topics=[],
+                    memory_topics=list(DYNAMIC_TOPICS.get(domain, [])),
                     retention_policy={"retention_days": 365},
                     confirmation_required=True,
                     allowed_dynamic_categories=[],

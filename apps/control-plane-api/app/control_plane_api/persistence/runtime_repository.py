@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.runtime import (
     RuntimeAgent,
+    RuntimeDynamicPolicy,
     RuntimeResolutionConfig,
     RuntimeSchemaGrant,
 )
 from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
+    DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
@@ -35,6 +37,10 @@ class RuntimeControlPlaneRepository(Protocol):
     async def get_resolution_config(
         self, agent_id: str, domain_id: str
     ) -> RuntimeResolutionConfig | None: ...
+
+    async def get_dynamic_memory_policy(
+        self, domain_id: str
+    ) -> RuntimeDynamicPolicy | None: ...
 
 
 class SqlAlchemyRuntimeControlPlaneRepository:
@@ -157,4 +163,28 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                 }
                 for item in overrides
             },
+        )
+
+    async def get_dynamic_memory_policy(self, domain_id: str) -> RuntimeDynamicPolicy | None:
+        # Schema-scoped policies (if any) take precedence over the domain-level policy.
+        record = await self.session.scalar(
+            select(DynamicMemoryPolicyRecord)
+            .where(
+                DynamicMemoryPolicyRecord.status == "ACTIVE",
+                DynamicMemoryPolicyRecord.domain_id == domain_id,
+            )
+            .order_by(DynamicMemoryPolicyRecord.schema_id.desc().nullslast())
+            .limit(1)
+        )
+        if record is None:
+            return None
+        retention = record.retention_policy or {}
+        return RuntimeDynamicPolicy(
+            policy_id=record.id,
+            domain_id=domain_id,
+            enabled=record.enabled,
+            approved_topics=tuple(record.memory_topics or ()),
+            confidence_threshold=record.confidence_threshold,
+            confirmation_required=record.confirmation_required,
+            retention_days=retention.get("retention_days"),
         )

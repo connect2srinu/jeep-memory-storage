@@ -62,3 +62,16 @@ class NaturalMemory:
 class GenerationResult:
     natural_memory: NaturalMemory
     updated_profiles: tuple[MemoryProfile, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DynamicMemory:
+    """A non-canonical memory retained only within an approved topic boundary."""
+
+    scope: MemoryScope
+    topic: str
+    value: Any
+    confidence: float
+    version: int = 1
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime | None = None

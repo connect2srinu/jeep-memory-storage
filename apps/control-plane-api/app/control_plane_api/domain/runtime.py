@@ -33,3 +33,16 @@ class RuntimeResolutionConfig:
     version: str
     defaults: dict[str, Any]
     attribute_rules: dict[str, dict[str, Any]]
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeDynamicPolicy:
+    """Governs non-canonical (dynamic) memory for a domain: which topics may be persisted."""
+
+    policy_id: str
+    domain_id: str
+    enabled: bool
+    approved_topics: tuple[str, ...]
+    confidence_threshold: float
+    confirmation_required: bool
+    retention_days: int | None = None

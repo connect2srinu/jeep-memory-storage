@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from control_plane_api.domain.memory import (
+    DynamicMemory,
     GenerationResult,
     MemoryEvent,
     MemoryProfile,
@@ -73,6 +74,7 @@ class VertexMemoryBankStore:
 
     _EXPLICIT_SCHEMA = "shared-memory-explicit-preference/v1"
     _EVENT_SCHEMA = "shared-memory-event/v1"
+    _DYNAMIC_SCHEMA = "shared-memory-dynamic/v1"
 
     def __init__(self, client: MemoryBankClient) -> None:
         self._client = client
@@ -178,14 +180,12 @@ class VertexMemoryBankStore:
             sort_keys=True,
             separators=(",", ":"),
         )
-        created, _ = await asyncio.gather(
-            asyncio.to_thread(self._client.create, fact=event_payload, scope=self._scope(scope)),
-            asyncio.to_thread(
-                self._client.ingest_event,
-                text=event.text,
-                scope=self._scope(scope),
-                stream_id=f"{scope.organization_id}-{scope.user_id}",
-            ),
+        # Managed generation is intentionally NOT triggered: the provider's GenerateMemories would
+        # extract arbitrary, ungoverned memories. Only explicit typed writes (canonical candidates
+        # above, and topic-gated dynamic memories via write_dynamic_memory) are persisted, so the
+        # control plane remains the sole authority over what is retained.
+        created = await asyncio.to_thread(
+            self._client.create, fact=event_payload, scope=self._scope(scope)
         )
         natural = NaturalMemory(
             id=self._operation_reference(created),
@@ -236,6 +236,90 @@ class VertexMemoryBankStore:
             version=version,
             updated_at=now,
         )
+
+    async def write_dynamic_memory(
+        self,
+        scope: MemoryScope,
+        *,
+        topic: str,
+        value: object,
+        confidence: float,
+        expires_at: datetime | None = None,
+    ) -> DynamicMemory:
+        async with self._lock:
+            memories = await asyncio.to_thread(self._client.retrieve, scope=self._scope(scope))
+            current = self._dynamic_overlays(scope, memories, (topic,)).get(topic)
+            version = (current.version if current else 0) + 1
+            now = datetime.now(UTC)
+            fact = json.dumps(
+                {
+                    "schema": self._DYNAMIC_SCHEMA,
+                    "topic": topic,
+                    "value": value,
+                    "confidence": confidence,
+                    "version": version,
+                    "updated_at": now.isoformat(),
+                    "expires_at": expires_at.isoformat() if expires_at else None,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            await asyncio.to_thread(self._client.create, fact=fact, scope=self._scope(scope))
+        return DynamicMemory(
+            scope=scope,
+            topic=topic,
+            value=value,
+            confidence=confidence,
+            version=version,
+            updated_at=now,
+            expires_at=expires_at,
+        )
+
+    async def get_dynamic_memories(
+        self, scope: MemoryScope, topics: tuple[str, ...]
+    ) -> tuple[DynamicMemory, ...]:
+        memories = await asyncio.to_thread(self._client.retrieve, scope=self._scope(scope))
+        overlays = self._dynamic_overlays(scope, memories, tuple(topics))
+        return tuple(overlays[topic] for topic in sorted(overlays))
+
+    def _dynamic_overlays(
+        self, scope: MemoryScope, items: list[Any], topics: tuple[str, ...]
+    ) -> dict[str, DynamicMemory]:
+        approved = set(topics)
+        result: dict[str, DynamicMemory] = {}
+        versions: dict[str, int] = {}
+        for item in items:
+            memory = getattr(item, "memory", item)
+            payload = self._json_object(getattr(memory, "fact", None))
+            if not payload or payload.get("schema") != self._DYNAMIC_SCHEMA:
+                continue
+            topic = str(payload.get("topic", ""))
+            if topic not in approved:
+                continue
+            # Keep the highest version *per topic* — each memory carries one topic, so retrieval
+            # order (newest-first from the provider) must not drop lower-versioned other topics.
+            version = int(payload.get("version", 1))
+            if version < versions.get(topic, 0):
+                continue
+            expires_raw = payload.get("expires_at")
+            expires_at: datetime | None = None
+            if isinstance(expires_raw, str):
+                try:
+                    parsed = datetime.fromisoformat(expires_raw)
+                    expires_at = parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+                except ValueError:
+                    expires_at = None
+            versions[topic] = version
+            result[topic] = DynamicMemory(
+                scope=scope,
+                topic=topic,
+                value=payload.get("value"),
+                confidence=float(payload.get("confidence", 1.0)),
+                version=version,
+                updated_at=self._timestamp(memory, payload.get("updated_at")),
+                expires_at=expires_at,
+            )
+        return result
 
     def _adapt_profiles(
         self, scope: MemoryScope, response: Any, schema_ids: tuple[str, ...]

@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Callable
 from fastapi import APIRouter, Depends, Request
 
 from control_plane_api.api.runtime.models import (
+    DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     MemoryEventRequest,
@@ -51,6 +52,14 @@ def create_runtime_router(
         service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
     ) -> RuntimeMutationResponse:
         return await service.ingest_event(identity, payload)
+
+    @router.post("/memory/dynamic", response_model=RuntimeMutationResponse)
+    async def write_dynamic_memory(
+        payload: DynamicMemoryWrite,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.write_dynamic_memory(identity, payload)
 
     @router.put("/preferences/{attribute}", response_model=RuntimeMutationResponse)
     async def update_preference(

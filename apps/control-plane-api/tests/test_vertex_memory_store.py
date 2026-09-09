@@ -115,7 +115,9 @@ async def test_explicit_write_overlays_provider_profile_and_increments_version(
 
 
 @pytest.mark.asyncio
-async def test_event_preserves_candidate_write_and_triggers_lazy_generation(store, scope) -> None:
+async def test_event_preserves_candidate_write_but_never_triggers_managed_generation(
+    store, scope
+) -> None:
     backend, client = store
     result = await backend.ingest_event(
         scope,
@@ -128,7 +130,9 @@ async def test_event_preserves_candidate_write_and_triggers_lazy_generation(stor
     )
 
     assert result.updated_profiles[0].values == {"preferred_snack": "mango chips"}
-    assert client.ingested == ["retail-1001:I prefer mango chips."]
+    # Managed generation is disabled: the provider's ingest_events must never be called, so it
+    # cannot extract arbitrary, ungoverned memories.
+    assert client.ingested == []
     natural = await backend.get_natural_memories(scope)
     assert natural[0].text == "I prefer mango chips."
 
@@ -162,6 +166,28 @@ async def test_distinct_attributes_survive_newest_first_retrieval(scope) -> None
 
     assert profiles[0].values == {"preferred_brand": "Kirkland", "preferred_milk": "oat milk"}
     assert profiles[0].version == 2
+
+
+@pytest.mark.asyncio
+async def test_dynamic_memories_keep_latest_per_topic_and_filter_unapproved(scope) -> None:
+    client = FakeMemoryBankClient()
+    backend = VertexMemoryBankStore(client)
+    await backend.write_dynamic_memory(scope, topic="shopping", value="weekly bulk run", confidence=0.9)
+    await backend.write_dynamic_memory(scope, topic="shopping", value="fortnightly bulk run", confidence=0.95)
+    await backend.write_dynamic_memory(scope, topic="fulfillment", value="leave at door", confidence=0.8)
+    # A memory the provider might return newest-first must not drop other topics.
+    key = client.key(backend._scope(scope))
+    client.memories[key] = list(reversed(client.memories[key]))
+
+    # Only approved topics are returned; the latest version per topic wins.
+    memories = await backend.get_dynamic_memories(scope, ("shopping", "fulfillment"))
+    by_topic = {m.topic: m.value for m in memories}
+    assert by_topic == {"shopping": "fortnightly bulk run", "fulfillment": "leave at door"}
+
+    # An unapproved topic is filtered out even though it is stored.
+    await backend.write_dynamic_memory(scope, topic="health", value="allergic to shellfish", confidence=0.99)
+    filtered = await backend.get_dynamic_memories(scope, ("shopping", "fulfillment"))
+    assert "health" not in {m.topic for m in filtered}
 
 
 @pytest.mark.asyncio

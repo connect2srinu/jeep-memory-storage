@@ -302,3 +302,73 @@ async def test_raw_profiles_require_provenance_capability(runtime_client) -> Non
     )
     assert denied.status_code == 403
     assert "lacks capability inspect_provenance" in denied.json()["message"]
+
+
+@pytest.mark.asyncio
+async def test_dynamic_memory_is_topic_gated_and_surfaces_in_resolution(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+
+    # Approved topic, sufficient confidence -> accepted.
+    accepted = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={
+            "scope": scope(),
+            "topic": "shopping",
+            "value": "shops early Sunday mornings",
+            "confidence": 0.9,
+        },
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["status"] == "accepted"
+
+    # Approved topic, low confidence -> stored but filtered from resolution by the 0.7 gate.
+    low = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={
+            "scope": scope(),
+            "topic": "fulfillment",
+            "value": "prefers locker pickup",
+            "confidence": 0.5,
+        },
+    )
+    assert low.status_code == 200, low.text
+
+    # Unapproved topic -> rejected (the platform, not the agent, controls what may be retained).
+    denied = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope(), "topic": "health", "value": "vegetarian", "confidence": 0.95},
+    )
+    assert denied.status_code == 403, denied.text
+    assert "not an approved dynamic-memory topic" in denied.json()["message"]
+
+    # Sensitive content, even within an approved topic -> rejected.
+    sensitive = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={
+            "scope": scope(),
+            "topic": "shopping",
+            "value": "call me at 555-123-4567",
+            "confidence": 0.99,
+        },
+    )
+    assert sensitive.status_code == 400, sensitive.text
+    assert "sensitive data" in sensitive.json()["message"]
+
+    resolved = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope(), "sessionId": "s1", "agentId": "grocery-agent"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    body = resolved.json()
+    assert set(body["approvedTopics"]) == {"shopping", "fulfillment"}
+    prefs = body["preferences"]
+    # High-confidence approved topic surfaces as DYNAMIC_MEMORY (below canonical in priority).
+    assert prefs["topic:shopping"]["value"] == "shops early Sunday mornings"
+    assert prefs["topic:shopping"]["source"] == "DYNAMIC_MEMORY"
+    # The low-confidence entry is dropped by the confidence gate; the rejected ones never persisted.
+    assert "topic:fulfillment" not in prefs

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from control_plane_api.domain.memory import (
+    DynamicMemory,
     GenerationResult,
     MemoryEvent,
     MemoryProfile,
@@ -33,3 +35,17 @@ class MemoryStore(Protocol):
         attribute: str,
         value: object,
     ) -> MemoryProfile: ...
+
+    async def write_dynamic_memory(
+        self,
+        scope: MemoryScope,
+        *,
+        topic: str,
+        value: object,
+        confidence: float,
+        expires_at: datetime | None = None,
+    ) -> DynamicMemory: ...
+
+    async def get_dynamic_memories(
+        self, scope: MemoryScope, topics: tuple[str, ...]
+    ) -> tuple[DynamicMemory, ...]: ...
