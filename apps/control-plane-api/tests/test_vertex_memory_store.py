@@ -134,6 +134,37 @@ async def test_event_preserves_candidate_write_and_triggers_lazy_generation(stor
 
 
 @pytest.mark.asyncio
+async def test_distinct_attributes_survive_newest_first_retrieval(scope) -> None:
+    # Real Memory Bank returns memories newest-first. Each explicit write is its own
+    # single-attribute memory with a per-schema monotonic version, so overlay reconstruction
+    # must keep the highest version *per attribute* — otherwise a newer write to one attribute
+    # drops every older attribute of the same schema.
+    client = FakeMemoryBankClient()
+    backend = VertexMemoryBankStore(client)
+    await backend.register_schema(
+        MemoryProfileSchema(
+            id="grocery-preferences-v1",
+            domain="grocery",
+            version="1",
+            fields=frozenset({"preferred_brand", "preferred_milk"}),
+        )
+    )
+    await backend.write_preference(
+        scope, schema_id="grocery-preferences-v1", attribute="preferred_brand", value="Kirkland"
+    )
+    await backend.write_preference(
+        scope, schema_id="grocery-preferences-v1", attribute="preferred_milk", value="oat milk"
+    )
+    key = client.key(backend._scope(scope))
+    client.memories[key] = list(reversed(client.memories[key]))
+
+    profiles = await backend.get_profiles(scope, ("grocery-preferences-v1",))
+
+    assert profiles[0].values == {"preferred_brand": "Kirkland", "preferred_milk": "oat milk"}
+    assert profiles[0].version == 2
+
+
+@pytest.mark.asyncio
 async def test_cross_organization_profiles_are_isolated(store, scope) -> None:
     backend, _ = store
     await backend.write_preference(

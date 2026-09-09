@@ -264,6 +264,7 @@ class VertexMemoryBankStore:
         self, scope: MemoryScope, items: list[Any], schema_ids: tuple[str, ...]
     ) -> tuple[MemoryProfile, ...]:
         by_schema: dict[str, dict[str, Any]] = {}
+        attribute_versions: dict[str, dict[str, int]] = {}
         versions: dict[str, int] = {}
         timestamps: dict[str, datetime] = {}
         for item in items:
@@ -281,11 +282,17 @@ class VertexMemoryBankStore:
             if attribute not in schema.fields:
                 continue
             version = int(payload.get("version", 1))
-            if version < versions.get(schema_id, 0):
+            # Versions are per-schema and monotonic, but each memory carries a single
+            # attribute, so keep the highest version *per attribute* — comparing against a
+            # schema-wide max would drop older attributes whenever a newer one was written.
+            seen = attribute_versions.setdefault(schema_id, {})
+            if version < seen.get(attribute, 0):
                 continue
+            seen[attribute] = version
             by_schema.setdefault(schema_id, {})[attribute] = payload.get("value")
-            versions[schema_id] = max(version, versions.get(schema_id, 0))
-            timestamps[schema_id] = self._timestamp(memory, payload.get("updated_at"))
+            if version >= versions.get(schema_id, 0):
+                versions[schema_id] = version
+                timestamps[schema_id] = self._timestamp(memory, payload.get("updated_at"))
         return tuple(
             MemoryProfile(
                 schema_id=schema_id,
