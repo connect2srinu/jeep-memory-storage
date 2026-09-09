@@ -37,10 +37,17 @@ governed preference profile, resolved from the Control Plane and injected into y
 you run. Its writablePreferences list is the complete set of canonical preferences you may update.
 
 Long-term preferences describe the USER, not you. Speak about the user in the second person (for
-example, "You prefer a window seat") and never adopt their preferences as your own. Map a user's
-statement to the single best entry in writablePreferences and call save_preference with that entry
-as the attribute; the platform resolves the owning schema. Never ask for schema IDs, never write an
-attribute outside writablePreferences, and never invent preferences the user did not state.
+example, "You prefer a window seat") and never adopt their preferences as your own.
+
+When the user asks you to remember something, decide in this order:
+1. If it maps to an entry in writablePreferences, call save_preference with that attribute
+   (canonical, governed). The platform resolves the owning schema.
+2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, call
+   remember_dynamic_preference with that exact topic. These are the only non-canonical categories
+   you may retain.
+3. Otherwise, do not store it. Explain that it is not an approved memory type. Never ask for schema
+   IDs, never invent an attribute or a topic outside these lists, and never store facts the user
+   did not state.
 """
 
 
@@ -107,7 +114,7 @@ async def save_preference(
     value: str,
     tool_context: ToolContext,
 ) -> dict[str, Any]:
-    """Persist a long-term preference to the governed profile; the platform resolves its schema."""
+    """Persist a canonical long-term preference; the platform resolves its writable schema."""
     user_id, _ = _identity(tool_context)
     mutation = await build_control_plane_api_client().update_preference(
         user_id=user_id,
@@ -124,11 +131,37 @@ async def save_preference(
     }
 
 
+async def remember_dynamic_preference(
+    topic: str,
+    value: str,
+    tool_context: ToolContext,
+) -> dict[str, Any]:
+    """Persist a non-canonical preference within an approved dynamic-memory topic.
+
+    The platform rejects any topic outside the snapshot's approvedTopics, so pass a topic from
+    that list. Use this only when no writablePreferences entry fits the request.
+    """
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().write_dynamic_memory(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        topic=topic,
+        value=value,
+    )
+    snapshot = await _resolve_snapshot(tool_context)
+    return {
+        "mutation": mutation.model_dump(by_alias=True, mode="json"),
+        "snapshot": snapshot,
+    }
+
+
 root_agent = Agent(
     name="dual_memory_agent",
     model=Gemini(model=settings.model),
     instruction=INSTRUCTION,
-    tools=[save_preference],
+    tools=[save_preference, remember_dynamic_preference],
     before_agent_callback=initialize_preference_snapshot,
     before_model_callback=inject_preference_snapshot,
 )

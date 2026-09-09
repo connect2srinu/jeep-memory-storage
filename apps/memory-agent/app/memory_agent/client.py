@@ -46,6 +46,7 @@ class EffectivePreferenceSnapshot(ApiModel):
     policy_version: str = Field(alias="policyVersion")
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
     writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
+    approved_topics: tuple[str, ...] = Field(default=(), alias="approvedTopics")
     generated_at: str = Field(alias="generatedAt")
 
 
@@ -167,6 +168,30 @@ class ControlPlaneApiClient:
             },
         )
         return EffectivePreferenceSnapshot.model_validate(payload)
+
+    async def write_dynamic_memory(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        topic: str,
+        value: Any,
+        confidence: float = 1.0,
+    ) -> RuntimeMutation:
+        payload = await self._request(
+            "POST",
+            "/api/v1/runtime/memory/dynamic",
+            agent_id=agent_id,
+            payload={
+                "scope": self._scope(user_id, app_name, consumer_domain),
+                "topic": topic,
+                "value": value,
+                "confidence": confidence,
+            },
+        )
+        return RuntimeMutation.model_validate(payload)
 
     async def update_preference(
         self,

@@ -165,6 +165,32 @@ async def update_user_preference(
     }
 
 
+async def remember_dynamic_preference(
+    topic: str,
+    value: str,
+    tool_context: ToolContext,
+) -> dict[str, Any]:
+    """Persist a non-canonical preference within an approved dynamic-memory topic.
+
+    The platform rejects topics outside the Session snapshot's approvedTopics, so pass a topic
+    from that list; never invent one. Use this only when no writablePreferences entry fits.
+    """
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().write_dynamic_memory(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        topic=topic,
+        value=value,
+    )
+    snapshot = await _load_snapshot(tool_context, refresh=True)
+    return {
+        "mutation": mutation.model_dump(by_alias=True, mode="json"),
+        "snapshot": snapshot,
+    }
+
+
 async def submit_preference_event(
     text: str,
     attribute: str,
@@ -202,8 +228,15 @@ when the user explicitly requests a refresh. Use
 update_user_preference for an explicit canonical preference update and submit_preference_event for
 a natural-language memory event with a candidate; both tools refresh after a successful change.
 Never fabricate absent preferences, never write an attribute outside writablePreferences, and never
-attempt to query Memory Bank directly. If no writable preference clearly matches the request, explain
-that the preference must be onboarded instead of inventing an attribute.
+attempt to query Memory Bank directly.
+
+When the user asks you to remember something, decide in this order:
+1. If it maps to an entry in writablePreferences, save it with update_user_preference (canonical).
+2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, save it with
+   remember_dynamic_preference, passing that exact topic. These are the only non-canonical
+   categories you may retain.
+3. Otherwise, do not store it. Explain that it is not an approved memory type and offer to onboard
+   a preference or topic. Never invent an attribute or a topic outside these lists.
 """
 
 root_agent = Agent(
@@ -214,6 +247,7 @@ root_agent = Agent(
         get_user_preferences,
         refresh_user_preferences,
         update_user_preference,
+        remember_dynamic_preference,
         submit_preference_event,
     ],
     before_agent_callback=initialize_preference_snapshot,
