@@ -23,6 +23,7 @@ services:
       dockerfile: apps/control-plane-api/Dockerfile
     environment:
       MEMORY_BACKEND: vertex
+      MEMORY_BANK_GENERATION_MODEL: gemini-3.5-flash
       AUTH_ENABLED: "false"
       ENTRA_AUTH_ENABLED: ${ENTRA_AUTH_ENABLED:-false}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
