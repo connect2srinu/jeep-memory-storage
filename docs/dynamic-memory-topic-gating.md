@@ -83,6 +83,24 @@ in `source_priority`, so a canonical value always outranks a dynamic one for the
   `accepted` or a `403`/`400` rejection.
 - `POST /api/v1/runtime/preferences/resolve` — now returns `approvedTopics` and `DYNAMIC_MEMORY`
   entries (keyed `topic:<name>`) alongside canonical preferences.
+- `POST /api/v1/runtime/memory/forget` — right-to-be-forgotten; deletes every memory for a user
+  scope (gated by `SUBMIT_CANDIDATES`).
+- `POST /api/v1/runtime/memory/purge` — operator on-demand deletion across the organization by
+  `tier`/`attribute`/`topic` (gated by `ADMINISTER_MEMORY`; `dryRun` defaults true to preview).
+
+## Deletion (governance / CCPA)
+
+Both tiers are deletable through the governed endpoints above, wrapping Memory Bank's native
+`delete`/`list`:
+
+- **User forget** enumerates the user's memories (via `list`, isolated by the memory's immutable
+  scope) and deletes each by resource name.
+- **Operator purge** lists org memories, matches by tier/attribute/topic on the stored fact, and
+  deletes matches; `dryRun` previews without deleting.
+
+Both emit a structured `memory_deletion` audit event (`op: forget | purge_preview | purge`). Note
+Memory Bank reads are **eventually consistent**, so an immediate `deleted`/`matched` count can lag a
+just-written value; the end state is correct.
 
 ## Agent integration
 
@@ -98,6 +116,8 @@ in the injected snapshot. See [Memory Agent](../apps/memory-agent/README.md).
 - Enforcement holds only while **all writes route through the control plane**; an agent writing to
   Vertex Memory Bank directly would bypass the gate. Managed generation is disabled to remove the
   provider's own auto-extraction path.
+- Deletion is eventually consistent at the provider (see above); for hard-delete SLAs the delete
+  operations could be awaited to completion.
 
 ## Code map
 
