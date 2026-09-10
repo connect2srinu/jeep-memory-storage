@@ -100,7 +100,7 @@ With the `grocery` domain's approved topics set to e.g. `shopping, fulfillment`,
 
 | Prompt | Expected branch | Tool called |
 |---|---|---|
-| "I always shop at Whole Foods." | canonical | `save_preference("grocery.preferred_store", …)` |
+| "I always shop at Kroger." | canonical | `save_preference("grocery.preferred_store", …)` |
 | "Remember I do a big shop early Sunday mornings." | approved dynamic | `remember_dynamic_preference("shopping", …)` |
 | "Remember to leave deliveries at the back door." | approved dynamic | `remember_dynamic_preference("fulfillment", …)` |
 | "Remember I'm training for a marathon." | declined | none — not an approved memory type |

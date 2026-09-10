@@ -1,246 +1,538 @@
-<mxfile host="app.diagrams.net" modified="2026-08-27T00:00:00.000Z" agent="Claude" version="24.7.17" type="device" pages="4">
+<mxfile host="app.diagrams.net" agent="Claude" pages="5">
   <diagram id="activation" name="1 · Memory Setup / Activation">
-    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1180" math="0" shadow="0">
+    <mxGraphModel dx="1484" dy="588" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1180" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="a_title" value="1 · Memory Setup / Activation Flow  —  what happens on Activate Memory Setup (verified against guided_setup.py · admin plane)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1"><mxGeometry x="30" y="16" width="1240" height="30" as="geometry"/></mxCell>
-
-        <!-- lane bands -->
-        <mxCell id="a_l1" value="Control Panel UI  (apps/admin-console)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#6C8EBF;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#2A5A88;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="30" y="60" width="290" height="980" as="geometry"/></mxCell>
-        <mxCell id="a_l2" value="Control Plane API — Admin plane  (/api/v1/admin)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="330" y="60" width="330" height="980" as="geometry"/></mxCell>
-        <mxCell id="a_l3" value="Application DB · PostgreSQL  (system of record)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="670" y="60" width="300" height="980" as="geometry"/></mxCell>
-        <mxCell id="a_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="980" y="60" width="290" height="980" as="geometry"/></mxCell>
-
-        <!-- UI steps -->
-        <mxCell id="a_ui1" value="Admin fills the Create Memory Setup wizard&#xa;Use Case → Preferences → Scope → Memory → Agent&#xa;→ [Sharing] → [Resolution] → Review → Activate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="110" width="260" height="90" as="geometry"/></mxCell>
-        <mxCell id="a_ui2" value="Admin clicks Activate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=center;" vertex="1" parent="1"><mxGeometry x="45" y="300" width="260" height="40" as="geometry"/></mxCell>
-
-        <!-- API steps -->
-        <mxCell id="a_api0" value="GuidedMemorySetupService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="345" y="110" width="300" height="30" as="geometry"/></mxCell>
-        <mxCell id="a_api1" value="3 · re-runs preview() (non-mutating validation:&#xa;domain-prefixed attributes, cross-refs, one owned schema)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="150" width="300" height="60" as="geometry"/></mxCell>
-        <mxCell id="a_api2" value="4 · activate() — one transactional DB session&#xa;creates + activates governed resources (idempotent: reuse if present)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="300" width="300" height="60" as="geometry"/></mxCell>
-        <mxCell id="a_api5" value="5 · store.register_schema(schema, fields)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="720" width="300" height="40" as="geometry"/></mxCell>
-        <mxCell id="a_api6" value="6 · IF MEMORY_BACKEND=vertex: VertexContextProvisioner.provision()&#xa;build_vertex_context_spec(session) compiles ALL active schema&#xa;versions → context_spec.memory_bank_config.structured_memory_configs&#xa;(grouped by scope_keys)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="790" width="300" height="90" as="geometry"/></mxCell>
-
-        <!-- DB node -->
-        <mxCell id="a_db" value="Writes (create + activate if missing):&#xa;&#xa;• Organization, Project  (if missing)&#xa;• MemoryDomain&#xa;• ScopeDefinition  {domain}:profile-scope&#xa;   keys = organization_id + user_id&#xa;• PreferenceDefinition × N  (Preference Catalog, canonical owner = domain)&#xa;• ProfileSchema + ProfileSchemaVersion (v1) + SchemaPreferenceMapping × N&#xa;   (attribute ↔ profile_field; vertex_schema_definition; generationConfig)&#xa;• RegisteredAgent  (capabilities: resolve_context / submit_candidates / inspect_provenance)&#xa;• AccessRequest(owned) → auto-APPROVED  ⇒  AgentSchemaGrant (ACTIVE)&#xa;• AccessRequest(shared) = PENDING  (NO grant until owner approves)&#xa;• ResolutionPolicy + SchemaPriority + AttributeOverride  — ONLY if &gt; 1 schema&#xa;• DynamicMemoryPolicy  — only if dynamic memory enabled&#xa;• AuditEvent  (memory_setup.activated)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="685" y="300" width="270" height="420" as="geometry"/></mxCell>
-
-        <!-- Memory Bank node -->
-        <mxCell id="a_mb" value="Agent Engine / Memory Bank (existing reasoningEngine)&#xa;&#xa;client.runtimes.update(&#xa;  name = projects/…/reasoningEngines/{id},&#xa;  config = { context_spec } )&#xa;&#xa;⇒ structured_memory_configs applied to the bank&#xa;   (partial update — update_mask = context_spec)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="995" y="790" width="260" height="150" as="geometry"/></mxCell>
-        <mxCell id="a_mb_note" value="⚠ NO per-user Memory Profile instances are created here.&#xa;Memory Profiles are LAZY — created at RUNTIME by Memory Bank&#xa;on the first authorized write / generation.  (profiles_created = 0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="995" y="620" width="260" height="90" as="geometry"/></mxCell>
-
-        <!-- edges -->
-        <mxCell id="a_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="a_ui1" target="a_api1"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="a_e1l" value="1 · POST /memory-setups/preview" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="a_e1"><mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="a_e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="a_ui2" target="a_api2"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="a_e2l" value="2 · POST /memory-setups/activate  (PLATFORM_ADMIN)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="a_e2"><mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="a_e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="a_api2" target="a_db"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="a_e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="a_api6" target="a_mb"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="a_e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="a_api2" target="a_ui2"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="325" y="360"/></Array></mxGeometry></mxCell>
-        <mxCell id="a_e7l" value="7 · 201 → status ACTIVE / ACTIVE_WITH_PENDING_ACCESS · provisioning = PROVISIONED (vertex) or REGISTERED_LOCAL (mock)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="345" y="365" width="300" height="30" as="geometry"/></mxCell>
-
-        <mxCell id="a_legend" value="Layers:  UI (blue) · Control Plane API (purple) · PostgreSQL (green) · Memory Bank (orange).   Solid = implemented today.   ⚠ note = important runtime behaviour.   No MCP layer exists in the codebase." style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="30" y="1050" width="1240" height="30" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="a_title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" value="1 · Memory Setup / Activation Flow  —  what happens on Activate Memory Setup (verified against guided_setup.py · admin plane)" vertex="1">
+          <mxGeometry height="30" width="1240" x="30" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF2FB;strokeColor=#6C8EBF;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#2A5A88;spacingTop=6;" value="Control Panel UI  (apps/admin-console)" vertex="1">
+          <mxGeometry height="980" width="290" x="30" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" value="Control Plane API — Admin plane  (/api/v1/admin)" vertex="1">
+          <mxGeometry height="980" width="330" x="330" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" value="Application DB · PostgreSQL  (system of record)" vertex="1">
+          <mxGeometry height="980" width="300" x="670" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" value="Memory Bank platform  (Vertex / agentplatform 2.x)" vertex="1">
+          <mxGeometry height="980" width="290" x="980" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ui1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="Admin fills the Create Memory Setup wizard&#xa;Use Case → Preferences → Scope → Memory → Agent&#xa;→ [Sharing] → [Resolution] → Review → Activate" vertex="1">
+          <mxGeometry height="90" width="260" x="45" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ui2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=center;" value="Admin clicks Activate" vertex="1">
+          <mxGeometry height="40" width="260" x="45" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" value="GuidedMemorySetupService" vertex="1">
+          <mxGeometry height="30" width="300" x="345" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="3 · re-runs preview() (non-mutating validation:&#xa;domain-prefixed attributes, cross-refs, one owned schema)" vertex="1">
+          <mxGeometry height="60" width="300" x="345" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="4 · activate() — one transactional DB session&#xa;creates + activates governed resources (idempotent: reuse if present)" vertex="1">
+          <mxGeometry height="60" width="300" x="345" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" value="5 · store.register_schema(schema, fields)" vertex="1">
+          <mxGeometry height="40" width="300" x="345" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="6 · IF MEMORY_BACKEND=vertex: VertexContextProvisioner.provision()&#xa;build_vertex_context_spec(session) compiles ALL active schema&#xa;versions → context_spec.memory_bank_config.structured_memory_configs&#xa;(grouped by scope_keys)" vertex="1">
+          <mxGeometry height="90" width="300" x="345" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="a_db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="Writes (create + activate if missing):&#xa;&#xa;• Organization, Project  (if missing)&#xa;• MemoryDomain&#xa;• ScopeDefinition  {domain}:profile-scope&#xa;   keys = organization_id + user_id&#xa;• PreferenceDefinition × N  (Preference Catalog, canonical owner = domain)&#xa;• ProfileSchema + ProfileSchemaVersion (v1) + SchemaPreferenceMapping × N&#xa;   (attribute ↔ profile_field; vertex_schema_definition; generationConfig)&#xa;• RegisteredAgent  (capabilities: resolve_context / submit_candidates / inspect_provenance)&#xa;• AccessRequest(owned) → auto-APPROVED  ⇒  AgentSchemaGrant (ACTIVE)&#xa;• AccessRequest(shared) = PENDING  (NO grant until owner approves)&#xa;• ResolutionPolicy + SchemaPriority + AttributeOverride  — ONLY if &gt; 1 schema&#xa;• DynamicMemoryPolicy  — only if dynamic memory enabled&#xa;• AuditEvent  (memory_setup.activated)" vertex="1">
+          <mxGeometry height="420" width="270" x="685" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="a_mb" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="Agent Engine / Memory Bank (existing reasoningEngine)&#xa;&#xa;client.runtimes.update(&#xa;  name = projects/…/reasoningEngines/{id},&#xa;  config = { context_spec } )&#xa;&#xa;⇒ structured_memory_configs applied to the bank&#xa;   (partial update — update_mask = context_spec)" vertex="1">
+          <mxGeometry height="150" width="260" x="995" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="a_mb_note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" value="⚠ NO per-user Memory Profile instances are created here.&#xa;Memory Profiles are LAZY — created at RUNTIME by Memory Bank&#xa;on the first authorized write / generation.  (profiles_created = 0)" vertex="1">
+          <mxGeometry height="90" width="260" x="995" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e1" edge="1" parent="1" source="a_ui1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" target="a_api1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e1l" connectable="0" parent="a_e1" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" value="1 · POST /memory-setups/preview" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint x="15" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_e2" edge="1" parent="1" source="a_ui2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" target="a_api2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e2l" connectable="0" parent="a_e2" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" value="2 · POST /memory-setups/activate  (PLATFORM_ADMIN)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry">
+            <mxPoint x="5" y="-33" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_e3" edge="1" parent="1" source="a_api2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" target="a_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e6" edge="1" parent="1" source="a_api6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" target="a_mb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e7" edge="1" parent="1" source="a_api2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" target="a_ui2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_e7l" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;fontColor=#555555;" value="7 · 201 → status ACTIVE / ACTIVE_WITH_PENDING_ACCESS&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;provisioning = PROVISIONED (vertex)&amp;nbsp; &amp;nbsp;or&amp;nbsp;&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;REGISTERED_LOCAL (mock)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="300" x="345" y="365" as="geometry" />
+        </mxCell>
+        <mxCell id="a_legend" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;fontColor=#555555;" value="Layers:  UI (blue) · Control Plane API (purple) · PostgreSQL (green) · Memory Bank (orange).   Solid = implemented today.   ⚠ note = important runtime behaviour.   No MCP layer exists in the codebase." vertex="1">
+          <mxGeometry height="30" width="1240" x="30" y="1050" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-
   <diagram id="write" name="2 · Agent Preference Write">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1180" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="w_title" value="2 · Agent Preference Write Flow  —  agent saves a preference (verified: runtime_service.update_preference · vertex_memory_store.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1"><mxGeometry x="30" y="16" width="1240" height="30" as="geometry"/></mxCell>
-
-        <mxCell id="w_l1" value="Agent runtime  (apps/reference-agent · ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="30" y="60" width="290" height="900" as="geometry"/></mxCell>
-        <mxCell id="w_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="330" y="60" width="340" height="900" as="geometry"/></mxCell>
-        <mxCell id="w_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="680" y="60" width="290" height="900" as="geometry"/></mxCell>
-        <mxCell id="w_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="980" y="60" width="290" height="900" as="geometry"/></mxCell>
-
-        <mxCell id="w_ag" value="ADK agent tool chooses a canonical attribute + value&#xa;(model does NOT send a schemaId)&#xa;reference_agent client.update_preference(attribute, value)&#xa;— or ingest_event(text, candidates)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="110" width="260" height="90" as="geometry"/></mxCell>
-        <mxCell id="w_ag2" value="Receives { status: updated, reference, profile_version }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="780" width="260" height="50" as="geometry"/></mxCell>
-
-        <mxCell id="w_api0" value="RuntimeMemoryService.update_preference" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="345" y="110" width="310" height="30" as="geometry"/></mxCell>
-        <mxCell id="w_s2" value="2 · authenticate principal → resolve_agent()&#xa;(dev: X-Agent-ID → local:{id};  prod: Google ID token → registered principal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="150" width="310" height="60" as="geometry"/></mxCell>
-        <mxCell id="w_s3" value="3 · require capability SUBMIT_CANDIDATES&#xa;4 · require consumer scope (request domain &amp; org = agent's)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="225" width="310" height="55" as="geometry"/></mxCell>
-        <mxCell id="w_s5" value="5 · list_schema_grants(agent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="295" width="310" height="35" as="geometry"/></mxCell>
-        <mxCell id="w_s6" value="6 · _resolve_write_grant(): from ACTIVE, same-domain, WRITE/READ_WRITE grants&#xa;pick the ONE schema whose mappings contain the attribute&#xa;0 matches ⇒ 400 · &gt;1 match ⇒ 400 (ambiguous) · cross-domain/read-only ⇒ 403" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="345" width="310" height="80" as="geometry"/></mxCell>
-        <mxCell id="w_s7" value="7 · map attribute → profile_field&#xa;memory scope = { organization_id, user_id }&#xa;(project &amp; domain are DB authz metadata, NOT Memory Bank keys)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="440" width="310" height="70" as="geometry"/></mxCell>
-        <mxCell id="w_s8" value="8 · store.write_preference(scope, schema_id, profile_field, value)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="525" width="310" height="45" as="geometry"/></mxCell>
-
-        <mxCell id="w_db" value="READ-ONLY on the write path:&#xa;RegisteredAgent, AgentSchemaGrant&#xa;→ ProfileSchema → active ProfileSchemaVersion&#xa;→ SchemaPreferenceMapping (field ↔ attribute)&#xa;&#xa;⚠ NO row is written to PostgreSQL when a&#xa;preference is saved. The preference lives only&#xa;in Memory Bank. (Audit is admin-plane only.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="695" y="255" width="260" height="180" as="geometry"/></mxCell>
-
-        <mxCell id="w_mb" value="VertexMemoryBankStore → agentplatform SDK&#xa;&#xa;a) memory_banks.memories.retrieve(scope)&#xa;   (read existing overlays, compute next version)&#xa;b) memory_banks.memories.create(&#xa;      fact = typed explicit-preference JSON,&#xa;      scope = { organization_id, user_id } )&#xa;&#xa;No field-level structured-profile update API ⇒ the explicit&#xa;preference is stored as an exact-scope memory and overlaid&#xa;on the structured profile at read time.&#xa;Memory Bank lazily creates the user's profile on first write." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="995" y="525" width="260" height="230" as="geometry"/></mxCell>
-
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="w_title" value="2 · Agent Preference Write Flow  —  agent saves a preference (verified: runtime_service.update_preference · vertex_memory_store.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="w_l1" value="Agent runtime  (apps/reference-agent · ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="290" height="900" as="geometry" />
+        </mxCell>
+        <mxCell id="w_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="60" width="340" height="900" as="geometry" />
+        </mxCell>
+        <mxCell id="w_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="60" width="290" height="900" as="geometry" />
+        </mxCell>
+        <mxCell id="w_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="980" y="60" width="290" height="900" as="geometry" />
+        </mxCell>
+        <mxCell id="w_ag" value="ADK agent tool chooses a canonical attribute + value&#xa;(model does NOT send a schemaId)&#xa;reference_agent client.update_preference(attribute, value)&#xa;— or ingest_event(text, candidates)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="110" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="w_ag2" value="Receives { status: updated, reference, profile_version }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="780" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="w_api0" value="RuntimeMemoryService.update_preference" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="345" y="110" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s2" value="2 · authenticate principal → resolve_agent()&#xa;(dev: X-Agent-ID → local:{id};  prod: Google ID token → registered principal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="150" width="310" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s3" value="3 · require capability SUBMIT_CANDIDATES&#xa;4 · require consumer scope (request domain &amp; org = agent&#39;s)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="225" width="310" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s5" value="5 · list_schema_grants(agent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="295" width="310" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s6" value="6 · _resolve_write_grant(): from ACTIVE, same-domain, WRITE/READ_WRITE grants&#xa;pick the ONE schema whose mappings contain the attribute&#xa;0 matches ⇒ 400 · &gt;1 match ⇒ 400 (ambiguous) · cross-domain/read-only ⇒ 403" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="345" width="310" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s7" value="7 · map attribute → profile_field&#xa;memory scope = { organization_id, user_id }&#xa;(project &amp; domain are DB authz metadata, NOT Memory Bank keys)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="440" width="310" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="w_s8" value="8 · store.write_preference(scope, schema_id, profile_field, value)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="525" width="310" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="w_db" value="READ-ONLY on the write path:&#xa;RegisteredAgent, AgentSchemaGrant&#xa;→ ProfileSchema → active ProfileSchemaVersion&#xa;→ SchemaPreferenceMapping (field ↔ attribute)&#xa;&#xa;⚠ NO row is written to PostgreSQL when a&#xa;preference is saved. The preference lives only&#xa;in Memory Bank. (Audit is admin-plane only.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="695" y="255" width="260" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="w_mb" value="VertexMemoryBankStore → agentplatform SDK&#xa;&#xa;a) memory_banks.memories.retrieve(scope)&#xa;   (read existing overlays, compute next version)&#xa;b) memory_banks.memories.create(&#xa;      fact = typed explicit-preference JSON,&#xa;      scope = { organization_id, user_id } )&#xa;&#xa;No field-level structured-profile update API ⇒ the explicit&#xa;preference is stored as an exact-scope memory and overlaid&#xa;on the structured profile at read time.&#xa;Memory Bank lazily creates the user&#39;s profile on first write." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="995" y="525" width="260" height="230" as="geometry" />
+        </mxCell>
         <!-- path callout -->
-        <mxCell id="w_path" value="✓ Agent → Memory Bank path (traced in code):&#xa;Agent runtime  —HTTPS (httpx)→  Control Plane runtime API  —agentplatform SDK→  Memory Bank.&#xa;NO MCP layer.  NO direct Memory Bank call from the agent&#xa;(reference-agent imports zero provider SDKs — CI-enforced test_reference_agent_has_no_memory_bank_sdk_imports)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5F0DC;strokeColor=#2E8B57;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="850" width="1210" height="80" as="geometry"/></mxCell>
-
+        <mxCell id="w_path" value="✓ Agent → Memory Bank path (traced in code):&#xa;Agent runtime  —HTTPS (httpx)→  Control Plane runtime API  —agentplatform SDK→  Memory Bank.&#xa;NO MCP layer.  NO direct Memory Bank call from the agent&#xa;(reference-agent imports zero provider SDKs — CI-enforced test_reference_agent_has_no_memory_bank_sdk_imports)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5F0DC;strokeColor=#2E8B57;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="850" width="1210" height="80" as="geometry" />
+        </mxCell>
         <!-- edges -->
-        <mxCell id="w_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_ag" target="w_api0"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="w_e1l" value="1 · PUT /api/v1/runtime/preferences/{attribute}  (Auth: X-Agent-ID dev / Bearer Google ID token prod)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="w_e1"><mxGeometry x="-0.05" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="w_e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_s5" target="w_db"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="w_e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_s8" target="w_mb"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="w_e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="w_mb" target="w_ag2"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1125" y="805"/><mxPoint x="175" y="805"/></Array></mxGeometry></mxCell>
-        <mxCell id="w_e9l" value="9 · response" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="w_e9"><mxGeometry x="0.4" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="w_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_ag" target="w_api0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_e1l" value="1 · PUT /api/v1/runtime/preferences/{attribute}  (Auth: X-Agent-ID dev / Bearer Google ID token prod)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="w_e1">
+          <mxGeometry x="-0.05" relative="1" as="geometry">
+            <mxPoint y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w_e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_s5" target="w_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="w_s8" target="w_mb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w_e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="w_mb" target="w_ag2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="805" />
+              <mxPoint x="175" y="805" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w_e9l" value="9 · response" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="w_e9">
+          <mxGeometry x="0.4" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-
   <diagram id="read" name="3 · Session Load / Preference Read">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1180" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="r_title" value="3 · Session Load / Preference Read Flow  —  agent loads memory at session start (verified: runtime_service.resolve_preferences · preference_resolver.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1"><mxGeometry x="30" y="16" width="1240" height="30" as="geometry"/></mxCell>
-
-        <mxCell id="r_l1" value="Agent runtime  (ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="30" y="60" width="290" height="920" as="geometry"/></mxCell>
-        <mxCell id="r_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="330" y="60" width="340" height="920" as="geometry"/></mxCell>
-        <mxCell id="r_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="680" y="60" width="290" height="920" as="geometry"/></mxCell>
-        <mxCell id="r_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="980" y="60" width="290" height="920" as="geometry"/></mxCell>
-
-        <mxCell id="r_ag" value="Agent session starts and needs memory&#xa;client.resolve_preferences(user_id, session_id,&#xa;consumer_domain, organization_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="110" width="260" height="75" as="geometry"/></mxCell>
-        <mxCell id="r_ag2" value="12 · inject snapshot into ADK Session state;&#xa;Gemini formats/uses it.  Gemini does NOT decide&#xa;authorization, schema selection, or resolution." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="800" width="260" height="80" as="geometry"/></mxCell>
-
-        <mxCell id="r_api0" value="RuntimeMemoryService.resolve_preferences" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="345" y="110" width="310" height="30" as="geometry"/></mxCell>
-        <mxCell id="r_s2" value="2 · authenticate → resolve_agent()  (DB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="150" width="310" height="35" as="geometry"/></mxCell>
-        <mxCell id="r_s3" value="3 · require RESOLVE_CONTEXT · require consumer scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="195" width="310" height="35" as="geometry"/></mxCell>
-        <mxCell id="r_s4" value="4 · list_schema_grants(agent) → split READABLE / WRITABLE&#xa;(READ/READ_WRITE = readable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="240" width="310" height="55" as="geometry"/></mxCell>
-        <mxCell id="r_s5" value="5 · get_resolution_config(agent, domain)&#xa;agent policy  OR  domain default (id LIKE '{domain}:%')&#xa;+ per-attribute overrides &amp; schema precedence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="305" width="310" height="70" as="geometry"/></mxCell>
-        <mxCell id="r_s6" value="6 · for each READABLE grant: store.get_profiles(owner scope, schema_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="385" width="310" height="45" as="geometry"/></mxCell>
-        <mxCell id="r_s8" value="8 · build candidate Preferences (source = MEMORY_PROFILE)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="565" width="310" height="35" as="geometry"/></mxCell>
-        <mxCell id="r_s9" value="9 · PreferenceResolver.resolve(candidates, policies)&#xa;deterministic per logical key — strategy chain:&#xa;SOURCE_PRIORITY → DOMAIN_PRIORITY → EXPLICIT_OVER_INFERRED&#xa;→ MOST_RECENT → HIGHEST_CONFIDENCE  (min-confidence gate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="615" width="310" height="80" as="geometry"/></mxCell>
-        <mxCell id="r_s10" value="10 · compute writablePreferences (same-domain writable grants)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="705" width="310" height="35" as="geometry"/></mxCell>
-
-        <mxCell id="r_db" value="READ-ONLY:&#xa;RegisteredAgent · AgentSchemaGrant&#xa;→ ProfileSchema → active version → mappings&#xa;ResolutionPolicy (agent or domain-default)&#xa;+ ResolutionAttributeOverride&#xa;&#xa;⚠ No PostgreSQL write on the read path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="695" y="240" width="260" height="160" as="geometry"/></mxCell>
-
-        <mxCell id="r_mb" value="7 · VertexMemoryBankStore.get_profiles → agentplatform SDK&#xa;&#xa;memory_banks.memories.retrieve_profiles(scope)&#xa;   → structured Memory Profiles (provider-generated, async)&#xa;memory_banks.memories.retrieve(scope)&#xa;   → explicit-preference overlays&#xa;&#xa;merged: structured profile ⊕ explicit overlays&#xa;scope = { organization_id, user_id }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="995" y="385" width="260" height="200" as="geometry"/></mxCell>
-
-        <mxCell id="r_note" value="Resolution runs IN the Control Plane API (in-process, deterministic) — NOT in Memory Bank.&#xa;Policy is agent-scoped with a domain-level default; it orders across multiple schemas via precedence." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="760" width="610" height="55" as="geometry"/></mxCell>
-
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="r_title" value="3 · Session Load / Preference Read Flow  —  agent loads memory at session start (verified: runtime_service.resolve_preferences · preference_resolver.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r_l1" value="Agent runtime  (ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="290" height="920" as="geometry" />
+        </mxCell>
+        <mxCell id="r_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="60" width="340" height="920" as="geometry" />
+        </mxCell>
+        <mxCell id="r_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="60" width="290" height="920" as="geometry" />
+        </mxCell>
+        <mxCell id="r_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="980" y="60" width="290" height="920" as="geometry" />
+        </mxCell>
+        <mxCell id="r_ag" value="Agent session starts and needs memory&#xa;client.resolve_preferences(user_id, session_id,&#xa;consumer_domain, organization_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="110" width="260" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="r_ag2" value="12 · inject snapshot into ADK Session state;&#xa;Gemini formats/uses it.  Gemini does NOT decide&#xa;authorization, schema selection, or resolution." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="800" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="r_api0" value="RuntimeMemoryService.resolve_preferences" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="345" y="110" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s2" value="2 · authenticate → resolve_agent()  (DB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="150" width="310" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s3" value="3 · require RESOLVE_CONTEXT · require consumer scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="195" width="310" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s4" value="4 · list_schema_grants(agent) → split READABLE / WRITABLE&#xa;(READ/READ_WRITE = readable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="240" width="310" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s5" value="5 · get_resolution_config(agent, domain)&#xa;agent policy  OR  domain default (id LIKE &#39;{domain}:%&#39;)&#xa;+ per-attribute overrides &amp; schema precedence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="305" width="310" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s6" value="6 · for each READABLE grant: store.get_profiles(owner scope, schema_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="385" width="310" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s8" value="8 · build candidate Preferences (source = MEMORY_PROFILE)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="565" width="310" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s9" value="9 · PreferenceResolver.resolve(candidates, policies)&#xa;deterministic per logical key — strategy chain:&#xa;SOURCE_PRIORITY → DOMAIN_PRIORITY → EXPLICIT_OVER_INFERRED&#xa;→ MOST_RECENT → HIGHEST_CONFIDENCE  (min-confidence gate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="615" width="310" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="r_s10" value="10 · compute writablePreferences (same-domain writable grants)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="705" width="310" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="r_db" value="READ-ONLY:&#xa;RegisteredAgent · AgentSchemaGrant&#xa;→ ProfileSchema → active version → mappings&#xa;ResolutionPolicy (agent or domain-default)&#xa;+ ResolutionAttributeOverride&#xa;&#xa;⚠ No PostgreSQL write on the read path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="695" y="240" width="260" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="r_mb" value="7 · VertexMemoryBankStore.get_profiles → agentplatform SDK&#xa;&#xa;memory_banks.memories.retrieve_profiles(scope)&#xa;   → structured Memory Profiles (provider-generated, async)&#xa;memory_banks.memories.retrieve(scope)&#xa;   → explicit-preference overlays&#xa;&#xa;merged: structured profile ⊕ explicit overlays&#xa;scope = { organization_id, user_id }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="995" y="385" width="260" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="r_note" value="Resolution runs IN the Control Plane API (in-process, deterministic) — NOT in Memory Bank.&#xa;Policy is agent-scoped with a domain-level default; it orders across multiple schemas via precedence." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="760" width="610" height="55" as="geometry" />
+        </mxCell>
         <!-- edges -->
-        <mxCell id="r_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_ag" target="r_api0"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="r_e1l" value="1 · POST /api/v1/runtime/preferences/resolve  (or /refresh)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="r_e1"><mxGeometry x="-0.05" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="r_e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_s4" target="r_db"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="r_e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_s6" target="r_mb"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="r_e6b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="r_mb" target="r_s8"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1125" y="600"/><mxPoint x="700" y="600"/></Array></mxGeometry></mxCell>
-        <mxCell id="r_e6bl" value="profiles" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="r_e6b"><mxGeometry x="0.2" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="r_e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="r_s10" target="r_ag2"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="325" y="722"/></Array></mxGeometry></mxCell>
-        <mxCell id="r_e11l" value="11 · EffectivePreferenceSnapshot { preferences, snapshot_version(hash), policy_version, schema_versions, writablePreferences }" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="45" y="745" width="600" height="40" as="geometry"/></mxCell>
+        <mxCell id="r_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_ag" target="r_api0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_e1l" value="1 · POST /api/v1/runtime/preferences/resolve  (or /refresh)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="r_e1">
+          <mxGeometry x="-0.05" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_s4" target="r_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="r_s6" target="r_mb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r_e6b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="r_mb" target="r_s8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="600" />
+              <mxPoint x="700" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_e6bl" value="profiles" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="r_e6b">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="r_s10" target="r_ag2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="722" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_e11l" value="11 · EffectivePreferenceSnapshot { preferences, snapshot_version(hash), policy_version, schema_versions, writablePreferences }" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;align=left;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="45" y="745" width="600" height="40" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-
   <diagram id="datamodel" name="4 · Memory Resource Relationships">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1120" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="d_title" value="4 · Memory Resource Relationships  —  what lives in PostgreSQL (created at SETUP) vs Memory Bank (used at RUNTIME).  Verified against persistence/models.py." style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1"><mxGeometry x="30" y="16" width="1440" height="30" as="geometry"/></mxCell>
-
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="d_title" value="4 · Memory Resource Relationships  —  what lives in PostgreSQL (created at SETUP) vs Memory Bank (used at RUNTIME).  Verified against persistence/models.py." style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1440" height="30" as="geometry" />
+        </mxCell>
         <!-- PostgreSQL group -->
-        <mxCell id="d_pg" value="Application DB · PostgreSQL — system of record (created / updated at SETUP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="30" y="60" width="960" height="1000" as="geometry"/></mxCell>
-
-        <mxCell id="d_org" value="Organization" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="60" y="110" width="150" height="36" as="geometry"/></mxCell>
-        <mxCell id="d_proj" value="Project" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="60" y="190" width="150" height="36" as="geometry"/></mxCell>
-        <mxCell id="d_dom" value="MemoryDomain" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="60" y="280" width="150" height="36" as="geometry"/></mxCell>
-
-        <mxCell id="d_scope" value="ScopeDefinition&#xa;scope_keys = organization_id + user_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="300" y="255" width="200" height="46" as="geometry"/></mxCell>
-        <mxCell id="d_prefdef" value="PreferenceDefinition&#xa;(Preference Catalog)&#xa;canonical owner = domain" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="300" y="330" width="200" height="56" as="geometry"/></mxCell>
-        <mxCell id="d_schema" value="ProfileSchema" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="110" width="200" height="36" as="geometry"/></mxCell>
-        <mxCell id="d_ver" value="ProfileSchemaVersion&#xa;exactly ONE ACTIVE · binds one ScopeDefinition&#xa;holds vertex_schema_definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="560" y="105" width="230" height="60" as="geometry"/></mxCell>
-        <mxCell id="d_map" value="SchemaPreferenceMapping&#xa;profile_field ↔ attribute_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="560" y="330" width="230" height="46" as="geometry"/></mxCell>
-
-        <mxCell id="d_agent" value="RegisteredAgent&#xa;home domain (N:1)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="60" y="470" width="150" height="46" as="geometry"/></mxCell>
-        <mxCell id="d_grant" value="AgentSchemaGrant&#xa;agent ⇄ schema · permission&#xa;NONE/READ/WRITE/READ_WRITE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="300" y="465" width="200" height="56" as="geometry"/></mxCell>
-        <mxCell id="d_req" value="AccessRequest&#xa;agent → target schema&#xa;PENDING → APPROVED ⇒ grant" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="300" y="560" width="200" height="56" as="geometry"/></mxCell>
-
-        <mxCell id="d_respol" value="ResolutionPolicy&#xa;agent policy  OR  domain default&#xa;+ SchemaPriority (orders schemas)&#xa;+ AttributeOverride" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="560" y="465" width="230" height="70" as="geometry"/></mxCell>
-        <mxCell id="d_dyn" value="DynamicMemoryPolicy&#xa;per domain (optional)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="560" y="565" width="230" height="46" as="geometry"/></mxCell>
-        <mxCell id="d_audit" value="AuditEvent  (admin mutations only — append-only)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" vertex="1" parent="1"><mxGeometry x="60" y="660" width="440" height="36" as="geometry"/></mxCell>
-
-        <mxCell id="d_pgnote" value="Cardinalities (from FKs / unique constraints):&#xa;Organization 1—N Project 1—N MemoryDomain.&#xa;MemoryDomain 1—N ScopeDefinition · 1—N ProfileSchema · 1—N PreferenceDefinition   (all 1:N — the wizard makes one each by convention).&#xa;ProfileSchema 1—N ProfileSchemaVersion (one ACTIVE); a version binds ONE ScopeDefinition and maps N preferences.&#xa;RegisteredAgent N—1 MemoryDomain (home) · N—M ProfileSchema via AgentSchemaGrant.&#xa;ResolutionPolicy is AGENT-scoped with a DOMAIN-level default; it is never schema-owned." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5FBF3;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="60" y="730" width="900" height="300" as="geometry"/></mxCell>
-
+        <mxCell id="d_pg" value="Application DB · PostgreSQL — system of record (created / updated at SETUP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="960" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="d_org" value="Organization" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="110" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_proj" value="Project" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="190" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_dom" value="MemoryDomain" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="280" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_scope" value="ScopeDefinition&#xa;scope_keys = organization_id + user_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="255" width="200" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="d_prefdef" value="PreferenceDefinition&#xa;(Preference Catalog)&#xa;canonical owner = domain" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="330" width="200" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="d_schema" value="ProfileSchema" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="300" y="110" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_ver" value="ProfileSchemaVersion&#xa;exactly ONE ACTIVE · binds one ScopeDefinition&#xa;holds vertex_schema_definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="560" y="105" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d_map" value="SchemaPreferenceMapping&#xa;profile_field ↔ attribute_id" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="560" y="330" width="230" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="d_agent" value="RegisteredAgent&#xa;home domain (N:1)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="150" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="d_grant" value="AgentSchemaGrant&#xa;agent ⇄ schema · permission&#xa;NONE/READ/WRITE/READ_WRITE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="465" width="200" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="d_req" value="AccessRequest&#xa;agent → target schema&#xa;PENDING → APPROVED ⇒ grant" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="560" width="200" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="d_respol" value="ResolutionPolicy&#xa;agent policy  OR  domain default&#xa;+ SchemaPriority (orders schemas)&#xa;+ AttributeOverride" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="560" y="465" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="d_dyn" value="DynamicMemoryPolicy&#xa;per domain (optional)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;verticalAlign=top;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="560" y="565" width="230" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="d_audit" value="AuditEvent  (admin mutations only — append-only)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="660" width="440" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_pgnote" value="Cardinalities (from FKs / unique constraints):&#xa;Organization 1—N Project 1—N MemoryDomain.&#xa;MemoryDomain 1—N ScopeDefinition · 1—N ProfileSchema · 1—N PreferenceDefinition   (all 1:N — the wizard makes one each by convention).&#xa;ProfileSchema 1—N ProfileSchemaVersion (one ACTIVE); a version binds ONE ScopeDefinition and maps N preferences.&#xa;RegisteredAgent N—1 MemoryDomain (home) · N—M ProfileSchema via AgentSchemaGrant.&#xa;ResolutionPolicy is AGENT-scoped with a DOMAIN-level default; it is never schema-owned." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5FBF3;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="730" width="900" height="300" as="geometry" />
+        </mxCell>
         <!-- PG edges -->
-        <mxCell id="d_e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;startArrow=none;" edge="1" parent="1" source="d_org" target="d_proj"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e1l" value="1—N" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e1"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_proj" target="d_dom"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e2l" value="1—N" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e2"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_scope"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_prefdef"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_schema"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_schema" target="d_ver"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e7" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_scope" target="d_ver"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e7l" value="binds" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e7"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_ver" target="d_map"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_prefdef" target="d_map"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e10" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_agent" target="d_grant"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e11" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_grant" target="d_schema"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="530" y="300"/></Array></mxGeometry></mxCell>
-        <mxCell id="d_e11l" value="N—M" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e11"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e12" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_agent" target="d_respol"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="135" y="440"/><mxPoint x="675" y="440"/></Array></mxGeometry></mxCell>
-        <mxCell id="d_e13" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_dom" target="d_respol"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="230" y="298"/><mxPoint x="675" y="450"/></Array></mxGeometry></mxCell>
-        <mxCell id="d_e13l" value="domain default" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e13"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_e14" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_dyn"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="240" y="298"/><mxPoint x="675" y="588"/></Array></mxGeometry></mxCell>
-
+        <mxCell id="d_e1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;startArrow=none;" edge="1" parent="1" source="d_org" target="d_proj">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e1l" value="1—N" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_proj" target="d_dom">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e2l" value="1—N" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_scope">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_prefdef">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_schema">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_schema" target="d_ver">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e7" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_scope" target="d_ver">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e7l" value="binds" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_ver" target="d_map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_prefdef" target="d_map">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e10" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_agent" target="d_grant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e11" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_grant" target="d_schema">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="530" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d_e11l" value="N—M" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e12" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_agent" target="d_respol">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="135" y="440" />
+              <mxPoint x="675" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d_e13" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;dashed=1;" edge="1" parent="1" source="d_dom" target="d_respol">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="230" y="298" />
+              <mxPoint x="675" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d_e13l" value="domain default" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#EAF5E8;" vertex="1" connectable="0" parent="d_e13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_e14" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#4C7A34;fontSize=10;" edge="1" parent="1" source="d_dom" target="d_dyn">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="298" />
+              <mxPoint x="675" y="588" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
         <!-- Memory Bank group -->
-        <mxCell id="d_mb" value="Memory Bank platform — managed by Vertex (used / created at RUNTIME)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="1020" y="60" width="450" height="1000" as="geometry"/></mxCell>
-
-        <mxCell id="d_re" value="Reasoning Engine / Agent Engine&#xa;context_spec.memory_bank_config&#xa;.structured_memory_configs&#xa;(grouped by scope_keys → schema_configs[].memory_schema)&#xa;&#xa;⟵ applied at ACTIVATION via runtimes.update" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="1045" y="110" width="400" height="130" as="geometry"/></mxCell>
-
-        <mxCell id="d_profile" value="Memory Profile  (per-user instance)&#xa;keyed by scope { organization_id, user_id }, per schema&#xa;⟵ created LAZILY at RUNTIME on first write / generation&#xa;(structured profile generated by the provider, async)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="1045" y="300" width="400" height="110" as="geometry"/></mxCell>
-
-        <mxCell id="d_mem" value="Explicit-preference memories + event memories&#xa;typed, exact-scope; written by memories.create / ingest_events&#xa;overlaid on the structured profile at read time" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="1045" y="450" width="400" height="90" as="geometry"/></mxCell>
-
-        <mxCell id="d_mbnote" value="MemoryScope = organization_id + user_id.  Projects and domains are&#xa;authorization metadata in PostgreSQL; they are NOT Memory Bank&#xa;partition keys.  One canonical user profile per schema per organization.&#xa;&#xa;Created at SETUP: schema STRUCTURE (context_spec).&#xa;Created at RUNTIME: per-user profile INSTANCES + memories." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8EF;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="1045" y="600" width="400" height="150" as="geometry"/></mxCell>
-
+        <mxCell id="d_mb" value="Memory Bank platform — managed by Vertex (used / created at RUNTIME)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="60" width="450" height="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="d_re" value="Reasoning Engine / Agent Engine&#xa;context_spec.memory_bank_config&#xa;.structured_memory_configs&#xa;(grouped by scope_keys → schema_configs[].memory_schema)&#xa;&#xa;⟵ applied at ACTIVATION via runtimes.update" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="110" width="400" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="d_profile" value="Memory Profile  (per-user instance)&#xa;keyed by scope { organization_id, user_id }, per schema&#xa;⟵ created LAZILY at RUNTIME on first write / generation&#xa;(structured profile generated by the provider, async)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="300" width="400" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mem" value="Explicit-preference memories + event memories&#xa;typed, exact-scope; written by memories.create / ingest_events&#xa;overlaid on the structured profile at read time" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="450" width="400" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mbnote" value="MemoryScope = organization_id + user_id.  Projects and domains are&#xa;authorization metadata in PostgreSQL; they are NOT Memory Bank&#xa;partition keys.  One canonical user profile per schema per organization.&#xa;&#xa;Created at SETUP: schema STRUCTURE (context_spec).&#xa;Created at RUNTIME: per-user profile INSTANCES + memories." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8EF;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="600" width="400" height="150" as="geometry" />
+        </mxCell>
         <!-- cross-link edge PG version -> MB context spec -->
-        <mxCell id="d_x1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#D79B00;fontSize=10;dashed=1;" edge="1" parent="1" source="d_ver" target="d_re"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="900" y="135"/></Array></mxGeometry></mxCell>
-        <mxCell id="d_x1l" value="vertex_schema_definition&#xa;applied at ACTIVATION" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d_x1"><mxGeometry x="0.1" relative="1" as="geometry"><mxPoint y="-14" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="d_x2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#D79B00;fontSize=10;dashed=1;" edge="1" parent="1" source="d_re" target="d_profile"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d_x2l" value="defines structure of" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFF3E6;" vertex="1" connectable="0" parent="d_x2"><mxGeometry relative="1" as="geometry"/></mxCell>
-
-        <mxCell id="d_legend" value="Green = PostgreSQL (source of truth, created at SETUP).   Orange = Memory Bank (managed, used/created at RUNTIME).   Dashed cross-link = schema structure flows DB → Memory Bank at activation.   No MCP layer exists." style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="30" y="1070" width="1440" height="30" as="geometry"/></mxCell>
+        <mxCell id="d_x1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#D79B00;fontSize=10;dashed=1;" edge="1" parent="1" source="d_ver" target="d_re">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="135" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d_x1l" value="vertex_schema_definition&#xa;applied at ACTIVATION" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d_x1">
+          <mxGeometry x="0.1" relative="1" as="geometry">
+            <mxPoint y="-14" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d_x2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=none;strokeColor=#D79B00;fontSize=10;dashed=1;" edge="1" parent="1" source="d_re" target="d_profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_x2l" value="defines structure of" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFF3E6;" vertex="1" connectable="0" parent="d_x2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_legend" value="Green = PostgreSQL (source of truth, created at SETUP).   Orange = Memory Bank (managed, used/created at RUNTIME).   Dashed cross-link = schema structure flows DB → Memory Bank at activation.   No MCP layer exists." style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;align=left;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="30" y="1070" width="1440" height="30" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="dynamic" name="5 · Dynamic Memory Topic Gate">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1000" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="d5_title" value="5 · Dynamic Memory Topic Gate  —  non-canonical facts persist ONLY within approved topics (verified: runtime_service.write_dynamic_memory · vertex_memory_store.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1"><mxGeometry x="30" y="16" width="1240" height="30" as="geometry"/></mxCell>
-
-        <mxCell id="d5_l1" value="Agent runtime  (memory-agent / reference-agent · ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="30" y="60" width="290" height="820" as="geometry"/></mxCell>
-        <mxCell id="d5_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="330" y="60" width="340" height="820" as="geometry"/></mxCell>
-        <mxCell id="d5_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="680" y="60" width="290" height="820" as="geometry"/></mxCell>
-        <mxCell id="d5_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="980" y="60" width="290" height="820" as="geometry"/></mxCell>
-
-        <mxCell id="d5_ag" value="Agent decides (canonical first): a statement that maps to NO writablePreferences entry but fits an approvedTopics entry.&#xa;client.write_dynamic_memory(topic, value)&#xa;Topic must come from the snapshot's approvedTopics — the agent never invents one." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="110" width="260" height="120" as="geometry"/></mxCell>
-        <mxCell id="d5_ag2" value="Receives { status: accepted, reference: {domain}.topic.{topic}, profileVersion }&#xa;— or 403 (disabled / topic not approved) / 400 (sensitive content)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="700" width="260" height="70" as="geometry"/></mxCell>
-
-        <mxCell id="d5_api0" value="RuntimeMemoryService.write_dynamic_memory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="345" y="110" width="310" height="30" as="geometry"/></mxCell>
-        <mxCell id="d5_s2" value="2 · authenticate principal → resolve_agent()&#xa;3 · require SUBMIT_CANDIDATES + consumer scope (domain &amp; org = agent's)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="150" width="310" height="60" as="geometry"/></mxCell>
-        <mxCell id="d5_s4" value="4 · get_dynamic_memory_policy(agent.domain)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="225" width="310" height="30" as="geometry"/></mxCell>
-        <mxCell id="d5_s5" value="5 · GATE  (platform enforced, not the agent):&#xa;• no policy / disabled ⇒ 403&#xa;• topic ∉ policy.memory_topics ⇒ 403&#xa;• value matches sensitive pattern (phone/SSN/card/email/secret) ⇒ 400" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="270" width="310" height="95" as="geometry"/></mxCell>
-        <mxCell id="d5_s6" value="6 · expires_at = now + retention_days (if configured)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1"><mxGeometry x="345" y="380" width="310" height="30" as="geometry"/></mxCell>
-        <mxCell id="d5_s7" value="7 · store.write_dynamic_memory(scope, topic, value, confidence, expires_at)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="345" y="425" width="310" height="45" as="geometry"/></mxCell>
-
-        <mxCell id="d5_db" value="dynamic_memory_policies  (READ):&#xa;• enabled&#xa;• memory_topics  ← authoritative approved-topic list&#xa;• confidence_threshold  (default 0.7)&#xa;• retention_policy.retention_days&#xa;&#xa;Configured in the admin console's Create Memory Setup.&#xa;No row is written on the dynamic write path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="695" y="225" width="260" height="185" as="geometry"/></mxCell>
-
-        <mxCell id="d5_mb" value="VertexMemoryBankStore.write_dynamic_memory → agentplatform SDK&#xa;&#xa;memories.create( fact = typed shared-memory-dynamic/v1&#xa;  { topic, value, confidence, version, updated_at, expires_at },&#xa;  scope = { organization_id, user_id } )&#xa;Latest-per-topic overlay (order-independent).&#xa;&#xa;⚠ Managed generation is DISABLED: ingest_events is NOT called,&#xa;so the provider cannot extract arbitrary, ungoverned memories.&#xa;Only explicit topic-gated writes are persisted." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="995" y="425" width="260" height="230" as="geometry"/></mxCell>
-
-        <mxCell id="d5_resolve" value="On RESOLVE (flow 3): approved dynamic memories are retrieved (get_dynamic_memories by approved topics) and folded in as DYNAMIC_MEMORY candidates —&#xa;ranked BELOW canonical MEMORY_PROFILE via source_priority, DROPPED when confidence &lt; confidence_threshold, and expiry-filtered.&#xa;The effective snapshot returns approvedTopics alongside writablePreferences, so the agent knows both boundaries. Resolution runs entirely in the control plane." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1"><mxGeometry x="45" y="800" width="1210" height="70" as="geometry"/></mxCell>
-
-        <mxCell id="d5_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_ag" target="d5_api0"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d5_e1l" value="1 · POST /api/v1/runtime/memory/dynamic  { scope, topic, value, confidence }  (Auth: X-Agent-ID dev / Bearer prod)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d5_e1"><mxGeometry x="-0.05" relative="1" as="geometry"><mxPoint y="-12" as="offset"/></mxGeometry></mxCell>
-        <mxCell id="d5_e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_s4" target="d5_db"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d5_e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_s7" target="d5_mb"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="d5_e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="d5_mb" target="d5_ag2"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1125" y="720"/><mxPoint x="175" y="720"/></Array></mxGeometry></mxCell>
-        <mxCell id="d5_e8l" value="8 · response" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d5_e8"><mxGeometry x="0.4" relative="1" as="geometry"><mxPoint y="-10" as="offset"/></mxGeometry></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="d5_title" value="5 · Dynamic Memory Topic Gate  —  non-canonical facts persist ONLY within approved topics (verified: runtime_service.write_dynamic_memory · vertex_memory_store.py)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#174E86;align=left;" vertex="1" parent="1">
+          <mxGeometry x="30" y="16" width="1240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_l1" value="Agent runtime  (memory-agent / reference-agent · ADK)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEA;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#8A6D1B;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="60" width="290" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_l2" value="Control Plane API — Runtime plane  (/api/v1/runtime)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1ECF7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#6A4A86;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="60" width="340" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_l3" value="Application DB · PostgreSQL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF5E8;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#4C7A34;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="60" width="290" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_l4" value="Memory Bank platform  (Vertex / agentplatform 2.x)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;fontColor=#A66A00;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="980" y="60" width="290" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_ag" value="Agent decides (canonical first): a statement that maps to NO writablePreferences entry but fits an approvedTopics entry.&#xa;client.write_dynamic_memory(topic, value)&#xa;Topic must come from the snapshot&#39;s approvedTopics — the agent never invents one." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="110" width="260" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_ag2" value="Receives { status: accepted, reference: {domain}.topic.{topic}, profileVersion }&#xa;— or 403 (disabled / topic not approved) / 400 (sensitive content)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="700" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_api0" value="RuntimeMemoryService.write_dynamic_memory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="345" y="110" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_s2" value="2 · authenticate principal → resolve_agent()&#xa;3 · require SUBMIT_CANDIDATES + consumer scope (domain &amp; org = agent&#39;s)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="150" width="310" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_s4" value="4 · get_dynamic_memory_policy(agent.domain)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="225" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_s5" value="5 · GATE  (platform enforced, not the agent):&#xa;• no policy / disabled ⇒ 403&#xa;• topic ∉ policy.memory_topics ⇒ 403&#xa;• value matches sensitive pattern (phone/SSN/card/email/secret) ⇒ 400" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="270" width="310" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_s6" value="6 · expires_at = now + retention_days (if configured)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="345" y="380" width="310" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_s7" value="7 · store.write_dynamic_memory(scope, topic, value, confidence, expires_at)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;fontStyle=1;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="345" y="425" width="310" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_db" value="dynamic_memory_policies  (READ):&#xa;• enabled&#xa;• memory_topics  ← authoritative approved-topic list&#xa;• confidence_threshold  (default 0.7)&#xa;• retention_policy.retention_days&#xa;&#xa;Configured in the admin console&#39;s Create Memory Setup.&#xa;No row is written on the dynamic write path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="695" y="225" width="260" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_mb" value="VertexMemoryBankStore.write_dynamic_memory → agentplatform SDK&#xa;&#xa;memories.create( fact = typed shared-memory-dynamic/v1&#xa;  { topic, value, confidence, version, updated_at, expires_at },&#xa;  scope = { organization_id, user_id } )&#xa;Latest-per-topic overlay (order-independent).&#xa;&#xa;⚠ Managed generation is DISABLED: ingest_events is NOT called,&#xa;so the provider cannot extract arbitrary, ungoverned memories.&#xa;Only explicit topic-gated writes are persisted." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="995" y="425" width="260" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_resolve" value="On RESOLVE (flow 3): approved dynamic memories are retrieved (get_dynamic_memories by approved topics) and folded in as DYNAMIC_MEMORY candidates —&#xa;ranked BELOW canonical MEMORY_PROFILE via source_priority, DROPPED when confidence &lt; confidence_threshold, and expiry-filtered.&#xa;The effective snapshot returns approvedTopics alongside writablePreferences, so the agent knows both boundaries. Resolution runs entirely in the control plane." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="45" y="800" width="1210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_ag" target="d5_api0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_e1l" value="1 · POST /api/v1/runtime/memory/dynamic  { scope, topic, value, confidence }  (Auth: X-Agent-ID dev / Bearer prod)" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d5_e1">
+          <mxGeometry x="-0.05" relative="1" as="geometry">
+            <mxPoint y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d5_e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#4C7A34;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_s4" target="d5_db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A66A00;fontSize=10;endArrow=block;" edge="1" parent="1" source="d5_s7" target="d5_mb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d5_e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#555555;fontSize=10;endArrow=block;dashed=1;" edge="1" parent="1" source="d5_mb" target="d5_ag2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1125" y="720" />
+              <mxPoint x="175" y="720" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="d5_e8l" value="8 · response" style="edgeLabel;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;" vertex="1" connectable="0" parent="d5_e8">
+          <mxGeometry x="0.4" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

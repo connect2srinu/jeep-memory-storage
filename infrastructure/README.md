@@ -5,6 +5,46 @@ database, Control Plane API, Admin Console, and related runtime configuration. D
 are database-backed control-plane resources created through the Admin Console or Admin API after
 the application is healthy.
 
+## Enable Google APIs for a new project
+
+Use the API bootstrap script with the immutable Google Cloud project ID, not its display name:
+
+```bash
+./scripts/enable_google_agent_platform_apis.sh YOUR_PROJECT_ID
+```
+
+The default `platform` profile enables the Agent Platform API used by Agent Runtime, Memory Bank,
+Sessions, and agent evaluation. It also enables Gemini Enterprise/Agent Designer and Agent Registry
+APIs, plus the deployment, Cloud SQL, eventing, analytics, and observability APIs used by this
+repository.
+
+Review the command without changing the project:
+
+```bash
+./scripts/enable_google_agent_platform_apis.sh YOUR_PROJECT_ID --dry-run
+```
+
+Enable only the managed agent features without this repository's Cloud Run/Cloud SQL infrastructure:
+
+```bash
+./scripts/enable_google_agent_platform_apis.sh YOUR_PROJECT_ID --profile core
+```
+
+Agent Gateway and classic Dataflow-based model evaluation activate larger optional API sets:
+
+```bash
+./scripts/enable_google_agent_platform_apis.sh YOUR_PROJECT_ID \
+  --with-gateway \
+  --with-classic-model-evaluation \
+  --create-service-identities
+```
+
+The script is safe to rerun. API enablement does not create resources, grant IAM roles, link billing,
+enable the Agent Designer product toggle, or provide access to Preview/allowlisted features. Read the
+completion checklist printed by the script and use Terraform for durable environment provisioning.
+
+## Provision the platform
+
 Before applying changes, complete the deployment-input checklist in
 `docs/deployment-operations.md`, validate tests, and review the exact project and region.
 
