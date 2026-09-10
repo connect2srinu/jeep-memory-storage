@@ -85,6 +85,28 @@ def _log_flow_step(step: str, **fields: object) -> None:
     )
 
 
+def _log_memory_write(*, tier: str, version: int, **fields: object) -> None:
+    """Emit a structured create/update event for a long-term memory write.
+
+    ``op`` is derived from the version (1 = created, otherwise updated). Values are never logged —
+    they can be sensitive. Flows to container logs and, in GCP, to Cloud Logging.
+    """
+    logger.info(
+        json.dumps(
+            {
+                "event": "memory_write",
+                "correlation_id": correlation_id_context.get(),
+                "tier": tier,
+                "op": "created" if version == 1 else "updated",
+                "version": version,
+                **fields,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
+
+
 class RuntimeMemoryService:
     def __init__(
         self,
@@ -373,12 +395,13 @@ class RuntimeMemoryService:
             confidence=request.confidence,
             expires_at=expires_at,
         )
-        _log_flow_step(
-            "dynamic_memory_persisted",
+        _log_memory_write(
+            tier="dynamic",
+            version=memory.version,
             agent_id=agent.id,
             domain=agent.domain_id,
             topic=memory.topic,
-            version=memory.version,
+            reference=f"{agent.domain_id}.topic.{memory.topic}",
         )
         return RuntimeMutationResponse(
             status="accepted",
@@ -410,6 +433,15 @@ class RuntimeMemoryService:
             schema_id=grant.schema_id,
             attribute=profile_field,
             value=request.value,
+        )
+        _log_memory_write(
+            tier="canonical",
+            version=profile.version,
+            agent_id=agent.id,
+            domain=agent.domain_id,
+            attribute=attribute,
+            schema_id=grant.schema_id,
+            reference=f"{profile.schema_id}:{attribute}",
         )
         return RuntimeMutationResponse(
             status="updated",
