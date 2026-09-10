@@ -28,6 +28,10 @@ class MemoryBankClient(Protocol):
 
     def ingest_event(self, *, text: str, scope: dict[str, str], stream_id: str) -> Any: ...
 
+    def delete(self, *, name: str) -> Any: ...
+
+    def list_memories(self) -> list[Any]: ...
+
 
 class AgentPlatformMemoryBankClient:
     def __init__(self, *, project: str, location: str, resource_id: str) -> None:
@@ -61,6 +65,12 @@ class AgentPlatformMemoryBankClient:
             # An omitted generation_rule force-flushes immediately in the current SDK.
             generation_trigger_config={},
         )
+
+    def delete(self, *, name: str) -> Any:
+        return self._memories.delete(name=name)
+
+    def list_memories(self) -> list[Any]:
+        return list(self._memories.list(name=self._name))
 
 
 class VertexMemoryBankStore:
@@ -281,6 +291,94 @@ class VertexMemoryBankStore:
         memories = await asyncio.to_thread(self._client.retrieve, scope=self._scope(scope))
         overlays = self._dynamic_overlays(scope, memories, tuple(topics))
         return tuple(overlays[topic] for topic in sorted(overlays))
+
+    async def forget_user(self, scope: MemoryScope) -> int:
+        """Delete every memory for a user scope (right-to-be-forgotten). Returns count deleted.
+
+        Uses ``list`` (authoritative enumeration) rather than ``retrieve`` (similarity retrieval,
+        which does not reliably surface every memory) filtered by the memory's immutable scope.
+        """
+        items = await asyncio.to_thread(self._client.list_memories)
+        names = []
+        for item in items:
+            memory = getattr(item, "memory", item)
+            memory_scope = getattr(memory, "scope", None) or {}
+            if (
+                memory_scope.get("organization_id") == scope.organization_id
+                and memory_scope.get("user_id") == scope.user_id
+            ):
+                name = getattr(memory, "name", None)
+                if name:
+                    names.append(name)
+        for name in names:
+            await asyncio.to_thread(self._client.delete, name=name)
+        return len(names)
+
+    async def purge(
+        self,
+        *,
+        organization_id: str,
+        tier: str | None = None,
+        attribute: str | None = None,
+        topic: str | None = None,
+        dry_run: bool = False,
+    ) -> tuple[dict[str, Any], ...]:
+        """Delete memories across the organization matching a filter (operator on-demand).
+
+        ``dry_run`` returns the matches without deleting. Org isolation is enforced via each
+        memory's immutable scope.
+        """
+        items = await asyncio.to_thread(self._client.list_memories)
+        matches: list[dict[str, Any]] = []
+        for item in items:
+            memory = getattr(item, "memory", item)
+            scope = getattr(memory, "scope", None) or {}
+            if scope.get("organization_id") != organization_id:
+                continue
+            payload = self._json_object(getattr(memory, "fact", None))
+            if not payload:
+                continue
+            entry = self._match_purge(payload, tier, attribute, topic)
+            if entry is None:
+                continue
+            matches.append(
+                {
+                    **entry,
+                    "organizationId": organization_id,
+                    "userId": scope.get("user_id"),
+                    "name": getattr(memory, "name", None),
+                }
+            )
+        if not dry_run:
+            for match in matches:
+                if match.get("name"):
+                    await asyncio.to_thread(self._client.delete, name=match["name"])
+        return tuple({k: v for k, v in match.items() if k != "name"} for match in matches)
+
+    @staticmethod
+    def _match_purge(
+        payload: dict[str, Any], tier: str | None, attribute: str | None, topic: str | None
+    ) -> dict[str, Any] | None:
+        schema = payload.get("schema")
+        if schema == VertexMemoryBankStore._EXPLICIT_SCHEMA:
+            m_tier, key = "canonical", str(payload.get("attribute", ""))
+        elif schema == VertexMemoryBankStore._DYNAMIC_SCHEMA:
+            m_tier, key = "dynamic", str(payload.get("topic", ""))
+        else:
+            return None
+        if tier and m_tier != tier:
+            return None
+        if m_tier == "canonical":
+            if topic:
+                return None
+            if attribute and not (attribute == key or attribute.endswith(f".{key}")):
+                return None
+            return {"tier": "canonical", "attribute": key}
+        if attribute:
+            return None
+        if topic and topic != key:
+            return None
+        return {"tier": "dynamic", "topic": key}
 
     def _dynamic_overlays(
         self, scope: MemoryScope, items: list[Any], topics: tuple[str, ...]

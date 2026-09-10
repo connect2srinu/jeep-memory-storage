@@ -49,3 +49,15 @@ class MemoryStore(Protocol):
     async def get_dynamic_memories(
         self, scope: MemoryScope, topics: tuple[str, ...]
     ) -> tuple[DynamicMemory, ...]: ...
+
+    async def forget_user(self, scope: MemoryScope) -> int: ...
+
+    async def purge(
+        self,
+        *,
+        organization_id: str,
+        tier: str | None = None,
+        attribute: str | None = None,
+        topic: str | None = None,
+        dry_run: bool = False,
+    ) -> tuple[dict[str, object], ...]: ...

@@ -244,7 +244,7 @@ async def seed_control_plane(database: Database) -> None:
                         "resolve_context": True,
                         "submit_candidates": submit,
                         "inspect_provenance": provenance,
-                        "administer_memory": False,
+                        "administer_memory": agent_id == "grocery-agent",
                     },
                     status="ACTIVE",
                 )

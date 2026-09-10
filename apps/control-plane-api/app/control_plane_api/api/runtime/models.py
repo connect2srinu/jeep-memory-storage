@@ -75,6 +75,17 @@ class DynamicMemoryWrite(ApiModel):
     confidence: float = Field(default=1.0, ge=0, le=1)
 
 
+class ForgetMemoryRequest(ApiModel):
+    scope: RuntimeScope
+
+
+class PurgeMemoryRequest(ApiModel):
+    tier: str | None = Field(default=None, pattern="^(canonical|dynamic)$")
+    attribute: str | None = Field(default=None, min_length=1)
+    topic: str | None = Field(default=None, min_length=1)
+    dry_run: bool = Field(default=True, alias="dryRun")
+
+
 class RuntimeMutationResponse(ApiModel):
     status: str
     reference: str

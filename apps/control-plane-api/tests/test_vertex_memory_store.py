@@ -22,6 +22,7 @@ class FakeMemoryBankClient:
         self.profiles: dict[tuple[tuple[str, str], ...], dict[str, object]] = {}
         self.scopes: list[dict[str, str]] = []
         self.ingested: list[str] = []
+        self._counter = 0
 
     @staticmethod
     def key(scope: dict[str, str]) -> tuple[tuple[str, str], ...]:
@@ -37,7 +38,8 @@ class FakeMemoryBankClient:
 
     def create(self, *, fact: str, scope: dict[str, str]):
         self.scopes.append(scope)
-        memory = SimpleNamespace(name=f"memories/{len(self.memories) + 1}", fact=fact)
+        self._counter += 1
+        memory = SimpleNamespace(name=f"memories/{self._counter}", fact=fact, scope=dict(scope))
         self.memories.setdefault(self.key(scope), []).append(SimpleNamespace(memory=memory))
         return Operation(memory.name)
 
@@ -45,6 +47,14 @@ class FakeMemoryBankClient:
         self.scopes.append(scope)
         self.ingested.append(f"{stream_id}:{text}")
         return Operation("operations/ingest")
+
+    def delete(self, *, name: str):
+        for items in self.memories.values():
+            items[:] = [it for it in items if getattr(it.memory, "name", None) != name]
+        return Operation(name)
+
+    def list_memories(self) -> list[object]:
+        return [item for items in self.memories.values() for item in items]
 
 
 @pytest.fixture
@@ -188,6 +198,46 @@ async def test_dynamic_memories_keep_latest_per_topic_and_filter_unapproved(scop
     await backend.write_dynamic_memory(scope, topic="health", value="allergic to shellfish", confidence=0.99)
     filtered = await backend.get_dynamic_memories(scope, ("shopping", "fulfillment"))
     assert "health" not in {m.topic for m in filtered}
+
+
+@pytest.mark.asyncio
+async def test_forget_deletes_and_purge_targets_by_topic(scope) -> None:
+    client = FakeMemoryBankClient()
+    backend = VertexMemoryBankStore(client)
+    await backend.register_schema(
+        MemoryProfileSchema(
+            id="grocery-preferences-v1",
+            domain="grocery",
+            version="1",
+            fields=frozenset({"preferred_snack", "shopping", "fulfillment"}),
+        )
+    )
+    other = ScopeRegistry().resolve(
+        "organization-user-profile", {"organization_id": "retail", "user_id": "2002"}
+    )
+    await backend.write_preference(
+        scope, schema_id="grocery-preferences-v1", attribute="preferred_snack", value="mango"
+    )
+    await backend.write_dynamic_memory(scope, topic="shopping", value="sunday", confidence=0.9)
+    await backend.write_dynamic_memory(other, topic="shopping", value="monday", confidence=0.9)
+
+    # Operator purge, dry run: both users match, nothing removed.
+    preview = await backend.purge(organization_id="retail", topic="shopping", dry_run=True)
+    assert {m["userId"] for m in preview} == {"1001", "2002"}
+    assert len(await backend.get_dynamic_memories(scope, ("shopping",))) == 1
+
+    # Execute: the topic is removed for the whole org, canonical is untouched.
+    purged = await backend.purge(organization_id="retail", topic="shopping", dry_run=False)
+    assert len(purged) == 2
+    assert await backend.get_dynamic_memories(scope, ("shopping",)) == ()
+    assert (await backend.get_profiles(scope, ("grocery-preferences-v1",)))[0].values == {
+        "preferred_snack": "mango"
+    }
+
+    # Forget removes everything left for the one user.
+    deleted = await backend.forget_user(scope)
+    assert deleted == 1
+    assert await backend.get_profiles(scope, ("grocery-preferences-v1",)) == ()
 
 
 @pytest.mark.asyncio

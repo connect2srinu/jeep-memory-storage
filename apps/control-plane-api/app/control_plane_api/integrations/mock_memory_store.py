@@ -127,6 +127,75 @@ class MockMemoryStore:
             memory for topic, memory in sorted(stored.items()) if topic in approved
         )
 
+    async def forget_user(self, scope: MemoryScope) -> int:
+        async with self._lock:
+            identity = scope.identity
+            removed = 0
+            for key in [key for key in self._profiles if key[0] == identity]:
+                removed += len(self._profiles[key].values)
+                del self._profiles[key]
+            removed += len(self._dynamic.pop(identity, {}))
+            removed += len(self._natural_memories.pop(identity, []))
+            return removed
+
+    async def purge(
+        self,
+        *,
+        organization_id: str,
+        tier: str | None = None,
+        attribute: str | None = None,
+        topic: str | None = None,
+        dry_run: bool = False,
+    ) -> tuple[dict[str, object], ...]:
+        if attribute:
+            tiers = {"canonical"}
+        elif topic:
+            tiers = {"dynamic"}
+        elif tier:
+            tiers = {tier}
+        else:
+            tiers = {"canonical", "dynamic"}
+        async with self._lock:
+            matches: list[dict[str, object]] = []
+            if "canonical" in tiers:
+                for (identity, schema_id), profile in list(self._profiles.items()):
+                    if identity[0] != organization_id:
+                        continue
+                    for field in list(profile.values):
+                        if attribute and not (attribute == field or attribute.endswith(f".{field}")):
+                            continue
+                        matches.append(
+                            {
+                                "organizationId": identity[0],
+                                "userId": identity[1],
+                                "tier": "canonical",
+                                "attribute": field,
+                            }
+                        )
+                        if not dry_run:
+                            remaining = {k: v for k, v in profile.values.items() if k != field}
+                            self._profiles[(identity, schema_id)] = replace(
+                                profile, values=remaining
+                            )
+            if "dynamic" in tiers:
+                for identity, topics in list(self._dynamic.items()):
+                    if identity[0] != organization_id:
+                        continue
+                    for stored_topic in list(topics):
+                        if topic and stored_topic != topic:
+                            continue
+                        matches.append(
+                            {
+                                "organizationId": identity[0],
+                                "userId": identity[1],
+                                "tier": "dynamic",
+                                "topic": stored_topic,
+                            }
+                        )
+                        if not dry_run:
+                            del self._dynamic[identity][stored_topic]
+            return tuple(matches)
+
     def _write_unlocked(
         self,
         scope: MemoryScope,

@@ -8,7 +8,9 @@ from control_plane_api.api.runtime.models import (
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
+    ForgetMemoryRequest,
     MemoryEventRequest,
+    PurgeMemoryRequest,
     RawProfilesRequest,
     ResolvePreferencesRequest,
     RuntimeMutationResponse,
@@ -60,6 +62,22 @@ def create_runtime_router(
         service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
     ) -> RuntimeMutationResponse:
         return await service.write_dynamic_memory(identity, payload)
+
+    @router.post("/memory/forget")
+    async def forget_memory(
+        payload: ForgetMemoryRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.forget_user_memories(identity, payload)
+
+    @router.post("/memory/purge")
+    async def purge_memory(
+        payload: PurgeMemoryRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.purge_memories(identity, payload)
 
     @router.put("/preferences/{attribute}", response_model=RuntimeMutationResponse)
     async def update_preference(

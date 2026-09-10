@@ -372,3 +372,85 @@ async def test_dynamic_memory_is_topic_gated_and_surfaces_in_resolution(runtime_
     assert prefs["topic:shopping"]["source"] == "DYNAMIC_MEMORY"
     # The low-confidence entry is dropped by the confidence gate; the rejected ones never persisted.
     assert "topic:fulfillment" not in prefs
+
+
+async def _dyn(client, headers, user, topic, value):
+    return await client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope(user), "topic": topic, "value": value, "confidence": 0.9},
+    )
+
+
+@pytest.mark.asyncio
+async def test_forget_deletes_all_of_a_users_memories(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.preferred_store",
+        headers=headers,
+        json={"scope": scope("u1"), "value": "Kroger"},
+    )
+    assert (await _dyn(runtime_client, headers, "u1", "shopping", "weekly bulk run")).status_code == 200
+
+    forget = await runtime_client.post(
+        "/api/v1/runtime/memory/forget", headers=headers, json={"scope": scope("u1")}
+    )
+    assert forget.status_code == 200, forget.text
+    assert forget.json()["status"] == "forgotten"
+    assert forget.json()["deleted"] >= 2
+
+    resolved = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope("u1"), "sessionId": "s", "agentId": "grocery-agent"},
+    )
+    assert resolved.json()["preferences"] == {}
+
+
+@pytest.mark.asyncio
+async def test_operator_purge_is_capability_gated_previewed_then_executed(runtime_client) -> None:
+    admin = {"X-Agent-ID": "grocery-agent"}  # seeded with administer_memory
+    await _dyn(runtime_client, admin, "u1", "shopping", "weekly bulk run")
+    await _dyn(runtime_client, admin, "u2", "shopping", "fortnightly run")
+
+    # Requires the ADMINISTER_MEMORY capability.
+    denied = await runtime_client.post(
+        "/api/v1/runtime/memory/purge",
+        headers={"X-Agent-ID": "grocery-readonly-agent"},
+        json={"topic": "shopping", "dryRun": True},
+    )
+    assert denied.status_code == 403, denied.text
+
+    # A filter is required.
+    empty = await runtime_client.post(
+        "/api/v1/runtime/memory/purge", headers=admin, json={"dryRun": True}
+    )
+    assert empty.status_code == 400, empty.text
+
+    # Dry run previews both users without deleting.
+    preview = await runtime_client.post(
+        "/api/v1/runtime/memory/purge", headers=admin, json={"topic": "shopping", "dryRun": True}
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["status"] == "preview"
+    assert preview.json()["matched"] == 2
+    still = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=admin,
+        json={"scope": scope("u1"), "sessionId": "s", "agentId": "grocery-agent"},
+    )
+    assert "topic:shopping" in still.json()["preferences"]
+
+    # Execute the purge across the organization.
+    purged = await runtime_client.post(
+        "/api/v1/runtime/memory/purge", headers=admin, json={"topic": "shopping", "dryRun": False}
+    )
+    assert purged.json()["status"] == "purged"
+    assert purged.json()["matched"] == 2
+    for user in ("u1", "u2"):
+        gone = await runtime_client.post(
+            "/api/v1/runtime/preferences/resolve",
+            headers=admin,
+            json={"scope": scope(user), "sessionId": "s", "agentId": "grocery-agent"},
+        )
+        assert "topic:shopping" not in gone.json()["preferences"]

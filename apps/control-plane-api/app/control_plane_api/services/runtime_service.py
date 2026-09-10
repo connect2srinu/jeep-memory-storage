@@ -10,8 +10,10 @@ from control_plane_api.api.runtime.models import (
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
+    ForgetMemoryRequest,
     MemoryEventRequest,
     PreferenceValue,
+    PurgeMemoryRequest,
     RawProfilesRequest,
     ResolvePreferencesRequest,
     RuntimeMutationResponse,
@@ -99,6 +101,22 @@ def _log_memory_write(*, tier: str, version: int, **fields: object) -> None:
                 "tier": tier,
                 "op": "created" if version == 1 else "updated",
                 "version": version,
+                **fields,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
+
+
+def _log_memory_deletion(*, op: str, **fields: object) -> None:
+    """Emit a structured audit event for a memory deletion (forget / purge)."""
+    logger.info(
+        json.dumps(
+            {
+                "event": "memory_deletion",
+                "correlation_id": correlation_id_context.get(),
+                "op": op,
                 **fields,
             },
             sort_keys=True,
@@ -408,6 +426,59 @@ class RuntimeMemoryService:
             reference=f"{agent.domain_id}.topic.{memory.topic}",
             profile_version=memory.version,
         )
+
+    async def forget_user_memories(
+        self, principal: AuthenticatedPrincipal, request: ForgetMemoryRequest
+    ) -> dict[str, object]:
+        """Right-to-be-forgotten: delete every memory for the requested user scope."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        scope = self._memory_scope(request.scope, agent)
+        deleted = await self.store.forget_user(scope)
+        _log_memory_deletion(
+            op="forget",
+            agent_id=agent.id,
+            domain=agent.domain_id,
+            organization_id=agent.organization_id,
+            user_id=request.scope.user_id,
+            deleted=deleted,
+        )
+        return {"status": "forgotten", "userId": request.scope.user_id, "deleted": deleted}
+
+    async def purge_memories(
+        self, principal: AuthenticatedPrincipal, request: PurgeMemoryRequest
+    ) -> dict[str, object]:
+        """Operator on-demand deletion across the organization, gated by ADMINISTER_MEMORY.
+
+        Requires at least one filter (tier, attribute, or topic). ``dryRun`` (default true) previews
+        the matches without deleting.
+        """
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
+        if not (request.tier or request.attribute or request.topic):
+            raise ValueError("purge requires at least one of tier, attribute, or topic")
+        matches = await self.store.purge(
+            organization_id=agent.organization_id,
+            tier=request.tier,
+            attribute=request.attribute,
+            topic=request.topic,
+            dry_run=request.dry_run,
+        )
+        _log_memory_deletion(
+            op="purge_preview" if request.dry_run else "purge",
+            agent_id=agent.id,
+            organization_id=agent.organization_id,
+            tier=request.tier,
+            attribute=request.attribute,
+            topic=request.topic,
+            matched=len(matches),
+        )
+        return {
+            "status": "preview" if request.dry_run else "purged",
+            "matched": len(matches),
+            "entries": list(matches),
+        }
 
     async def update_preference(
         self,
