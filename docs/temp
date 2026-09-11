@@ -1,0 +1,9 @@
+Yes—**a shared front end with a dedicated pharmacy agent is a reasonable proposal.** The key is separating the pharmacy session, data, and logging, not just routing to a different agent. Google also makes clear that compliance depends on how the application is configured and secured. [Google Cloud guidance](https://cloud.google.com/security/compliance/hipaa)
+
+Using the writing-blocks skill, here’s a quick draft:
+
+My initial suggestion is to retain the same customer-facing entry point for the KPC grocery agent and introduce intent-based routing. When a customer requests a prescription refill or another pharmacy service, we would hand off to a dedicated pharmacy agent with its own backend integrations, access controls, data storage, and retention policies.
+
+The pharmacy interaction would run in a separate, protected session, with additional authentication where required. Pharmacy conversations and sensitive data should remain separate from grocery chat history, shared memory, and general analytics. We would also need to account for sensitive information entered before the handoff.
+
+This would preserve a consistent customer experience while allowing pharmacy-specific governance. We should validate with the H&W and security teams whether a shared front end with this separation meets their requirements or whether a separate pharmacy experience is necessary.
