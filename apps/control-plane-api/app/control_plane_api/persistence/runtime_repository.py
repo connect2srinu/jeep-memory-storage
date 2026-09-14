@@ -17,6 +17,7 @@ from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
     DynamicMemoryPolicyRecord,
     MemoryDomainRecord,
+    PreferenceDefinitionRecord,
     ProfileSchemaRecord,
     ProfileSchemaVersionRecord,
     RegisteredAgentRecord,
@@ -115,6 +116,12 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     .order_by(SchemaPreferenceMappingRecord.profile_field)
                 )
             ).all()
+            field_to_attribute = {item.profile_field: item.attribute_id for item in mappings}
+            attribute_sensitivity: dict[str, str] = {}
+            for attribute_id in set(field_to_attribute.values()):
+                definition = await self.session.get(PreferenceDefinitionRecord, attribute_id)
+                if definition is not None:
+                    attribute_sensitivity[attribute_id] = definition.sensitivity_classification
             result.append(
                 RuntimeSchemaGrant(
                     schema_id=schema.id,
@@ -123,7 +130,8 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     schema_version=version.version,
                     permission=AccessPermission(grant.permission),
                     scope_keys=tuple(scope.scope_keys),
-                    field_to_attribute={item.profile_field: item.attribute_id for item in mappings},
+                    field_to_attribute=field_to_attribute,
+                    attribute_sensitivity=attribute_sensitivity,
                 )
             )
         return tuple(result)

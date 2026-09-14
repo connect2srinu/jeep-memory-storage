@@ -179,7 +179,8 @@ async def seed_control_plane(database: Database) -> None:
                         allowed_values=[],
                         sensitivity_classification=(
                             "sensitive"
-                            if attribute in {"customer.diet", "customer.fruit"}
+                            if attribute
+                            in {"customer.diet", "customer.fruit", "grocery.dietary_preference"}
                             else "normal"
                         ),
                         canonical_owner_id=domain,

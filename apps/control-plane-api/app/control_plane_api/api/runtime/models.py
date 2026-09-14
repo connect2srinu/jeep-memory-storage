@@ -50,10 +50,14 @@ class RawProfilesRequest(ApiModel):
     schema_ids: tuple[str, ...] = Field(alias="schemaIds", min_length=1)
 
 
+_SOURCE_PATTERN = "^(user_directed|inference)$"
+
+
 class MemoryEventRequest(ApiModel):
     scope: RuntimeScope
     text: str = Field(min_length=1)
     candidates: tuple[PreferenceUpdate, ...] = ()
+    source: str = Field(default="user_directed", pattern=_SOURCE_PATTERN)
 
 
 class PreferenceUpdate(ApiModel):
@@ -66,6 +70,7 @@ class ExplicitPreferenceUpdate(ApiModel):
     scope: RuntimeScope
     schema_id: str | None = Field(default=None, alias="schemaId", min_length=1)
     value: Any
+    source: str = Field(default="user_directed", pattern=_SOURCE_PATTERN)
 
 
 class DynamicMemoryWrite(ApiModel):
@@ -73,6 +78,7 @@ class DynamicMemoryWrite(ApiModel):
     topic: str = Field(min_length=1)
     value: Any
     confidence: float = Field(default=1.0, ge=0, le=1)
+    source: str = Field(default="user_directed", pattern=_SOURCE_PATTERN)
 
 
 class ForgetMemoryRequest(ApiModel):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 from datetime import UTC, datetime, timedelta
 
 from control_plane_api.api.runtime.models import (
@@ -42,34 +41,45 @@ from control_plane_api.domain.runtime import (
     RuntimeResolutionConfig,
     RuntimeSchemaGrant,
 )
+from control_plane_api.domain.sensitivity import (
+    MemorySource,
+    SensitivityTier,
+    max_tier,
+    parse_tier,
+)
 from control_plane_api.observability.runtime import correlation_id_context
 from control_plane_api.persistence.runtime_repository import RuntimeControlPlaneRepository
 from control_plane_api.repositories import MemoryStore
 from control_plane_api.security.authentication import AuthenticatedPrincipal
 from control_plane_api.services.authorization import AgentCapability
+from control_plane_api.services.memory_classification import classify_content
 from control_plane_api.services.preference_resolver import PreferenceResolver
 from control_plane_api.services.scope_registry import ScopeRegistry
 
 logger = logging.getLogger("uvicorn.error.control_plane_api.preference_resolution")
 
-# Defense-in-depth: topics gate *categories*, not *content*. Even inside an approved topic, block
-# obvious secrets/identifiers from being persisted to long-term memory.
-_SENSITIVE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("phone_number", re.compile(r"(?:\+?\d[\s.-]?){10,}")),
-    ("ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
-    ("credit_card", re.compile(r"\b(?:\d[ -]?){13,16}\b")),
-    ("email", re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")),
-    ("secret", re.compile(r"(?i)\b(password|passwd|api[_-]?key|secret|token)\b")),
-)
+def _screen_memory_write(
+    value: object, *, declared: str | None, source: str, label: str
+) -> SensitivityTier:
+    """Classify a memory write and enforce the sensitivity/source policy, or raise.
 
-
-def _sensitive_match(value: object) -> str | None:
-    if not isinstance(value, str):
-        return None
-    for label, pattern in _SENSITIVE_PATTERNS:
-        if pattern.search(value):
-            return label
-    return None
+    Effective tier is the max of the attribute's declared classification and a content scan.
+    Policy: RESTRICTED -> reject; SENSITIVE + inferred -> reject (only user-directed sensitive
+    memories may be stored); otherwise allow. Returns the effective tier for auditing.
+    """
+    detected, category = classify_content(value)
+    tier = max_tier(parse_tier(declared), detected)
+    memory_source = MemorySource.INFERENCE if source == MemorySource.INFERENCE else (
+        MemorySource.USER_DIRECTED
+    )
+    if tier is SensitivityTier.RESTRICTED:
+        reason = category or "restricted attribute"
+        raise ValueError(f"{label} contains restricted content ({reason}) and cannot be stored")
+    if tier is SensitivityTier.SENSITIVE and memory_source is MemorySource.INFERENCE:
+        raise PermissionError(
+            f"{label} is sensitive and was inferred, not user-directed; it will not be stored"
+        )
+    return tier
 
 
 def _log_flow_step(step: str, **fields: object) -> None:
@@ -367,6 +377,12 @@ class RuntimeMemoryService:
                 agent.domain_id,
                 candidate.schema_id,
             )
+            _screen_memory_write(
+                candidate.value,
+                declared=grant.attribute_sensitivity.get(candidate.attribute),
+                source=request.source,
+                label=f"attribute {candidate.attribute!r}",
+            )
             await self._register_schema(grant)
             writes.append(
                 PreferenceWrite(
@@ -395,11 +411,12 @@ class RuntimeMemoryService:
                 f"topic {request.topic!r} is not an approved dynamic-memory topic for "
                 f"domain {agent.domain_id!r}"
             )
-        sensitive = _sensitive_match(request.value)
-        if sensitive is not None:
-            raise ValueError(
-                f"value contains sensitive data ({sensitive}) and cannot be stored in memory"
-            )
+        tier = _screen_memory_write(
+            request.value,
+            declared=None,
+            source=request.source,
+            label=f"topic {request.topic!r}",
+        )
         expires_at = (
             datetime.now(UTC) + timedelta(days=policy.retention_days)
             if policy.retention_days
@@ -419,6 +436,8 @@ class RuntimeMemoryService:
             agent_id=agent.id,
             domain=agent.domain_id,
             topic=memory.topic,
+            sensitivity=tier.value,
+            source=request.source,
             reference=f"{agent.domain_id}.topic.{memory.topic}",
         )
         return RuntimeMutationResponse(
@@ -498,6 +517,12 @@ class RuntimeMemoryService:
             request.schema_id,
         )
         profile_field = self._profile_field(grant, attribute)
+        sensitivity = _screen_memory_write(
+            request.value,
+            declared=grant.attribute_sensitivity.get(attribute),
+            source=request.source,
+            label=f"attribute {attribute!r}",
+        )
         await self._register_schema(grant)
         profile = await self.store.write_preference(
             self._memory_scope(request.scope, agent),
@@ -512,6 +537,8 @@ class RuntimeMemoryService:
             domain=agent.domain_id,
             attribute=attribute,
             schema_id=grant.schema_id,
+            sensitivity=sensitivity.value,
+            source=request.source,
             reference=f"{profile.schema_id}:{attribute}",
         )
         return RuntimeMutationResponse(

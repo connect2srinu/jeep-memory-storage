@@ -356,7 +356,7 @@ async def test_dynamic_memory_is_topic_gated_and_surfaces_in_resolution(runtime_
         },
     )
     assert sensitive.status_code == 400, sensitive.text
-    assert "sensitive data" in sensitive.json()["message"]
+    assert "restricted content" in sensitive.json()["message"]
 
     resolved = await runtime_client.post(
         "/api/v1/runtime/preferences/resolve",
@@ -380,6 +380,61 @@ async def _dyn(client, headers, user, topic, value):
         headers=headers,
         json={"scope": scope(user), "topic": topic, "value": value, "confidence": 0.9},
     )
+
+
+@pytest.mark.asyncio
+async def test_restricted_content_is_blocked_on_all_writes(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    # Weapons -> restricted, blocked on a dynamic write to an approved topic.
+    weapons = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope("u1"), "topic": "shopping", "value": "wishes he could bring guns in"},
+    )
+    assert weapons.status_code == 400, weapons.text
+    assert "restricted content" in weapons.json()["message"]
+
+    # PII -> restricted, blocked on a canonical write too.
+    pii = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.preferred_store",
+        headers=headers,
+        json={"scope": scope("u1"), "value": "call me at 555-123-4567"},
+    )
+    assert pii.status_code == 400, pii.text
+
+
+@pytest.mark.asyncio
+async def test_sensitive_memory_only_stored_when_user_directed(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    # grocery.dietary_preference is a sensitive attribute; inferred -> rejected.
+    inferred = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.dietary_preference",
+        headers=headers,
+        json={"scope": scope("u1"), "value": "kosher", "source": "inference"},
+    )
+    assert inferred.status_code == 403, inferred.text
+
+    # User-directed -> stored.
+    directed = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.dietary_preference",
+        headers=headers,
+        json={"scope": scope("u1"), "value": "kosher", "source": "user_directed"},
+    )
+    assert directed.status_code == 200, directed.text
+
+    # Sensitive *content* (protected class) via dynamic: inferred rejected, user-directed stored.
+    inf = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope("u2"), "topic": "shopping", "value": "user is Muslim", "source": "inference"},
+    )
+    assert inf.status_code == 403, inf.text
+    ok = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope("u2"), "topic": "shopping", "value": "user is Muslim", "source": "user_directed"},
+    )
+    assert ok.status_code == 200, ok.text
 
 
 @pytest.mark.asyncio

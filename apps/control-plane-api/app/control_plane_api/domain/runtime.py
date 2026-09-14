@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from control_plane_api.domain.control_plane import AccessPermission
@@ -25,6 +25,8 @@ class RuntimeSchemaGrant:
     permission: AccessPermission
     scope_keys: tuple[str, ...]
     field_to_attribute: dict[str, str]
+    # attribute_id -> catalog sensitivity classification (normal | sensitive | restricted).
+    attribute_sensitivity: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
