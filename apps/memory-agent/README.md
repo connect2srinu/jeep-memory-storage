@@ -55,6 +55,34 @@ Create Memory Setup, stored in `dynamic_memory_policies.memory_topics`); otherwi
 is rejected. In dev (`AUTH_ENABLED=false`) the agent id is sent as `X-Agent-ID`; in prod set
 `CONTROL_PLANE_API_TOKEN` or `CONTROL_PLANE_API_AUDIENCE`.
 
+## Choosing the ADK version (2.x vs 1.28)
+
+The **same agent code** runs on Google ADK 2.x (default) and ADK 1.28 — the API surface the agent
+uses (`Agent`, `Gemini`, `LlmRequest.append_instructions`, `DatabaseSessionService`, `ToolContext`,
+`App`, `Runner`, `service_registry`, `get_fast_api_app`) is identical across the two. The governed
+memory it talks to is a plain HTTP API, so nothing about the memory setup changes. The only
+constraint is that ADK 1.x and 2.x **cannot coexist in one virtualenv**, so keep one venv per
+version and pick the one you want to test.
+
+```bash
+cd apps/memory-agent
+
+# ADK 2.x (default, from pyproject.toml)
+python3 -m venv .venv && .venv/bin/pip install -e .
+
+# ADK 1.28 (pinned set; --no-deps so the editable install does not re-pull ADK 2.x)
+python3 -m venv .venv-v1 && .venv-v1/bin/pip install -r requirements-adk1.txt && .venv-v1/bin/pip install -e . --no-deps
+```
+
+Then run the demo or dev UI with whichever venv you want — e.g. `source .venv-v1/bin/activate` for
+1.28, `source .venv/bin/activate` for 2.x. Confirm the active version any time:
+
+```bash
+python -c "import importlib.metadata as m; print('google-adk', m.version('google-adk'))"
+```
+
+Both venvs are git-ignored.
+
 ## Run the demo
 
 Needs a reachable Control Plane API and Postgres:
