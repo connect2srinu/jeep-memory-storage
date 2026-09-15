@@ -200,6 +200,11 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             tier = tier.strip().lower()
             if tier in {"normal", "sensitive", "restricted"}:
                 topic_sensitivity[topic] = tier
+        definitions = {
+            str(topic): str(text)
+            for topic, text in (record.topic_definitions or {}).items()
+            if str(text).strip()
+        }
         return RuntimeDynamicPolicy(
             policy_id=record.id,
             domain_id=domain_id,
@@ -209,4 +214,5 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             confirmation_required=record.confirmation_required,
             retention_days=retention.get("retention_days"),
             topic_sensitivity=topic_sensitivity,
+            topic_descriptions=definitions,
         )

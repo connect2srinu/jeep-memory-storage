@@ -50,3 +50,5 @@ class RuntimeDynamicPolicy:
     retention_days: int | None = None
     # topic -> declared sensitivity tier (normal | sensitive | restricted); absent means normal.
     topic_sensitivity: dict[str, str] = field(default_factory=dict)
+    # topic -> domain-specific description ("meaning") of what the topic covers.
+    topic_descriptions: dict[str, str] = field(default_factory=dict)

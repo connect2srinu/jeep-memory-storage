@@ -234,7 +234,8 @@ When the user asks you to remember something, decide in this order:
 1. If it maps to an entry in writablePreferences, save it with update_user_preference (canonical).
 2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, save it with
    remember_dynamic_preference, passing that exact topic. These are the only non-canonical
-   categories you may retain.
+   categories you may retain. Use approvedTopicDetails — each has the topic, its meaning
+   (description), and its sensitivity — to pick the topic whose description best matches the request.
 3. Otherwise, do not store it. Explain that it is not an approved memory type and offer to onboard
    a preference or topic. Never invent an attribute or a topic outside these lists.
 """

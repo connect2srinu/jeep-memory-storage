@@ -403,6 +403,8 @@ class DynamicMemoryPolicyRecord(TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     confidence_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
     memory_topics: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    # topic -> domain-specific description ("meaning") of what the topic covers.
+    topic_definitions: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     retention_policy: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     confirmation_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     allowed_dynamic_categories: Mapped[list[str]] = mapped_column(

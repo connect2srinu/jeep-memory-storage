@@ -366,6 +366,9 @@ async def test_dynamic_memory_is_topic_gated_and_surfaces_in_resolution(runtime_
     assert resolved.status_code == 200, resolved.text
     body = resolved.json()
     assert set(body["approvedTopics"]) == {"shopping", "fulfillment", "wellness"}
+    details = {item["topic"]: item for item in body["approvedTopicDetails"]}
+    assert details["shopping"]["description"].startswith("Grocery shopping")
+    assert details["wellness"]["sensitivity"] == "sensitive"
     prefs = body["preferences"]
     # High-confidence approved topic surfaces as DYNAMIC_MEMORY (below canonical in priority).
     assert prefs["topic:shopping"]["value"] == "shops early Sunday mornings"

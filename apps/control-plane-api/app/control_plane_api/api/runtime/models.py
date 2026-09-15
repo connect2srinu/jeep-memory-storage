@@ -34,6 +34,12 @@ class PreferenceValue(ApiModel):
     memory_source: str | None = Field(default=None, alias="memorySource")
 
 
+class ApprovedTopic(ApiModel):
+    topic: str
+    sensitivity: str = "normal"
+    description: str | None = None
+
+
 class EffectivePreferenceSnapshotResponse(ApiModel):
     agent_id: str = Field(alias="agentId")
     scope: RuntimeScope
@@ -44,6 +50,9 @@ class EffectivePreferenceSnapshotResponse(ApiModel):
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
     writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
     approved_topics: tuple[str, ...] = Field(default=(), alias="approvedTopics")
+    approved_topic_details: tuple[ApprovedTopic, ...] = Field(
+        default=(), alias="approvedTopicDetails"
+    )
     generated_at: datetime = Field(alias="generatedAt")
 
 

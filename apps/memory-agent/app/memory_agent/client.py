@@ -47,6 +47,9 @@ class EffectivePreferenceSnapshot(ApiModel):
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
     writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
     approved_topics: tuple[str, ...] = Field(default=(), alias="approvedTopics")
+    approved_topic_details: tuple[dict[str, Any], ...] = Field(
+        default=(), alias="approvedTopicDetails"
+    )
     generated_at: str = Field(alias="generatedAt")
 
 

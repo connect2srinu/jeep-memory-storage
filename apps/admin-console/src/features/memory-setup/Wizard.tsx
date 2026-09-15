@@ -159,10 +159,10 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [confidence, setConfidence] = useState(0.85);
   const [confirmation, setConfirmation] = useState(true);
   const [retention, setRetention] = useState(365);
-  const [topicRows, setTopicRows] = useState<Array<{ name: string; tier: "normal" | "sensitive" | "restricted" }>>([
-    { name: "shopping", tier: "normal" },
-    { name: "products", tier: "normal" },
-    { name: "fulfillment", tier: "normal" },
+  const [topicRows, setTopicRows] = useState<Array<{ name: string; tier: "normal" | "sensitive" | "restricted"; description: string }>>([
+    { name: "shopping", tier: "normal", description: "Grocery shopping cadence, list habits, and store preferences" },
+    { name: "products", tier: "normal", description: "" },
+    { name: "fulfillment", tier: "normal", description: "Delivery and pickup handling preferences" },
   ]);
   const [advancedMemory, setAdvancedMemory] = useState(false);
   const [agentMode, setAgentMode] = useState<"new" | "existing">("new");
@@ -321,6 +321,13 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
             .filter((row) => row.name)
             .map((row) => (row.tier === "normal" ? row.name : `${row.name}:${row.tier}`))
         : [],
+      topicDefinitions: dynamicEnabled
+        ? Object.fromEntries(
+            topicRows
+              .filter((row) => row.name.trim() && row.description.trim())
+              .map((row) => [row.name.trim(), row.description.trim()]),
+          )
+        : {},
     },
     agent: {
       id: agentId,
@@ -433,7 +440,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         <h3>Configure memory behavior</h3>
         <label className="switch-row"><span><strong>Canonical preferences</strong><small>Generate governed structured profile fields</small></span><input type="checkbox" checked={canonical} onChange={(event) => setCanonical(event.target.checked)} /></label>
         <label className="switch-row"><span><strong>Dynamic and inferred memory</strong><small>Allow relevant facts beyond canonical fields</small></span><input type="checkbox" checked={dynamicEnabled} onChange={(event) => setDynamicEnabled(event.target.checked)} /></label>
-        {dynamicEnabled && <div className="form-grid"><label>Confidence threshold<input type="number" min="0" max="1" step="0.05" value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} /></label><label>Retention days<input type="number" min="1" value={retention} onChange={(event) => setRetention(Number(event.target.value))} /></label><div className="wide"><label>Approved memory topics<small>Categories dynamic memory may retain. Set a sensitivity per topic — sensitive/restricted topics require user-directed writes and are flagged in the snapshot.</small></label><div className="topic-editor">{topicRows.map((row, index) => <div key={index} className="topic-row" style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" }}><input style={{ flex: 1 }} value={row.name} placeholder="topic" onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, name: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") } : current))} /><select value={row.tier} onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, tier: event.target.value as "normal" | "sensitive" | "restricted" } : current))}><option value="normal">Non-sensitive</option><option value="sensitive">Sensitive</option><option value="restricted">Restricted</option></select><button type="button" className="link-button" onClick={() => setTopicRows((rows) => rows.filter((_, i) => i !== index))}>Remove</button></div>)}<button type="button" className="secondary" onClick={() => setTopicRows((rows) => [...rows, { name: "", tier: "normal" }])}>+ Add topic</button></div></div><label className="check"><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)} /> Require user confirmation</label></div>}
+        {dynamicEnabled && <div className="form-grid"><label>Confidence threshold<input type="number" min="0" max="1" step="0.05" value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} /></label><label>Retention days<input type="number" min="1" value={retention} onChange={(event) => setRetention(Number(event.target.value))} /></label><div className="wide"><label>Approved memory topics<small>Categories dynamic memory may retain. Set a sensitivity per topic — sensitive/restricted topics require user-directed writes and are flagged in the snapshot.</small></label><div className="topic-editor">{topicRows.map((row, index) => <div key={index} className="topic-row" style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "10px" }}><div style={{ display: "flex", gap: "8px", alignItems: "center" }}><input style={{ flex: 1 }} value={row.name} placeholder="topic" onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, name: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") } : current))} /><select value={row.tier} onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, tier: event.target.value as "normal" | "sensitive" | "restricted" } : current))}><option value="normal">Non-sensitive</option><option value="sensitive">Sensitive</option><option value="restricted">Restricted</option></select><button type="button" className="link-button" onClick={() => setTopicRows((rows) => rows.filter((_, i) => i !== index))}>Remove</button></div><input value={row.description} placeholder="What this topic means for this domain (helps the agent map statements)" onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, description: event.target.value } : current))} /></div>)}<button type="button" className="secondary" onClick={() => setTopicRows((rows) => [...rows, { name: "", tier: "normal", description: "" }])}>+ Add topic</button></div></div><label className="check"><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)} /> Require user confirmation</label></div>}
         <button className="link-button" type="button" onClick={() => setAdvancedMemory((value) => !value)}>{advancedMemory ? "Hide" : "Show"} advanced settings</button>
         {advancedMemory && <pre className="mini-preview">source priority: SESSION → EXPLICIT → PROFILE → DYNAMIC{"\n"}profile generation: lazy; no user instances are pre-created</pre>}
       </>}

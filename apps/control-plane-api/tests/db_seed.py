@@ -57,6 +57,15 @@ AGENTS = {
 # An entry may declare a sensitivity tier as "topic:tier" (e.g. "wellness:sensitive").
 DYNAMIC_TOPICS = {"grocery": ["shopping", "fulfillment", "wellness:sensitive"]}
 
+# Per-topic, domain-specific meaning ("what this topic covers").
+TOPIC_DEFINITIONS = {
+    "grocery": {
+        "shopping": "Grocery shopping cadence, list habits, and store preferences",
+        "fulfillment": "Delivery and pickup handling preferences",
+        "wellness": "Health-and-wellness lifestyle context relevant to grocery choices",
+    }
+}
+
 GRANTS = {
     "customer-agent": {"customer": "READ_WRITE"},
     "grocery-agent": {
@@ -160,6 +169,7 @@ async def seed_control_plane(database: Database) -> None:
                     enabled=domain not in {"customer", "inventory", "pharmacy"},
                     confidence_threshold=0.7,
                     memory_topics=list(DYNAMIC_TOPICS.get(domain, [])),
+                    topic_definitions=dict(TOPIC_DEFINITIONS.get(domain, {})),
                     retention_policy={"retention_days": 365},
                     confirmation_required=True,
                     allowed_dynamic_categories=[],

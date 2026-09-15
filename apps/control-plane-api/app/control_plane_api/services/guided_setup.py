@@ -390,6 +390,7 @@ class GuidedMemorySetupService:
                     enabled=True,
                     confidenceThreshold=request.memory.confidence_threshold,
                     memoryTopics=request.memory.memory_topics,
+                    topicDefinitions=request.memory.topic_definitions,
                     retentionPolicy={"retention_days": request.memory.retention_days},
                     confirmationRequired=request.memory.confirmation_required,
                     version="1",

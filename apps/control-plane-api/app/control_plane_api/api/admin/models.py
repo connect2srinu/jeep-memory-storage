@@ -177,6 +177,7 @@ class DynamicMemoryPolicyCreate(AdminModel):
     enabled: bool = True
     confidence_threshold: float = Field(default=0.7, alias="confidenceThreshold", ge=0, le=1)
     memory_topics: list[str] = Field(default_factory=list, alias="memoryTopics")
+    topic_definitions: dict[str, str] = Field(default_factory=dict, alias="topicDefinitions")
     retention_policy: dict[str, Any] = Field(default_factory=dict, alias="retentionPolicy")
     confirmation_required: bool = Field(default=True, alias="confirmationRequired")
     allowed_dynamic_categories: list[str] = Field(
@@ -243,6 +244,7 @@ class GuidedMemoryBehavior(AdminModel):
     confirmation_required: bool = Field(default=True, alias="confirmationRequired")
     retention_days: int = Field(default=365, alias="retentionDays", ge=1, le=3650)
     memory_topics: list[str] = Field(default_factory=list, alias="memoryTopics")
+    topic_definitions: dict[str, str] = Field(default_factory=dict, alias="topicDefinitions")
 
 
 class GuidedAgent(AdminModel):

@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from control_plane_api.api.runtime.models import (
+    ApprovedTopic,
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
@@ -296,6 +297,18 @@ class RuntimeMemoryService:
         )
         agent_dynamic_policy = dynamic_policies.get(agent.domain_id)
         approved_topics = agent_dynamic_policy.approved_topics if agent_dynamic_policy else ()
+        approved_topic_details = (
+            tuple(
+                ApprovedTopic(
+                    topic=topic,
+                    sensitivity=agent_dynamic_policy.topic_sensitivity.get(topic, "normal"),
+                    description=agent_dynamic_policy.topic_descriptions.get(topic),
+                )
+                for topic in agent_dynamic_policy.approved_topics
+            )
+            if agent_dynamic_policy
+            else ()
+        )
         generated_at = datetime.now(UTC)
         version_payload = json.dumps(
             {
@@ -321,6 +334,7 @@ class RuntimeMemoryService:
             schema_versions=schema_versions,
             writable_preferences=writable_preferences,
             approved_topics=approved_topics,
+            approved_topic_details=approved_topic_details,
             generated_at=generated_at,
         )
         _log_flow_step(
