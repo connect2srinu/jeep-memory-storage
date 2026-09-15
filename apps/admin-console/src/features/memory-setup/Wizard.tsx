@@ -159,7 +159,11 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [confidence, setConfidence] = useState(0.85);
   const [confirmation, setConfirmation] = useState(true);
   const [retention, setRetention] = useState(365);
-  const [topics, setTopics] = useState("shopping,products,fulfillment");
+  const [topicRows, setTopicRows] = useState<Array<{ name: string; tier: "normal" | "sensitive" | "restricted" }>>([
+    { name: "shopping", tier: "normal" },
+    { name: "products", tier: "normal" },
+    { name: "fulfillment", tier: "normal" },
+  ]);
   const [advancedMemory, setAdvancedMemory] = useState(false);
   const [agentMode, setAgentMode] = useState<"new" | "existing">("new");
   const [agentId, setAgentId] = useState("grocery-assistant");
@@ -311,7 +315,12 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       confidenceThreshold: confidence,
       confirmationRequired: confirmation,
       retentionDays: retention,
-      memoryTopics: dynamicEnabled ? topics.split(",").map((item) => item.trim()).filter(Boolean) : [],
+      memoryTopics: dynamicEnabled
+        ? topicRows
+            .map((row) => ({ name: row.name.trim(), tier: row.tier }))
+            .filter((row) => row.name)
+            .map((row) => (row.tier === "normal" ? row.name : `${row.name}:${row.tier}`))
+        : [],
     },
     agent: {
       id: agentId,
@@ -330,7 +339,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     agentId, agentMode, agentName, availableSchemas.length, canonical, confidence,
     confirmation, customPreferences, customScopeKeys, description, domain, dynamicEnabled,
     environment, name, organizationId, permission, precedence, projectId, retention, scopeType, selectedPreferences,
-    sharedSchemaIds, team, topics,
+    sharedSchemaIds, team, topicRows,
   ]);
 
   async function generatePreview() {
@@ -410,9 +419,9 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
             <span><strong>{text(item, "display_name")}</strong>{recommended && <em>Recommended</em>}<small>{attribute} · {preferenceOwner(item)}</small><p>{text(item, "description")}</p></span>
           </label>;
         })}</div>
-        {customPreferences.map((item) => <div className="custom-row" key={item.attributeId}><strong>{item.displayName}</strong><span>{item.attributeId}</span></div>)}
+        {customPreferences.map((item) => <div className="custom-row" key={item.attributeId}><strong>{item.displayName}</strong><span>{item.attributeId}</span><span className="pill">{item.sensitivity}</span></div>)}
         <button className="secondary" type="button" onClick={() => setShowCustom((value) => !value)}>+ Create custom preference</button>
-        {showCustom && <div className="inline-editor"><label>Attribute ID<input value={customDraft.attributeId} onChange={(event) => setCustomDraft({ ...customDraft, attributeId: event.target.value })} /></label><label>Display name<input value={customDraft.displayName} onChange={(event) => setCustomDraft({ ...customDraft, displayName: event.target.value })} /></label><label className="wide">Description<input value={customDraft.description} onChange={(event) => setCustomDraft({ ...customDraft, description: event.target.value })} /></label><label>Datatype<select value={customDraft.dataType} onChange={(event) => setCustomDraft({ ...customDraft, dataType: event.target.value as CustomPreference["dataType"] })}><option>string</option><option>boolean</option><option>integer</option><option>number</option></select></label><label>Allowed values<input placeholder="comma separated" onChange={(event) => setCustomDraft({ ...customDraft, allowedValues: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} /></label><button className="primary" type="button" onClick={addCustomPreference}>Add preference</button></div>}
+        {showCustom && <div className="inline-editor"><label>Attribute ID<input value={customDraft.attributeId} onChange={(event) => setCustomDraft({ ...customDraft, attributeId: event.target.value })} /></label><label>Display name<input value={customDraft.displayName} onChange={(event) => setCustomDraft({ ...customDraft, displayName: event.target.value })} /></label><label className="wide">Description<input value={customDraft.description} onChange={(event) => setCustomDraft({ ...customDraft, description: event.target.value })} /></label><label>Datatype<select value={customDraft.dataType} onChange={(event) => setCustomDraft({ ...customDraft, dataType: event.target.value as CustomPreference["dataType"] })}><option>string</option><option>boolean</option><option>integer</option><option>number</option></select></label><label>Allowed values<input placeholder="comma separated" onChange={(event) => setCustomDraft({ ...customDraft, allowedValues: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} /></label><label>Sensitivity<select value={customDraft.sensitivity} onChange={(event) => setCustomDraft({ ...customDraft, sensitivity: event.target.value as CustomPreference["sensitivity"] })}><option value="normal">Non-sensitive</option><option value="sensitive">Sensitive</option><option value="restricted">Restricted</option></select></label><button className="primary" type="button" onClick={addCustomPreference}>Add preference</button></div>}
       </>}
       {step === "Scope" && <>
         <h3>Choose who the memory belongs to</h3><p>The platform generates provider scope keys from this business-level selection.</p>
@@ -424,7 +433,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         <h3>Configure memory behavior</h3>
         <label className="switch-row"><span><strong>Canonical preferences</strong><small>Generate governed structured profile fields</small></span><input type="checkbox" checked={canonical} onChange={(event) => setCanonical(event.target.checked)} /></label>
         <label className="switch-row"><span><strong>Dynamic and inferred memory</strong><small>Allow relevant facts beyond canonical fields</small></span><input type="checkbox" checked={dynamicEnabled} onChange={(event) => setDynamicEnabled(event.target.checked)} /></label>
-        {dynamicEnabled && <div className="form-grid"><label>Confidence threshold<input type="number" min="0" max="1" step="0.05" value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} /></label><label>Retention days<input type="number" min="1" value={retention} onChange={(event) => setRetention(Number(event.target.value))} /></label><label className="wide">Memory topics<input value={topics} onChange={(event) => setTopics(event.target.value)} /></label><label className="check"><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)} /> Require user confirmation</label></div>}
+        {dynamicEnabled && <div className="form-grid"><label>Confidence threshold<input type="number" min="0" max="1" step="0.05" value={confidence} onChange={(event) => setConfidence(Number(event.target.value))} /></label><label>Retention days<input type="number" min="1" value={retention} onChange={(event) => setRetention(Number(event.target.value))} /></label><div className="wide"><label>Approved memory topics<small>Categories dynamic memory may retain. Set a sensitivity per topic — sensitive/restricted topics require user-directed writes and are flagged in the snapshot.</small></label><div className="topic-editor">{topicRows.map((row, index) => <div key={index} className="topic-row" style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "6px" }}><input style={{ flex: 1 }} value={row.name} placeholder="topic" onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, name: event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") } : current))} /><select value={row.tier} onChange={(event) => setTopicRows((rows) => rows.map((current, i) => i === index ? { ...current, tier: event.target.value as "normal" | "sensitive" | "restricted" } : current))}><option value="normal">Non-sensitive</option><option value="sensitive">Sensitive</option><option value="restricted">Restricted</option></select><button type="button" className="link-button" onClick={() => setTopicRows((rows) => rows.filter((_, i) => i !== index))}>Remove</button></div>)}<button type="button" className="secondary" onClick={() => setTopicRows((rows) => [...rows, { name: "", tier: "normal" }])}>+ Add topic</button></div></div><label className="check"><input type="checkbox" checked={confirmation} onChange={(event) => setConfirmation(event.target.checked)} /> Require user confirmation</label></div>}
         <button className="link-button" type="button" onClick={() => setAdvancedMemory((value) => !value)}>{advancedMemory ? "Hide" : "Show"} advanced settings</button>
         {advancedMemory && <pre className="mini-preview">source priority: SESSION → EXPLICIT → PROFILE → DYNAMIC{"\n"}profile generation: lazy; no user instances are pre-created</pre>}
       </>}
