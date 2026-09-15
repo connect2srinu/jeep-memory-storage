@@ -365,7 +365,7 @@ async def test_dynamic_memory_is_topic_gated_and_surfaces_in_resolution(runtime_
     )
     assert resolved.status_code == 200, resolved.text
     body = resolved.json()
-    assert set(body["approvedTopics"]) == {"shopping", "fulfillment"}
+    assert set(body["approvedTopics"]) == {"shopping", "fulfillment", "wellness"}
     prefs = body["preferences"]
     # High-confidence approved topic surfaces as DYNAMIC_MEMORY (below canonical in priority).
     assert prefs["topic:shopping"]["value"] == "shops early Sunday mornings"
@@ -380,6 +380,32 @@ async def _dyn(client, headers, user, topic, value):
         headers=headers,
         json={"scope": scope(user), "topic": topic, "value": value, "confidence": 0.9},
     )
+
+
+@pytest.mark.asyncio
+async def test_admin_declared_topic_sensitivity_is_enforced(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    # "wellness" is declared sensitive in the policy, even though the value is benign content.
+    inferred = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope("u1"), "topic": "wellness", "value": "walks daily", "source": "inference"},
+    )
+    assert inferred.status_code == 403, inferred.text
+
+    directed = await runtime_client.post(
+        "/api/v1/runtime/memory/dynamic",
+        headers=headers,
+        json={"scope": scope("u1"), "topic": "wellness", "value": "walks daily", "source": "user_directed"},
+    )
+    assert directed.status_code == 200, directed.text
+
+    resolved = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope("u1"), "sessionId": "s", "agentId": "grocery-agent"},
+    )
+    assert resolved.json()["preferences"]["topic:wellness"]["sensitivity"] == "sensitive"
 
 
 @pytest.mark.asyncio

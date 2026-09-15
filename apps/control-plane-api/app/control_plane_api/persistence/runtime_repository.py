@@ -187,12 +187,26 @@ class SqlAlchemyRuntimeControlPlaneRepository:
         if record is None:
             return None
         retention = record.retention_policy or {}
+        # Each memory_topics entry is "topic" (defaults to normal) or "topic:tier" where tier is a
+        # declared sensitivity classification (normal | sensitive | restricted).
+        approved_topics: list[str] = []
+        topic_sensitivity: dict[str, str] = {}
+        for entry in record.memory_topics or ():
+            topic, _, tier = str(entry).partition(":")
+            topic = topic.strip()
+            if not topic:
+                continue
+            approved_topics.append(topic)
+            tier = tier.strip().lower()
+            if tier in {"normal", "sensitive", "restricted"}:
+                topic_sensitivity[topic] = tier
         return RuntimeDynamicPolicy(
             policy_id=record.id,
             domain_id=domain_id,
             enabled=record.enabled,
-            approved_topics=tuple(record.memory_topics or ()),
+            approved_topics=tuple(approved_topics),
             confidence_threshold=record.confidence_threshold,
             confirmation_required=record.confirmation_required,
             retention_days=retention.get("retention_days"),
+            topic_sensitivity=topic_sensitivity,
         )

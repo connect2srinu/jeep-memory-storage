@@ -81,9 +81,7 @@ Server-side, deterministic, no model dependency:
 1. **Semantic inference detection.** Deriving "is Muslim" from "avoid pork" needs a classifier model
    or agent-declared category — regex only catches explicit content.
 2. **No redaction to the appropriate form.** Storage still takes the agent's value verbatim.
-3. **Dynamic per-topic *declared* sensitivity.** Dynamic tiers come from the content scan + source;
-   there is still no admin-declared per-topic tier (a topic can't yet be marked "always sensitive").
-4. **Category lists are deterministic, not exhaustive** — defense in depth, not a guarantee.
+3. **Category lists are deterministic, not exhaustive** — defense in depth, not a guarantee.
 
 ### Also landed (second slice)
 
@@ -91,6 +89,14 @@ Server-side, deterministic, no model dependency:
   in the memory record and read them back. The `resolve` snapshot exposes `sensitivity` on every
   preference (canonical from the catalog; dynamic from the record) and `memorySource` for dynamic
   entries, so consumers and the agent can see the classification, not just have it enforced.
+
+### Also landed (third slice)
+
+- **Admin-declared per-topic sensitivity.** A dynamic-memory policy's approved-topic entry may
+  declare a tier as `topic:tier` (e.g. `wellness:sensitive`); no schema migration — it reuses the
+  existing `memory_topics` column. The write gate and the resolve snapshot apply the declared tier
+  (max with the content scan), so an admin can mark a whole topic "always sensitive" and its writes
+  then require user-directed source and surface as sensitive.
 
 ## What is genuinely working in our favor
 

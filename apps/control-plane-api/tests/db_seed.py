@@ -54,7 +54,8 @@ AGENTS = {
 }
 
 # Approved dynamic-memory topics per domain (empty for domains that only use canonical memory).
-DYNAMIC_TOPICS = {"grocery": ["shopping", "fulfillment"]}
+# An entry may declare a sensitivity tier as "topic:tier" (e.g. "wellness:sensitive").
+DYNAMIC_TOPICS = {"grocery": ["shopping", "fulfillment", "wellness:sensitive"]}
 
 GRANTS = {
     "customer-agent": {"customer": "READ_WRITE"},

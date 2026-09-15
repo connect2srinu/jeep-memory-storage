@@ -53,7 +53,7 @@ Approved topics and the confidence threshold live on the domain's dynamic-memory
 | Field | Meaning |
 |---|---|
 | `enabled` | Dynamic memory is on for the domain |
-| `memory_topics` | The authoritative list of approved topics |
+| `memory_topics` | The authoritative list of approved topics. An entry may declare a sensitivity tier as `topic:tier` (e.g. `wellness:sensitive`); a bare `topic` defaults to `normal`. |
 | `confidence_threshold` | Minimum confidence for a dynamic entry to survive resolution (default `0.7`) |
 | `confirmation_required` | Whether entries should be staged for user confirmation (see limitations) |
 | `retention_policy.retention_days` | Applied as expiry on stored entries |

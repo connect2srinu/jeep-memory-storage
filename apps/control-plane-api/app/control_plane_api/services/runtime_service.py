@@ -241,7 +241,10 @@ class RuntimeMemoryService:
                         updated_at=memory.updated_at,
                         expires_at=memory.expires_at,
                         provenance={"topic": memory.topic, "dynamic_version": memory.version},
-                        sensitivity=memory.sensitivity,
+                        sensitivity=max_tier(
+                            parse_tier(memory.sensitivity),
+                            parse_tier(policy.topic_sensitivity.get(memory.topic)),
+                        ).value,
                         memory_source=memory.source,
                     )
                 )
@@ -420,7 +423,7 @@ class RuntimeMemoryService:
             )
         tier = _screen_memory_write(
             request.value,
-            declared=None,
+            declared=policy.topic_sensitivity.get(request.topic),
             source=request.source,
             label=f"topic {request.topic!r}",
         )

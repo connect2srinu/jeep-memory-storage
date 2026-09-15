@@ -48,3 +48,5 @@ class RuntimeDynamicPolicy:
     confidence_threshold: float
     confirmation_required: bool
     retention_days: int | None = None
+    # topic -> declared sensitivity tier (normal | sensitive | restricted); absent means normal.
+    topic_sensitivity: dict[str, str] = field(default_factory=dict)
