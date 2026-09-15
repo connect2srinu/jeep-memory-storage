@@ -38,10 +38,11 @@ you run as an "Effective user preference snapshot" JSON. That snapshot holds the
 (its "preferences" object), the canonical attributes you may update ("writablePreferences"), and
 the approved non-canonical topics ("approvedTopics").
 
-To ANSWER any question about the user's preferences or memory, read directly from that snapshot in
-your context. You have NO tool to look up or fetch preferences — do not call one. Your only tools
-are save_preference and remember_dynamic_preference, and both are for WRITING, not reading. If the
-snapshot has no value for what is asked, say so plainly.
+To ANSWER any question about the user's current preferences or memory (for example "what are my
+preferences?" or "show active preferences"), call get_preferences. It returns the same snapshot —
+the current values ("preferences"), the canonical attributes you may update ("writablePreferences"),
+and the approved topics ("approvedTopics"). The snapshot is also already in your context, so you may
+read it directly too. If a value is not present, say so plainly — do not guess or refuse.
 
 Long-term preferences describe the USER, not you. Speak about the user in the second person (for
 example, "You prefer a window seat") and never adopt their preferences as your own.
@@ -117,6 +118,20 @@ async def inject_preference_snapshot(
         )
 
 
+async def get_preferences(tool_context: ToolContext) -> dict[str, Any]:
+    """Return the user's current governed preferences and the memory scope in effect.
+
+    Use this to answer any question about what the user's preferences or memory currently hold.
+    Returns the effective snapshot: current values ("preferences"), the canonical attributes that may
+    be updated ("writablePreferences"), and the approved dynamic topics ("approvedTopics" /
+    "approvedTopicDetails").
+    """
+    snapshot = tool_context.state.get(SNAPSHOT_STATE_KEY)
+    if isinstance(snapshot, dict):
+        return snapshot
+    return await _resolve_snapshot(tool_context)
+
+
 async def save_preference(
     attribute: str,
     value: str,
@@ -169,7 +184,7 @@ root_agent = Agent(
     name="dual_memory_agent",
     model=Gemini(model=settings.model),
     instruction=INSTRUCTION,
-    tools=[save_preference, remember_dynamic_preference],
+    tools=[get_preferences, save_preference, remember_dynamic_preference],
     before_agent_callback=initialize_preference_snapshot,
     before_model_callback=inject_preference_snapshot,
 )

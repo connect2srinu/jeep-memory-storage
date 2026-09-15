@@ -24,8 +24,8 @@ persists non-canonical facts that fall inside the domain's **approved topics**.
 - `before_model_callback` injects that snapshot into Gemini's context. The snapshot carries the
   current values (`preferences`), the canonical attributes the agent may write
   (`writablePreferences`), and the approved non-canonical categories (`approvedTopics`).
-- **Reading:** the agent answers preference questions **directly from the injected snapshot**. There
-  is no read/lookup tool by design.
+- **Reading:** the agent answers preference questions with the `get_preferences` tool (returns the
+  cached snapshot), and the same snapshot is also injected into context.
 - **Writing** — the agent follows one governed decision order when asked to remember something:
   1. Maps to a `writablePreferences` entry → `save_preference` (canonical;
      `PUT /preferences/{attribute}`).
@@ -146,5 +146,5 @@ to confirm cross-session recall through `resolve`.
   `apps/memory-agent`.
 - `DatabaseSessionService` requires the `google-adk[db]` extra (SQLAlchemy); the `asyncpg` driver
   is included for Postgres.
-- The agent has **no read tool**: preferences and approved topics arrive in context via the snapshot
-  injection, so the model answers from context rather than fetching.
+- Reads go through the `get_preferences` tool, which returns the cached effective snapshot;
+  the same snapshot is also injected into context, so the model has it either way.
