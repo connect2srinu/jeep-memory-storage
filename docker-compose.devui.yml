@@ -1,0 +1,7 @@
+# Local dev-only override: publish PostgreSQL to the host so host processes
+# (e.g. the memory-agent dev UI) can reach it at 127.0.0.1:15432.
+# Not for committed/deployed use.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:15432:5432"
