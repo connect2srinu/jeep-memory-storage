@@ -67,6 +67,12 @@ table { width: 100%; border-collapse: collapse; font-size: .84rem; }th { positio
 .form-grid .wide, .inline-editor .wide { grid-column: 1 / -1; }
 .form-grid input, .form-grid select, .form-grid textarea, .inline-editor input, .inline-editor select, .wizard-card > label input, .wizard-card > label select, .advanced-field input { width: 100%; padding: 10px 11px; border: 1px solid #bdcad8; border-radius: 8px; color: #172033; background: #fff; }
 .form-grid textarea { min-height: 84px; resize: vertical; }
+.topic-editor { display: grid; gap: 12px; margin-top: 7px; }
+.topic-editor > button { justify-self: start; }
+.topic-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px auto; gap: 8px; align-items: center; }
+.topic-row input, .topic-row select { width: 100%; padding: 10px 11px; border: 1px solid #bdcad8; border-radius: 8px; color: #172033; background: #fff; font: inherit; box-sizing: border-box; }
+.topic-row .topic-desc { grid-column: 1 / -1; }
+.topic-row .topic-remove { justify-self: end; white-space: nowrap; padding: 0; }
 .catalog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-height: 340px; margin: 22px 0; overflow-y: auto; }
 .catalog-card { display: flex; gap: 11px; padding: 15px; border: 1px solid #d8e0ea; border-radius: 10px; cursor: pointer; }
 .catalog-card.selected { border-color: #35a99e; background: #effaf8; box-shadow: inset 3px 0 #168a80; }
