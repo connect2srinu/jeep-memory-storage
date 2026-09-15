@@ -436,6 +436,23 @@ async def test_sensitive_memory_only_stored_when_user_directed(runtime_client) -
     )
     assert ok.status_code == 200, ok.text
 
+    # Resolve surfaces the sensitivity (and, for dynamic, the source).
+    canonical = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope("u1"), "sessionId": "s", "agentId": "grocery-agent"},
+    )
+    assert canonical.json()["preferences"]["dietary_preference"]["sensitivity"] == "sensitive"
+
+    dynamic = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope("u2"), "sessionId": "s", "agentId": "grocery-agent"},
+    )
+    entry = dynamic.json()["preferences"]["topic:shopping"]
+    assert entry["sensitivity"] == "sensitive"
+    assert entry["memorySource"] == "user_directed"
+
 
 @pytest.mark.asyncio
 async def test_forget_deletes_all_of_a_users_memories(runtime_client) -> None:

@@ -216,6 +216,9 @@ class RuntimeMemoryService:
                             "schema_version": grant.schema_version,
                             "profile_version": profile.version,
                         },
+                        sensitivity=grant.attribute_sensitivity.get(
+                            grant.field_to_attribute[field]
+                        ),
                     )
                     for field, value in profile.values.items()
                     if field in grant.field_to_attribute
@@ -238,6 +241,8 @@ class RuntimeMemoryService:
                         updated_at=memory.updated_at,
                         expires_at=memory.expires_at,
                         provenance={"topic": memory.topic, "dynamic_version": memory.version},
+                        sensitivity=memory.sensitivity,
+                        memory_source=memory.source,
                     )
                 )
         _log_flow_step(
@@ -272,6 +277,8 @@ class RuntimeMemoryService:
                 owner_domain=item.preference.owner_domain,
                 resolution_reason=item.resolution_reason,
                 provenance=item.preference.provenance if include_provenance else None,
+                sensitivity=item.preference.sensitivity,
+                memory_source=item.preference.memory_source,
             )
             for key, item in snapshot.preferences.items()
         }
@@ -429,6 +436,8 @@ class RuntimeMemoryService:
             value=request.value,
             confidence=request.confidence,
             expires_at=expires_at,
+            sensitivity=tier.value,
+            source=request.source,
         )
         _log_memory_write(
             tier="dynamic",

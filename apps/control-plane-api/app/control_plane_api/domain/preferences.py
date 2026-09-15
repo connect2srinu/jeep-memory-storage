@@ -27,6 +27,8 @@ class Preference:
     expires_at: datetime | None = None
     confirmed: bool = True
     provenance: dict[str, Any] = field(default_factory=dict)
+    sensitivity: str | None = None
+    memory_source: str | None = None
 
     def __post_init__(self) -> None:
         if not self.key.strip() or not self.owner_domain.strip():

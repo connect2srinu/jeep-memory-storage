@@ -44,6 +44,8 @@ class MemoryStore(Protocol):
         value: object,
         confidence: float,
         expires_at: datetime | None = None,
+        sensitivity: str | None = None,
+        source: str | None = None,
     ) -> DynamicMemory: ...
 
     async def get_dynamic_memories(

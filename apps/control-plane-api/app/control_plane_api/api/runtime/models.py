@@ -30,6 +30,8 @@ class PreferenceValue(ApiModel):
     owner_domain: str = Field(alias="ownerDomain")
     resolution_reason: str = Field(alias="resolutionReason")
     provenance: dict[str, Any] | None = None
+    sensitivity: str | None = None
+    memory_source: str | None = Field(default=None, alias="memorySource")
 
 
 class EffectivePreferenceSnapshotResponse(ApiModel):

@@ -75,3 +75,5 @@ class DynamicMemory:
     version: int = 1
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
+    sensitivity: str | None = None
+    source: str | None = None

@@ -103,6 +103,8 @@ class MockMemoryStore:
         value: object,
         confidence: float,
         expires_at: datetime | None = None,
+        sensitivity: str | None = None,
+        source: str | None = None,
     ) -> DynamicMemory:
         async with self._lock:
             current = self._dynamic.setdefault(scope.identity, {}).get(topic)
@@ -114,6 +116,8 @@ class MockMemoryStore:
                 version=(current.version if current else 0) + 1,
                 updated_at=datetime.now(UTC),
                 expires_at=expires_at,
+                sensitivity=sensitivity,
+                source=source,
             )
             self._dynamic[scope.identity][topic] = memory
             return memory

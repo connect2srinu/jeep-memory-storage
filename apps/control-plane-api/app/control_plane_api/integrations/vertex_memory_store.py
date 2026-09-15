@@ -255,6 +255,8 @@ class VertexMemoryBankStore:
         value: object,
         confidence: float,
         expires_at: datetime | None = None,
+        sensitivity: str | None = None,
+        source: str | None = None,
     ) -> DynamicMemory:
         async with self._lock:
             memories = await asyncio.to_thread(self._client.retrieve, scope=self._scope(scope))
@@ -270,6 +272,8 @@ class VertexMemoryBankStore:
                     "version": version,
                     "updated_at": now.isoformat(),
                     "expires_at": expires_at.isoformat() if expires_at else None,
+                    "sensitivity": sensitivity,
+                    "source": source,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -283,6 +287,8 @@ class VertexMemoryBankStore:
             version=version,
             updated_at=now,
             expires_at=expires_at,
+            sensitivity=sensitivity,
+            source=source,
         )
 
     async def get_dynamic_memories(
@@ -416,6 +422,8 @@ class VertexMemoryBankStore:
                 version=version,
                 updated_at=self._timestamp(memory, payload.get("updated_at")),
                 expires_at=expires_at,
+                sensitivity=payload.get("sensitivity"),
+                source=payload.get("source"),
             )
         return result
 
