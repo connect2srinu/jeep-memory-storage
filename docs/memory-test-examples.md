@@ -85,9 +85,21 @@ python3 scripts/memory_load_test.py --writes 500 --reads 500 --users 50 --concur
 python3 scripts/memory_load_test.py --write-mode canonical --writes 200
 ```
 
-Key flags: `--writes`, `--reads`, `--users`, `--concurrency`, `--write-mode dynamic|canonical`,
-`--topic`/`--attribute`, `--price-per-write`, `--price-per-read`, `--no-cleanup`, and
+Key flags: `--writes`, `--reads`, `--users`, `--concurrency`, `--rate` (ops/sec throttle),
+`--write-mode dynamic|canonical`, `--topic`/`--attribute`, flat `--price-per-write`/`--price-per-read`,
+token `--price-in-per-m`/`--price-out-per-m` + `--tokens-in-*`/`--tokens-out-*`, `--no-cleanup`, and
 `--base`/`--agent`/`--domain`.
+
+**Apply a model price (e.g. gemini-3.5-flash = $1.50/1M in, $9.00/1M out):**
+```bash
+python3 scripts/memory_load_test.py --writes 100 --reads 200 --rate 1 \
+  --price-in-per-m 1.50 --price-out-per-m 9.00 --tokens-in-write 1000 --tokens-out-write 150
+```
+
+⚠️ **Vertex Memory Bank enforces a "Memory Bank Read Requests per minute per region" quota.** High
+concurrency trips `429 RESOURCE_EXHAUSTED` (surfaced today as HTTP 500). Use `--rate` to stay under
+it — e.g. `--rate 1` ran 40 reads cleanly at ~770 ms avg, while `--concurrency 16` (~490 reads/min)
+was rate-limited. Note **writes also consume read quota** (each write does a `retrieve` first).
 
 Cost note: prices are **not** hardcoded — supply them from current Vertex AI Memory Bank / Agent
 Engine pricing. With managed generation disabled (this deployment) a write is `memories.create` and a

@@ -36,11 +36,21 @@ P.add_argument("--writes", type=int, default=100, help="number of write (insert)
 P.add_argument("--reads", type=int, default=100, help="number of read (resolve) operations")
 P.add_argument("--users", type=int, default=1, help="spread ops across this many distinct users")
 P.add_argument("--concurrency", type=int, default=8)
+P.add_argument("--rate", type=float, default=0.0,
+               help="max ops/sec per phase (0 = unlimited). Vertex Memory Bank enforces a "
+                    "read-requests-per-minute-per-region quota; throttle to stay under it.")
 P.add_argument("--write-mode", choices=["dynamic", "canonical"], default="dynamic")
 P.add_argument("--topic", default="shopping", help="approved topic for --write-mode dynamic")
 P.add_argument("--attribute", default=None, help="writable attribute for --write-mode canonical")
-P.add_argument("--price-per-write", type=float, default=0.0, help="USD per write op")
-P.add_argument("--price-per-read", type=float, default=0.0, help="USD per read op")
+P.add_argument("--price-per-write", type=float, default=0.0, help="flat USD per write op (storage/API)")
+P.add_argument("--price-per-read", type=float, default=0.0, help="flat USD per read op (storage/API)")
+# Token-based model pricing (e.g. the managed-generation path). gemini-3.5-flash: 1.50 / 9.00.
+P.add_argument("--price-in-per-m", type=float, default=0.0, help="USD per 1M input tokens")
+P.add_argument("--price-out-per-m", type=float, default=0.0, help="USD per 1M output tokens")
+P.add_argument("--tokens-in-write", type=int, default=0, help="model input tokens per write (generation)")
+P.add_argument("--tokens-out-write", type=int, default=0, help="model output tokens per write (generation)")
+P.add_argument("--tokens-in-read", type=int, default=0, help="model input tokens per read")
+P.add_argument("--tokens-out-read", type=int, default=0, help="model output tokens per read")
 P.add_argument("--no-cleanup", action="store_true", help="do not forget the test users afterward")
 OPTS = P.parse_args()
 
@@ -109,8 +119,16 @@ def run_phase(name: str, fn, count: int) -> dict:
     latencies: list[float] = []
     codes: dict[int, int] = {}
     started = time.perf_counter()
+    interval = 1.0 / OPTS.rate if OPTS.rate > 0 else 0.0
     with ThreadPoolExecutor(max_workers=OPTS.concurrency) as pool:
-        futures = [pool.submit(fn, i) for i in range(count)]
+        futures = []
+        for i in range(count):
+            if interval:
+                target = started + i * interval
+                delay = target - time.perf_counter()
+                if delay > 0:
+                    time.sleep(delay)
+            futures.append(pool.submit(fn, i))
         for fut in as_completed(futures):
             code, ms = fut.result()
             latencies.append(ms)
@@ -158,16 +176,29 @@ def main() -> int:
     report_phase(writes)
     report_phase(reads)
 
-    write_cost = OPTS.writes * OPTS.price_per_write
-    read_cost = OPTS.reads * OPTS.price_per_read
+    def token_cost(tin: int, tout: int) -> float:
+        return (tin / 1_000_000) * OPTS.price_in_per_m + (tout / 1_000_000) * OPTS.price_out_per_m
+
+    write_token_each = token_cost(OPTS.tokens_in_write, OPTS.tokens_out_write)
+    read_token_each = token_cost(OPTS.tokens_in_read, OPTS.tokens_out_read)
+    write_each = OPTS.price_per_write + write_token_each
+    read_each = OPTS.price_per_read + read_token_each
+    write_cost = OPTS.writes * write_each
+    read_cost = OPTS.reads * read_each
+
     print("\n## Cost estimate")
-    if OPTS.price_per_write == 0 and OPTS.price_per_read == 0:
-        print("   (no prices set — pass --price-per-write / --price-per-read from current Vertex")
-        print("    Memory Bank pricing to compute cost. With managed generation disabled, a write is")
-        print("    memories.create and a read is memories.retrieve — no per-op generation tokens.)")
-    print(f"   writes: {OPTS.writes} x ${OPTS.price_per_write:.6f} = ${write_cost:.4f}")
-    print(f"   reads:  {OPTS.reads} x ${OPTS.price_per_read:.6f} = ${read_cost:.4f}")
+    if OPTS.price_in_per_m or OPTS.price_out_per_m:
+        print(f"   model price: ${OPTS.price_in_per_m:.2f}/1M in, ${OPTS.price_out_per_m:.2f}/1M out")
+        print(f"   write tokens: {OPTS.tokens_in_write} in + {OPTS.tokens_out_write} out -> ${write_token_each:.6f}/op")
+        print(f"   read tokens:  {OPTS.tokens_in_read} in + {OPTS.tokens_out_read} out -> ${read_token_each:.6f}/op")
+    if write_each == 0 and read_each == 0:
+        print("   (no prices set — pass flat --price-per-* or token --price-*-per-m + --tokens-* to compute cost)")
+    print(f"   writes: {OPTS.writes} x ${write_each:.6f} = ${write_cost:.4f}")
+    print(f"   reads:  {OPTS.reads} x ${read_each:.6f} = ${read_cost:.4f}")
     print(f"   total:  ${write_cost + read_cost:.4f}")
+    print("   NOTE: this deployment runs with managed generation DISABLED, so writes/reads do NOT")
+    print("   invoke gemini-3.5-flash per op (a write is memories.create, a read is memories.retrieve).")
+    print("   Token pricing above models the managed-generation path; actual per-op model cost here is $0.")
 
     if not OPTS.no_cleanup:
         print("\n## Cleanup (forget test users)")
