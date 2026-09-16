@@ -70,7 +70,32 @@ curl -s -X POST http://localhost:8080/api/v1/runtime/preferences/resolve -H "Con
   -d '{"scope":{"userId":"ex1","appName":"a","domain":"grocery"},"sessionId":"s","agentId":"grocery-agent"}'
 ```
 
-## 4. Observe and clean up
+## 4. Load & cost benchmark
+
+`scripts/memory_load_test.py` runs a configurable number of inserts (writes) and reads, reports
+throughput + latency (avg/p50/p95/p99), and computes a cost estimate from unit prices you supply.
+Stdlib only; it forgets its test users at the end.
+
+```bash
+# 500 writes + 500 reads across 50 users, 16 concurrent, with sample unit prices
+python3 scripts/memory_load_test.py --writes 500 --reads 500 --users 50 --concurrency 16 \
+  --price-per-write 0.00002 --price-per-read 0.000005
+
+# canonical write path (discovers a writable attribute if --attribute is omitted)
+python3 scripts/memory_load_test.py --write-mode canonical --writes 200
+```
+
+Key flags: `--writes`, `--reads`, `--users`, `--concurrency`, `--write-mode dynamic|canonical`,
+`--topic`/`--attribute`, `--price-per-write`, `--price-per-read`, `--no-cleanup`, and
+`--base`/`--agent`/`--domain`.
+
+Cost note: prices are **not** hardcoded — supply them from current Vertex AI Memory Bank / Agent
+Engine pricing. With managed generation disabled (this deployment) a write is `memories.create` and a
+read is `memories.retrieve`, so cost is modelled per operation (no per-op Gemini generation tokens).
+To model the managed-generation path instead, price writes by generation tokens (see the build-vs-buy
+cost calculator).
+
+## 5. Observe and clean up
 
 Watch the audit log while testing:
 ```bash
