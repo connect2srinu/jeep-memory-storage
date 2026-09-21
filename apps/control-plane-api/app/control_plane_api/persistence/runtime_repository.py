@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.runtime import (
     HouseholdMember,
-    MemberDependent,
     RuntimeAgent,
     RuntimeDynamicPolicy,
     RuntimeResolutionConfig,
@@ -19,7 +18,6 @@ from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
     DynamicMemoryPolicyRecord,
     HouseholdMemberRecord,
-    MemberDependentRecord,
     MemoryDomainRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
@@ -46,24 +44,6 @@ class RuntimeControlPlaneRepository(Protocol):
     async def get_dynamic_memory_policy(
         self, domain_id: str
     ) -> RuntimeDynamicPolicy | None: ...
-
-    async def list_active_dependents(
-        self, organization_id: str, member_user_id: str
-    ) -> tuple[MemberDependent, ...]: ...
-
-    async def upsert_dependent(
-        self,
-        *,
-        organization_id: str,
-        member_user_id: str,
-        dependent_id: str,
-        display_name: str | None,
-        relationship: str,
-    ) -> None: ...
-
-    async def deactivate_dependent(
-        self, *, organization_id: str, member_user_id: str, dependent_id: str
-    ) -> bool: ...
 
     async def get_household_for_member(
         self, organization_id: str, member_id: str
@@ -270,66 +250,6 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             topic_sensitivity=topic_sensitivity,
             topic_descriptions=definitions,
         )
-
-    async def list_active_dependents(
-        self, organization_id: str, member_user_id: str
-    ) -> tuple[MemberDependent, ...]:
-        records = await self.session.scalars(
-            select(MemberDependentRecord)
-            .where(
-                MemberDependentRecord.organization_id == organization_id,
-                MemberDependentRecord.member_user_id == member_user_id,
-                MemberDependentRecord.status == "active",
-            )
-            .order_by(MemberDependentRecord.dependent_id)
-        )
-        return tuple(
-            MemberDependent(
-                dependent_id=record.dependent_id,
-                display_name=record.display_name,
-                relationship=record.relationship,
-            )
-            for record in records
-        )
-
-    async def upsert_dependent(
-        self,
-        *,
-        organization_id: str,
-        member_user_id: str,
-        dependent_id: str,
-        display_name: str | None,
-        relationship: str,
-    ) -> None:
-        record = await self.session.get(
-            MemberDependentRecord, (organization_id, member_user_id, dependent_id)
-        )
-        if record is None:
-            self.session.add(
-                MemberDependentRecord(
-                    organization_id=organization_id,
-                    member_user_id=member_user_id,
-                    dependent_id=dependent_id,
-                    display_name=display_name,
-                    relationship=relationship,
-                    status="active",
-                )
-            )
-        else:
-            record.display_name = display_name
-            record.relationship = relationship
-            record.status = "active"
-
-    async def deactivate_dependent(
-        self, *, organization_id: str, member_user_id: str, dependent_id: str
-    ) -> bool:
-        record = await self.session.get(
-            MemberDependentRecord, (organization_id, member_user_id, dependent_id)
-        )
-        if record is None or record.status != "active":
-            return False
-        record.status = "inactive"
-        return True
 
     @staticmethod
     def _to_household_member(record: HouseholdMemberRecord) -> HouseholdMember:

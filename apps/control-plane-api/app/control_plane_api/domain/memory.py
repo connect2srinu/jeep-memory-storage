@@ -5,16 +5,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 # The optional scope keys beyond organization_id, in canonical order. A scope is org + any subset,
-# supporting member ({user_id}), dependent ({user_id, dependent_id}), household-shared
-# ({household_id}), and household-member ({household_id, member_id}) partitions.
-_SCOPE_KEY_ORDER = ("user_id", "dependent_id", "household_id", "member_id")
+# supporting member ({user_id}), household-shared ({household_id}), and household-member
+# ({household_id, member_id}) partitions.
+_SCOPE_KEY_ORDER = ("user_id", "household_id", "member_id")
 
 
 @dataclass(frozen=True, slots=True)
 class MemoryScope:
     organization_id: str
     user_id: str | None = None
-    dependent_id: str | None = None
     household_id: str | None = None
     member_id: str | None = None
 

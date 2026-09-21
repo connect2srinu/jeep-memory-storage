@@ -32,15 +32,6 @@ class RuntimeSchemaGrant:
 
 
 @dataclass(frozen=True, slots=True)
-class MemberDependent:
-    """An active dependent (e.g. a child) on a member's roster."""
-
-    dependent_id: str
-    display_name: str | None
-    relationship: str
-
-
-@dataclass(frozen=True, slots=True)
 class HouseholdMember:
     """An active member of a household (the account holder or a no-login dependent)."""
 

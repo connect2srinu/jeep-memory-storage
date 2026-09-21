@@ -301,23 +301,6 @@ class AgentSchemaGrantRecord(TimestampMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class MemberDependentRecord(TimestampMixin, Base):
-    """Roster of a member's dependents (e.g. children) — the system of record for the family.
-
-    Dependent *preferences* live in Memory Bank keyed by the dependent scope; this table holds the
-    *relationship* (which dependents exist) and where ``dependent_id`` values come from.
-    """
-
-    __tablename__ = "member_dependents"
-
-    organization_id: Mapped[str] = mapped_column(String(127), primary_key=True)
-    member_user_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    dependent_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    display_name: Mapped[str | None] = mapped_column(String(255))
-    relationship: Mapped[str] = mapped_column(String(64), nullable=False, default="child")
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-
-
 class HouseholdMemberRecord(TimestampMixin, Base):
     """Roster of a household's members — the system of record for who belongs to a household.
 

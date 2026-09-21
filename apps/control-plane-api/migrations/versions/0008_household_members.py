@@ -1,14 +1,14 @@
 """Add the household_members roster (household-scoped memory).
 
 Revision ID: 0008_household_members
-Revises: 0007_member_dependents
+Revises: 0006_dynamic_topic_definitions
 """
 
 import sqlalchemy as sa
 from alembic import op
 
 revision = "0008_household_members"
-down_revision = "0007_member_dependents"
+down_revision = "0006_dynamic_topic_definitions"
 branch_labels = None
 depends_on = None
 

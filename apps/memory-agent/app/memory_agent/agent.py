@@ -36,21 +36,19 @@ Short-term memory is the current conversation (this Session). Long-term memory i
 governed preference profile, resolved from the Control Plane and injected into your context before
 you run as an "Effective user preference snapshot" JSON. That snapshot holds the current values
 (its "preferences" object), the canonical attributes you may update ("writablePreferences", each
-annotated in "writablePreferenceDetails" with a "level" of "member" or "dependent"), the approved
-non-canonical topics ("approvedTopics"), and the member's dependents ("dependents", a list of
-{{dependentId, displayName}} — e.g. their children).
+annotated in "writablePreferenceDetails" with a "level"), the approved non-canonical topics
+("approvedTopics"), and the household roster ("householdId" and "householdMembers", a list of
+{{memberId, displayName, relationship, hasLogin, isGuardian}} — the people in the household,
+including children).
 
 Each writable attribute has a "level" in writablePreferenceDetails:
 - "member": the acting user's own attribute — pass no id.
 - "household": shared by the whole household — pass no id.
-- "dependent": a child's attribute — look the named child up in "dependents" to get its dependentId
-  and pass dependentId.
-- "household_member": a specific household member's attribute — look the named person up in
-  "householdMembers" to get its memberId and pass memberId. Writing another member requires the
-  caller to be their guardian; the platform enforces this.
-Only use a dependentId/memberId that appears in the snapshot's lists — never invent one. If a
-per-person attribute is requested but you cannot tell which dependent or member is meant, ask which
-one before saving.
+- "household_member": a specific household member's attribute (e.g. a child's allergies) — look the
+  named person up in "householdMembers" to get its memberId and pass memberId. Writing another
+  member requires the caller to be their guardian; the platform enforces this.
+Only use a memberId that appears in "householdMembers" — never invent one. If a per-member attribute
+is requested but you cannot tell which member is meant, ask which one before saving.
 
 To ANSWER any question about the user's current preferences or memory (for example "what are my
 preferences?" or "show active preferences"), call get_preferences. It returns the same snapshot —
@@ -65,8 +63,8 @@ When the user asks you to remember, save, or update something, decide in this or
 1. If it maps to an entry in writablePreferences, call save_preference with that attribute
    (canonical, governed). Use writablePreferenceDetails — each has the attribute, its level, and its
    meaning (description) — to choose the attribute whose description best matches the statement. The
-   platform resolves the owning schema. If that attribute's level is "dependent", also pass the
-   dependentId of the dependent the statement is about.
+   platform resolves the owning schema. If that attribute's level is "household_member", also pass
+   the memberId of the household member the statement is about.
 2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, call
    remember_dynamic_preference with that exact topic. These are the only non-canonical categories
    you may retain. Use approvedTopicDetails — each has the topic, its meaning (description), and its
@@ -99,18 +97,14 @@ def _identity(context: Any) -> tuple[str, str]:
     return str(user_id), str(session_id)
 
 
-def _snapshot_key(dependent_id: str | None = None, member_id: str | None = None) -> str:
-    """Cache the top-level snapshot and each dependent's/member's snapshot under their own key."""
+def _snapshot_key(member_id: str | None = None) -> str:
+    """Cache the top-level snapshot and each member's snapshot under their own key."""
     if member_id:
         return f"{SNAPSHOT_STATE_KEY}:m:{member_id}"
-    if dependent_id:
-        return f"{SNAPSHOT_STATE_KEY}:d:{dependent_id}"
     return SNAPSHOT_STATE_KEY
 
 
-async def _resolve_snapshot(
-    context: Any, dependent_id: str | None = None, member_id: str | None = None
-) -> dict[str, Any]:
+async def _resolve_snapshot(context: Any, member_id: str | None = None) -> dict[str, Any]:
     user_id, session_id = _identity(context)
     snapshot = await build_control_plane_api_client().resolve_preferences(
         user_id=user_id,
@@ -119,11 +113,10 @@ async def _resolve_snapshot(
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
         include_provenance=True,
-        dependent_id=dependent_id,
         member_id=member_id,
     )
     payload = snapshot.model_dump(by_alias=True, mode="json")
-    context.state[_snapshot_key(dependent_id, member_id)] = payload
+    context.state[_snapshot_key(member_id)] = payload
     return payload
 
 
@@ -150,7 +143,6 @@ async def inject_preference_snapshot(
 
 async def get_preferences(
     tool_context: ToolContext,
-    dependent_id: str | None = None,
     member_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the user's current governed preferences and the memory scope in effect.
@@ -158,33 +150,31 @@ async def get_preferences(
     Use this to answer any question about what the user's preferences or memory currently hold.
     Returns the effective snapshot: current values ("preferences"), the canonical attributes that may
     be updated ("writablePreferences" / "writablePreferenceDetails"), the approved dynamic topics
-    ("approvedTopics" / "approvedTopicDetails"), the member's dependents ("dependents"), and the
-    household roster ("householdId" / "householdMembers").
+    ("approvedTopics" / "approvedTopicDetails"), and the household roster ("householdId" /
+    "householdMembers").
 
-    Pass ``dependent_id`` (from "dependents") or ``member_id`` (from "householdMembers") to read a
-    specific dependent's or household member's preferences, e.g. a child's allergies; omit both for
-    the acting member's own top-level preferences.
+    Pass ``member_id`` (from "householdMembers") to read a specific household member's preferences,
+    e.g. a child's allergies; omit it for the acting member's own top-level preferences.
     """
-    snapshot = tool_context.state.get(_snapshot_key(dependent_id, member_id))
+    snapshot = tool_context.state.get(_snapshot_key(member_id))
     if isinstance(snapshot, dict):
         return snapshot
-    return await _resolve_snapshot(tool_context, dependent_id, member_id)
+    return await _resolve_snapshot(tool_context, member_id)
 
 
 async def save_preference(
     attribute: str,
     value: str,
     tool_context: ToolContext,
-    dependent_id: str | None = None,
     member_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist a canonical long-term preference; the platform resolves its writable schema.
 
     Use the attribute's "level" in the snapshot's "writablePreferenceDetails":
-    - "member" / "household": pass neither id.
-    - "dependent": pass ``dependent_id`` from the "dependents" list (e.g. a child's allergies).
+    - "member" / "household": pass no id.
     - "household_member": pass ``member_id`` from the "householdMembers" list (the person the
-      statement is about). Writing another member requires the caller to be their guardian.
+      statement is about, e.g. a child's allergies). Writing another member requires the caller to be
+      their guardian.
     The platform enforces the scope level and the guardian check.
     """
     user_id, _ = _identity(tool_context)
@@ -195,10 +185,9 @@ async def save_preference(
         agent_id=settings.agent_id,
         attribute=attribute,
         value=value,
-        dependent_id=dependent_id,
         member_id=member_id,
     )
-    snapshot = await _resolve_snapshot(tool_context, dependent_id, member_id)
+    snapshot = await _resolve_snapshot(tool_context, member_id)
     return {
         "mutation": mutation.model_dump(by_alias=True, mode="json"),
         "snapshot": snapshot,

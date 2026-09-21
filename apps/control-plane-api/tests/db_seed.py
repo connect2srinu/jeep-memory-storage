@@ -241,69 +241,6 @@ async def seed_control_plane(database: Database) -> None:
                     )
                 )
 
-        # Dependent-scoped schema (Option C): per-child preferences for the grocery domain,
-        # bound to a (organization_id, user_id, dependent_id) scope. `allergies` is safety-critical,
-        # so it is canonical and classified sensitive.
-        await session.merge(
-            ScopeDefinitionRecord(
-                id="grocery:dependent-scope",
-                scope_type="DOMAIN_DEPENDENT_PROFILE",
-                scope_keys=["organization_id", "user_id", "dependent_id"],
-                description="Test-only per-dependent scope for grocery.",
-                owner_domain_id="grocery",
-                status="ACTIVE",
-            )
-        )
-        await session.merge(
-            PreferenceDefinitionRecord(
-                attribute_id="grocery.allergies",
-                display_name="Allergies",
-                description="Test-only per-dependent allergy list.",
-                data_type="string",
-                allowed_values=[],
-                sensitivity_classification="sensitive",
-                canonical_owner_id="grocery",
-                validation_rules={"aliases": ["allergies"]},
-                default_resolution_behavior={"policy": "allergies"},
-                catalog_version="1",
-            )
-        )
-        dependent_schema_id = "grocery-dependent-preferences-v1"
-        dependent_version_id = f"{dependent_schema_id}:1.0"
-        await session.merge(
-            ProfileSchemaRecord(
-                id=dependent_schema_id,
-                domain_id="grocery",
-                display_name="Grocery Dependent Preferences",
-                description="Test-only per-dependent structured profile for grocery.",
-                owner_team="grocery-platform",
-                status="ACTIVE",
-            )
-        )
-        await session.merge(
-            ProfileSchemaVersionRecord(
-                id=dependent_version_id,
-                schema_id=dependent_schema_id,
-                version="1.0",
-                status="ACTIVE",
-                scope_definition_id="grocery:dependent-scope",
-                vertex_schema_definition={
-                    "type": "object",
-                    "properties": {"allergies": {"type": "string"}},
-                    "additionalProperties": False,
-                },
-                generation_config={"enabled": False},
-            )
-        )
-        await session.merge(
-            SchemaPreferenceMappingRecord(
-                id=f"{dependent_version_id}:allergies",
-                schema_version_id=dependent_version_id,
-                attribute_id="grocery.allergies",
-                profile_field="allergies",
-            )
-        )
-
         # Household model: a household-shared schema (org + household_id) and a per-member schema
         # (org + household_id + member_id). Every person (account holder + children) is a member.
         for scope_id, scope_keys in (
@@ -414,9 +351,8 @@ async def seed_control_plane(database: Database) -> None:
                     )
                 )
 
-        # grocery-agent may read/write the dependent-scoped and household schemas.
+        # grocery-agent may read/write the household schemas.
         for schema_id in (
-            "grocery-dependent-preferences-v1",
             "grocery-household-preferences-v1",
             "grocery-member-preferences-v1",
         ):

@@ -7,9 +7,6 @@ from datetime import UTC, datetime, timedelta
 
 from control_plane_api.api.runtime.models import (
     ApprovedTopic,
-    Dependent,
-    DependentDeleteRequest,
-    DependentWriteRequest,
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
@@ -66,12 +63,11 @@ from control_plane_api.services.scope_registry import ScopeRegistry
 logger = logging.getLogger("uvicorn.error.control_plane_api.preference_resolution")
 
 # Scope keys beyond organization_id, and which scope contract each combination maps to.
-_SUB_SCOPE_KEYS = ("user_id", "dependent_id", "household_id", "member_id")
+_SUB_SCOPE_KEYS = ("user_id", "household_id", "member_id")
 # Per-sub-entity keys: a schema bound to one is resolved lazily (only when the request names it).
-_ENTITY_SCOPE_KEYS = frozenset({"dependent_id", "member_id"})
+_ENTITY_SCOPE_KEYS = frozenset({"member_id"})
 _CONTRACT_BY_KEYS = {
     frozenset({"organization_id", "user_id"}): "organization-user-profile",
-    frozenset({"organization_id", "user_id", "dependent_id"}): "organization-user-dependent-profile",
     frozenset({"organization_id", "household_id"}): "organization-household-profile",
     frozenset(
         {"organization_id", "household_id", "member_id"}
@@ -80,7 +76,7 @@ _CONTRACT_BY_KEYS = {
 
 
 def _scope_values(scope: RuntimeScope) -> dict[str, str]:
-    """The sub-entity scope keys the request carries (userId / dependentId / householdId / memberId)."""
+    """The sub-entity scope keys the request carries (userId / householdId / memberId)."""
     return {key: getattr(scope, key) for key in _SUB_SCOPE_KEYS if getattr(scope, key, None)}
 
 
@@ -223,8 +219,8 @@ class RuntimeMemoryService:
             effective_scope = await self._with_household(request.scope, agent)
         candidates: list[Preference] = []
         for grant in readable:
-            # Per-sub-entity schemas (dependent/member) are read lazily: only when the turn names
-            # that entity. A top-level resolve skips them to keep read fan-out minimal.
+            # Per-member schemas are read lazily: only when the turn names a member. A top-level
+            # resolve skips them to keep read fan-out minimal.
             entity_key = self._entity_key(grant)
             if entity_key and not getattr(effective_scope, entity_key):
                 continue
@@ -344,7 +340,7 @@ class RuntimeMemoryService:
             )
         )
         # Annotate each writable attribute with the scope level it is written at, so the agent
-        # knows a "dependent"-level attribute needs a dependentId — without any local config.
+        # knows a "household_member"-level attribute needs a memberId — without any local config.
         seen_writable: set[str] = set()
         writable_preference_details: list[WritablePreference] = []
         for grant in grants:
@@ -364,16 +360,6 @@ class RuntimeMemoryService:
                         description=grant.attribute_descriptions.get(attribute),
                     )
                 )
-        dependents = tuple(
-            Dependent(
-                dependent_id=item.dependent_id,
-                display_name=item.display_name,
-                relationship=item.relationship,
-            )
-            for item in await self.repository.list_active_dependents(
-                agent.organization_id, request.scope.user_id
-            )
-        )
         household_members: tuple[HouseholdMemberModel, ...] = ()
         if effective_scope.household_id:
             household_members = tuple(
@@ -429,7 +415,6 @@ class RuntimeMemoryService:
             writable_preference_details=tuple(writable_preference_details),
             approved_topics=approved_topics,
             approved_topic_details=approved_topic_details,
-            dependents=dependents,
             household_id=effective_scope.household_id,
             household_members=household_members,
             generated_at=generated_at,
@@ -589,13 +574,15 @@ class RuntimeMemoryService:
             domain=agent.domain_id,
             organization_id=agent.organization_id,
             user_id=request.scope.user_id,
-            dependent_id=request.scope.dependent_id,
+            household_id=request.scope.household_id,
+            member_id=request.scope.member_id,
             deleted=deleted,
         )
         return {
             "status": "forgotten",
             "userId": request.scope.user_id,
-            "dependentId": request.scope.dependent_id,
+            "householdId": request.scope.household_id,
+            "memberId": request.scope.member_id,
             "deleted": deleted,
         }
 
@@ -690,42 +677,6 @@ class RuntimeMemoryService:
             reference=f"{profile.schema_id}:{attribute}",
             profile_version=profile.version,
         )
-
-    async def upsert_dependent(
-        self, principal: AuthenticatedPrincipal, dependent_id: str, request: DependentWriteRequest
-    ) -> dict[str, object]:
-        """Add or update a dependent on a member's roster (enrolment/admin action)."""
-        agent = await self._agent(principal)
-        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
-        await self.repository.upsert_dependent(
-            organization_id=agent.organization_id,
-            member_user_id=request.user_id,
-            dependent_id=dependent_id,
-            display_name=request.display_name,
-            relationship=request.relationship,
-        )
-        return {
-            "status": "upserted",
-            "userId": request.user_id,
-            "dependentId": dependent_id,
-        }
-
-    async def deactivate_dependent(
-        self, principal: AuthenticatedPrincipal, dependent_id: str, request: DependentDeleteRequest
-    ) -> dict[str, object]:
-        """Deactivate a dependent on the roster. Their memory scope is cleared via forget/purge."""
-        agent = await self._agent(principal)
-        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
-        removed = await self.repository.deactivate_dependent(
-            organization_id=agent.organization_id,
-            member_user_id=request.user_id,
-            dependent_id=dependent_id,
-        )
-        return {
-            "status": "deactivated" if removed else "not_found",
-            "userId": request.user_id,
-            "dependentId": dependent_id,
-        }
 
     async def upsert_household_member(
         self,
@@ -889,15 +840,13 @@ class RuntimeMemoryService:
 
     @staticmethod
     def _entity_key(grant: RuntimeSchemaGrant) -> str | None:
-        """The per-sub-entity key a grant partitions on (dependent_id/member_id), if any."""
+        """The per-member key a grant partitions on (member_id), if any."""
         return next((key for key in grant.scope_keys if key in _ENTITY_SCOPE_KEYS), None)
 
     @staticmethod
     def _scope_level(grant: RuntimeSchemaGrant) -> str:
         """The scope level surfaced to the agent so it knows which id (if any) to supply."""
         keys = set(grant.scope_keys)
-        if "dependent_id" in keys:
-            return "dependent"
         if "member_id" in keys:
             return "household_member"
         if "household_id" in keys:
@@ -916,7 +865,7 @@ class RuntimeMemoryService:
 
         ``strict`` (writes) rejects sub-entity keys the schema does not use; non-strict (reads) ignores
         them, so a resolve can read broader-scoped schemas at their own level while it names a
-        specific dependent/member for the narrower ones.
+        specific member for the narrower ones.
         """
         contract = _CONTRACT_BY_KEYS.get(frozenset(scope_keys))
         if contract is None:
@@ -931,8 +880,8 @@ class RuntimeMemoryService:
                 )
             scope_values[key] = value
         if strict:
-            # A write must not name a per-entity partition (dependentId/memberId) the schema
-            # doesn't use — e.g. a dependentId on a member-level attribute.
+            # A write must not name a per-member partition (memberId) the schema doesn't use —
+            # e.g. a memberId on a household-shared or member-level attribute.
             invalid = {key for key in _ENTITY_SCOPE_KEYS if values.get(key)} - set(scope_keys)
             if invalid:
                 raise ValueError(
@@ -944,8 +893,7 @@ class RuntimeMemoryService:
         """Deletion scope: the exact partition the request names; a broader scope cascades.
 
         A householdId (optionally + memberId) targets the household partition; otherwise the member
-        (userId), optionally narrowed to a dependent. A member/household forget cascades to the
-        narrower partitions under it.
+        (userId). A household forget cascades to the members under it.
         """
         if scope.household_id:
             keys = {"household_id": scope.household_id}
@@ -953,8 +901,6 @@ class RuntimeMemoryService:
                 keys["member_id"] = scope.member_id
         else:
             keys = {"user_id": scope.user_id}
-            if scope.dependent_id:
-                keys["dependent_id"] = scope.dependent_id
         return MemoryScope(organization_id=agent.organization_id, **keys)
 
     def _owner_scope(self, scope: RuntimeScope, grant: RuntimeSchemaGrant) -> MemoryScope:

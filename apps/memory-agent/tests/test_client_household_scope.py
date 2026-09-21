@@ -1,4 +1,4 @@
-"""Slice 4 — the client passes an optional dependentId through the runtime scope."""
+"""The client passes an optional memberId through the runtime scope (household model)."""
 
 from __future__ import annotations
 
@@ -18,18 +18,18 @@ RESOLVE_STUB = {
 MUTATION_STUB = {"status": "updated", "reference": "r", "profileVersion": 1}
 
 
-def test_scope_includes_dependent_id_only_when_set() -> None:
+def test_scope_includes_member_id_only_when_set() -> None:
     assert ControlPlaneApiClient._scope("u1", "app", "grocery") == {
         "userId": "u1",
         "appName": "app",
         "domain": "grocery",
     }
-    with_dep = ControlPlaneApiClient._scope("u1", "app", "grocery", "child1")
-    assert with_dep["dependentId"] == "child1"
+    with_member = ControlPlaneApiClient._scope("u1", "app", "grocery", "kid1")
+    assert with_member["memberId"] == "kid1"
 
 
 @pytest.mark.asyncio
-async def test_resolve_and_update_forward_dependent_id(monkeypatch) -> None:
+async def test_resolve_and_update_forward_member_id(monkeypatch) -> None:
     client = ControlPlaneApiClient(base_url="http://control-plane")
     captured: dict[str, dict] = {}
 
@@ -45,33 +45,10 @@ async def test_resolve_and_update_forward_dependent_id(monkeypatch) -> None:
         app_name="app",
         consumer_domain="grocery",
         agent_id="grocery-agent",
-        dependent_id="child1",
+        member_id="kid1",
     )
-    assert captured["payload"]["scope"]["dependentId"] == "child1"
+    assert captured["payload"]["scope"]["memberId"] == "kid1"
 
-    await client.update_preference(
-        user_id="u1",
-        app_name="app",
-        consumer_domain="grocery",
-        agent_id="grocery-agent",
-        attribute="grocery.allergies",
-        value="peanut",
-        dependent_id="child1",
-    )
-    assert captured["payload"]["scope"]["dependentId"] == "child1"
-
-    # Member-scoped calls carry no dependentId.
-    await client.update_preference(
-        user_id="u1",
-        app_name="app",
-        consumer_domain="grocery",
-        agent_id="grocery-agent",
-        attribute="grocery.preferred_snack",
-        value="mango chips",
-    )
-    assert "dependentId" not in captured["payload"]["scope"]
-
-    # A household-member write forwards memberId (the person the write is for).
     await client.update_preference(
         user_id="u1",
         app_name="app",
@@ -82,4 +59,14 @@ async def test_resolve_and_update_forward_dependent_id(monkeypatch) -> None:
         member_id="kid1",
     )
     assert captured["payload"]["scope"]["memberId"] == "kid1"
-    assert "dependentId" not in captured["payload"]["scope"]
+
+    # Member/household-level calls carry no memberId.
+    await client.update_preference(
+        user_id="u1",
+        app_name="app",
+        consumer_domain="grocery",
+        agent_id="grocery-agent",
+        attribute="grocery.preferred_snack",
+        value="mango chips",
+    )
+    assert "memberId" not in captured["payload"]["scope"]

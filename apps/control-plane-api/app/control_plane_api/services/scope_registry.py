@@ -18,12 +18,8 @@ class ScopeRegistry:
     def __init__(self, contracts: tuple[ScopeContract, ...] | None = None) -> None:
         configured = contracts or (
             ScopeContract("organization-user-profile", ("organization_id", "user_id")),
-            ScopeContract(
-                "organization-user-dependent-profile",
-                ("organization_id", "user_id", "dependent_id"),
-            ),
             # Household model: shared attributes at the household level, and per-member profiles
-            # (the account holder and dependents are all members of the household).
+            # (the account holder and children are all members of the household).
             ScopeContract("organization-household-profile", ("organization_id", "household_id")),
             ScopeContract(
                 "organization-household-member-profile",
