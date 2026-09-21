@@ -292,9 +292,140 @@ def revalidation():
     save(img, "04_revalidation.png")
 
 
+# ---------------------------------------------------------------- 5. scalability
+def scalability():
+    img, d = canvas()
+    title(d, "Scalability — a Known Ceiling, With Headroom",
+          "The Vertex quota is the ceiling; it is raisable (Google-agreed) and mitigations keep us under it")
+    # quota panel (left)
+    rrect(d, [60, 170, 740, 470], radius=18, fill=TEAL[0], outline=TEAL[1], width=3)
+    d.text((84, 188), "Vertex Memory Bank quota (per project · region)", font=font(22, True), fill=TEAL[2])
+    bullets(d, 90, 238, [
+        "Reads: 300 / min   ·   Writes: 100 / min  (current default)",
+        "Google-approved 10x increase → ~3,000 reads / min",
+        "Writes also consume read quota (each write retrieves first)",
+        "DSQ / Provisioned Throughput available for guaranteed capacity",
+    ], font(19), TEAL[2], dot=TEAL[1], gap=14, max_w=620)
+    # headroom bars
+    d.text((90, 388), "Steady-state load sits well under the raised ceiling:", font=font(18), fill=INK)
+    for i, (lab, frac, col) in enumerate([
+        ("typical load", 0.08, GREEN[1]), ("300/min (today)", 0.10, AMBER[1]),
+        ("~3,000/min (approved)", 1.0, TEAL[1])]):
+        y = 418 + i * 16
+        d.text((92, y - 4), lab, font=font(13), fill=MUTED)
+    # simple headroom bar
+    rrect(d, [300, 414, 720, 430], radius=8, fill="#E5E7EB")
+    rrect(d, [300, 414, 300 + 420 * 0.10, 430], radius=8, fill=AMBER[1])
+    rrect(d, [300, 414, 300 + 420 * 0.02, 430], radius=8, fill=GREEN[1])
+    d.text((300, 436), "typical ▮  300/min ▮  headroom to ~3,000/min ────────", font=font(13), fill=MUTED)
+    # mitigations (right)
+    d.text((780, 178), "Mitigations that keep reads bounded", font=font(22, True), fill=PURPLE[2])
+    mits = [
+        ("1. Lazy per-dependent resolve", "Member + only the referenced child, not all kids every turn"),
+        ("2. Session-cached snapshot", "Resolve once per session; reuse across turns"),
+        ("3. Per-LOB dedicated Memory Bank", "Heavy / regulated lines get their own quota bucket"),
+    ]
+    for i, (h, sub) in enumerate(mits):
+        y = 224 + i * 92
+        rrect(d, [780, y, 1540, y + 78], radius=14, fill=PURPLE[0], outline=PURPLE[1], width=3)
+        d.text((800, y + 14), h, font=font(20, True), fill=PURPLE[2])
+        for j, ln in enumerate(wrap(d, sub, font(17), 720)):
+            d.text((800, y + 44 + j * 22), ln, font=font(17), fill=INK)
+    rrect(d, [60, 720, 1540, 812], radius=16, fill=INK)
+    centered(d, [60, 720, 1540, 812],
+             "The ceiling is raisable and already agreed (10x); lazy resolve + caching keep steady-state load far below it.",
+             font(22, True), "#FFFFFF")
+    save(img, "05_scalability.png")
+
+
+# ---------------------------------------------------------------- 6. roadmap
+def roadmap():
+    img, d = canvas()
+    title(d, "Delivery Timeline", "Foundation is done; hardening and scale-out are scoped next")
+    phases = [
+        ("PHASE 0 — Foundation", "DONE", GREEN, [
+            "Dual memory (short-term + governed long-term)",
+            "Governance: sensitivity, never-store, RBAC",
+            "Deletion: forget (per-dependent / cascade) + purge",
+            "Observability & audit events",
+            "Option C: per-dependent (per-child) memory",
+            "Thin-agent onboarding",
+        ]),
+        ("PHASE 1 — Hardening", "NEXT", BLUE, [
+            "Quota increase to 10x (Google-agreed)",
+            "429 → 503 + Retry-After handling",
+            "Per-LOB Memory Bank strategy",
+            "Admin UI for the dependent roster",
+            "SLA / DR posture confirmation",
+        ]),
+        ("PHASE 2 — Quality", "PLANNED", PURPLE, [
+            "Memory-quality / evaluation harness",
+            "Schema registry + change notification",
+            "Conflict-resolution hardening",
+            "Cost & usage dashboards",
+        ]),
+    ]
+    # timeline arrow
+    arrow(d, (70, 200), (1540, 200), color=MUTED, width=5, head=18)
+    cw, gap, x0 = 480, 30, 60
+    for i, (name, tag, col, items) in enumerate(phases):
+        x = x0 + i * (cw + gap)
+        d.ellipse([x + 20, 190, x + 40, 210], fill=col[1])
+        rrect(d, [x, 232, x + cw, 300], radius=14, fill=col[0], outline=col[1], width=3)
+        d.text((x + 20, 246), name, font=font(21, True), fill=col[2])
+        rrect(d, [x + cw - 118, 244, x + cw - 16, 288], radius=10, fill=col[1])
+        centered(d, [x + cw - 118, 244, x + cw - 16, 288], tag, font(16, True), "#FFFFFF")
+        y = 330
+        for it in items:
+            d.ellipse([x + 8, y + 7, x + 18, y + 17], fill=col[1])
+            for j, ln in enumerate(wrap(d, it, font(18), cw - 40)):
+                d.text((x + 30, y + j * 22), ln, font=font(18), fill=INK)
+            y += max(1, len(wrap(d, it, font(18), cw - 40))) * 22 + 14
+    save(img, "06_roadmap.png")
+
+
+# ---------------------------------------------------------------- 7. adoption
+def adoption():
+    img, d = canvas()
+    title(d, "Adoption by Application — Thin Agent",
+          "Apps build business logic; they inherit all memory plumbing from the platform")
+    rrect(d, [60, 170, 770, 560], radius=18, fill=BLUE[0], outline=BLUE[1], width=3)
+    d.text((88, 188), "The application OWNS", font=font(23, True), fill=BLUE[2])
+    bullets(d, 96, 244, [
+        "Prompts & instructions",
+        "Domain tools & workflows",
+        "Business logic",
+        "Which domain it serves (config)",
+    ], font(21), BLUE[2], dot=BLUE[1], gap=22, max_w=630)
+    rrect(d, [830, 170, 1540, 560], radius=18, fill=PURPLE[0], outline=PURPLE[1], width=4)
+    d.text((858, 188), "The application INHERITS (platform)", font=font(23, True), fill=PURPLE[2])
+    bullets(d, 866, 244, [
+        "Resolve + inject snapshot (2 callbacks)",
+        "Memory tools (read / save / dynamic)",
+        "Governance, never-store, RBAC, sensitivity",
+        "Deletion, retention, audit",
+        "Scaling: quota, caching, per-LOB isolation",
+    ], font(21), PURPLE[2], dot=PURPLE[1], gap=18, max_w=630)
+    # onboarding steps
+    steps = ["Register agent\n+ grants", "Set 6 env vars", "Reuse client +\n2 callbacks + 3 tools", "Ship"]
+    sw, gap, x0, y = 340, 30, 60, 610
+    for i, s in enumerate(steps):
+        x = x0 + i * (sw + gap)
+        rrect(d, [x, y, x + sw, y + 90], radius=14, fill=GREEN[0], outline=GREEN[1], width=3)
+        centered(d, [x, y, x + sw, y + 90], s, font(20, True), GREEN[2], gap=2)
+        if i < len(steps) - 1:
+            arrow(d, (x + sw + 2, y + 45), (x + sw + gap - 2, y + 45), color=INK, width=5, head=13)
+    d.text((60, 730), "Onboarding is hours, not weeks — no per-app memory plumbing, no schema knowledge in the agent.",
+           font=font(22, True), fill=INK)
+    save(img, "07_adoption.png")
+
+
 if __name__ == "__main__":
     three_options()
     gate_matrix()
     hybrid_flow()
     revalidation()
+    scalability()
+    roadmap()
+    adoption()
     print("done")

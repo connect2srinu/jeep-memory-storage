@@ -34,6 +34,12 @@ persists non-canonical facts that fall inside the domain's **approved topics**.
   3. Else it is declined — the agent never invents an attribute or a topic.
 - The **platform**, not the agent, enforces the boundaries: writes to an unregistered attribute or
   an unapproved topic are rejected, and sensitive content (phone/SSN/card/email/secret) is blocked.
+- **Per-dependent preferences (Option C):** the snapshot lists the member's `dependents`
+  (`{dependentId, displayName}`) and annotates each writable attribute with a `level`
+  (`member` or `dependent`) in `writablePreferenceDetails`. For a dependent-level attribute (e.g. a
+  child's allergies), the agent passes the `dependentId` to `save_preference` / `get_preferences`;
+  the platform routes the write/read to that dependent's scope and requires the id. The agent holds
+  no scope logic — it only maps a named dependent to its id from the snapshot.
 
 ## Configuration
 

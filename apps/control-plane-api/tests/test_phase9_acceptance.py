@@ -147,6 +147,7 @@ async def test_user_1001_approval_resolution_update_and_refresh(tmp_path: Path) 
             assert current["schemaVersions"] == {
                 "customer-preferences-v1": "1.0",
                 "grocery-preferences-v1": "1.0",
+                "grocery-dependent-preferences-v1": "1.0",
                 "inventory-preferences-v1": "1.0",
                 "store-preferences-v1": "1.0",
                 "delivery-preferences-v1": "1.0",

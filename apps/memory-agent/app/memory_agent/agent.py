@@ -35,8 +35,16 @@ You are a helpful assistant for the {settings.consumer_domain} domain with two k
 Short-term memory is the current conversation (this Session). Long-term memory is the user's
 governed preference profile, resolved from the Control Plane and injected into your context before
 you run as an "Effective user preference snapshot" JSON. That snapshot holds the current values
-(its "preferences" object), the canonical attributes you may update ("writablePreferences"), and
-the approved non-canonical topics ("approvedTopics").
+(its "preferences" object), the canonical attributes you may update ("writablePreferences", each
+annotated in "writablePreferenceDetails" with a "level" of "member" or "dependent"), the approved
+non-canonical topics ("approvedTopics"), and the member's dependents ("dependents", a list of
+{{dependentId, displayName}} — e.g. their children).
+
+Some attributes belong to a specific dependent, not the member (level "dependent", e.g. a child's
+allergies). When a request is about a named dependent, look that name up in "dependents" to get its
+dependentId, and pass dependentId to the tool. Member-level attributes take no dependentId. Only use
+a dependentId that appears in "dependents" — never invent one. If a request needs a dependent-level
+attribute but you cannot tell which dependent is meant, ask which one before saving.
 
 To ANSWER any question about the user's current preferences or memory (for example "what are my
 preferences?" or "show active preferences"), call get_preferences. It returns the same snapshot —
@@ -49,7 +57,10 @@ example, "You prefer a window seat") and never adopt their preferences as your o
 
 When the user asks you to remember, save, or update something, decide in this order:
 1. If it maps to an entry in writablePreferences, call save_preference with that attribute
-   (canonical, governed). The platform resolves the owning schema.
+   (canonical, governed). Use writablePreferenceDetails — each has the attribute, its level, and its
+   meaning (description) — to choose the attribute whose description best matches the statement. The
+   platform resolves the owning schema. If that attribute's level is "dependent", also pass the
+   dependentId of the dependent the statement is about.
 2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, call
    remember_dynamic_preference with that exact topic. These are the only non-canonical categories
    you may retain. Use approvedTopicDetails — each has the topic, its meaning (description), and its
@@ -82,7 +93,12 @@ def _identity(context: Any) -> tuple[str, str]:
     return str(user_id), str(session_id)
 
 
-async def _resolve_snapshot(context: Any) -> dict[str, Any]:
+def _snapshot_key(dependent_id: str | None) -> str:
+    """Cache the member snapshot and each dependent's snapshot under their own state key."""
+    return SNAPSHOT_STATE_KEY if not dependent_id else f"{SNAPSHOT_STATE_KEY}:{dependent_id}"
+
+
+async def _resolve_snapshot(context: Any, dependent_id: str | None = None) -> dict[str, Any]:
     user_id, session_id = _identity(context)
     snapshot = await build_control_plane_api_client().resolve_preferences(
         user_id=user_id,
@@ -91,9 +107,10 @@ async def _resolve_snapshot(context: Any) -> dict[str, Any]:
         consumer_domain=settings.consumer_domain,
         agent_id=settings.agent_id,
         include_provenance=True,
+        dependent_id=dependent_id,
     )
     payload = snapshot.model_dump(by_alias=True, mode="json")
-    context.state[SNAPSHOT_STATE_KEY] = payload
+    context.state[_snapshot_key(dependent_id)] = payload
     return payload
 
 
@@ -118,26 +135,38 @@ async def inject_preference_snapshot(
         )
 
 
-async def get_preferences(tool_context: ToolContext) -> dict[str, Any]:
+async def get_preferences(
+    tool_context: ToolContext,
+    dependent_id: str | None = None,
+) -> dict[str, Any]:
     """Return the user's current governed preferences and the memory scope in effect.
 
     Use this to answer any question about what the user's preferences or memory currently hold.
     Returns the effective snapshot: current values ("preferences"), the canonical attributes that may
-    be updated ("writablePreferences"), and the approved dynamic topics ("approvedTopics" /
-    "approvedTopicDetails").
+    be updated ("writablePreferences" / "writablePreferenceDetails"), the approved dynamic topics
+    ("approvedTopics" / "approvedTopicDetails"), and the member's dependents ("dependents").
+
+    Pass ``dependent_id`` (from the snapshot's "dependents" list) to read a specific dependent's
+    preferences, e.g. a child's allergies; omit it for the member's own preferences.
     """
-    snapshot = tool_context.state.get(SNAPSHOT_STATE_KEY)
+    snapshot = tool_context.state.get(_snapshot_key(dependent_id))
     if isinstance(snapshot, dict):
         return snapshot
-    return await _resolve_snapshot(tool_context)
+    return await _resolve_snapshot(tool_context, dependent_id)
 
 
 async def save_preference(
     attribute: str,
     value: str,
     tool_context: ToolContext,
+    dependent_id: str | None = None,
 ) -> dict[str, Any]:
-    """Persist a canonical long-term preference; the platform resolves its writable schema."""
+    """Persist a canonical long-term preference; the platform resolves its writable schema.
+
+    For a dependent-level attribute (see the snapshot's "writablePreferenceDetails" where level is
+    "dependent", e.g. a child's allergies), pass ``dependent_id`` from the "dependents" list.
+    Member-level attributes take no ``dependent_id``. The platform enforces this either way.
+    """
     user_id, _ = _identity(tool_context)
     mutation = await build_control_plane_api_client().update_preference(
         user_id=user_id,
@@ -146,8 +175,9 @@ async def save_preference(
         agent_id=settings.agent_id,
         attribute=attribute,
         value=value,
+        dependent_id=dependent_id,
     )
-    snapshot = await _resolve_snapshot(tool_context)
+    snapshot = await _resolve_snapshot(tool_context, dependent_id)
     return {
         "mutation": mutation.model_dump(by_alias=True, mode="json"),
         "snapshot": snapshot,

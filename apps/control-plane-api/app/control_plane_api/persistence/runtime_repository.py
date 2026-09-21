@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.runtime import (
+    MemberDependent,
     RuntimeAgent,
     RuntimeDynamicPolicy,
     RuntimeResolutionConfig,
@@ -16,6 +17,7 @@ from control_plane_api.domain.runtime import (
 from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
     DynamicMemoryPolicyRecord,
+    MemberDependentRecord,
     MemoryDomainRecord,
     PreferenceDefinitionRecord,
     ProfileSchemaRecord,
@@ -42,6 +44,24 @@ class RuntimeControlPlaneRepository(Protocol):
     async def get_dynamic_memory_policy(
         self, domain_id: str
     ) -> RuntimeDynamicPolicy | None: ...
+
+    async def list_active_dependents(
+        self, organization_id: str, member_user_id: str
+    ) -> tuple[MemberDependent, ...]: ...
+
+    async def upsert_dependent(
+        self,
+        *,
+        organization_id: str,
+        member_user_id: str,
+        dependent_id: str,
+        display_name: str | None,
+        relationship: str,
+    ) -> None: ...
+
+    async def deactivate_dependent(
+        self, *, organization_id: str, member_user_id: str, dependent_id: str
+    ) -> bool: ...
 
 
 class SqlAlchemyRuntimeControlPlaneRepository:
@@ -118,10 +138,13 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             ).all()
             field_to_attribute = {item.profile_field: item.attribute_id for item in mappings}
             attribute_sensitivity: dict[str, str] = {}
+            attribute_descriptions: dict[str, str] = {}
             for attribute_id in set(field_to_attribute.values()):
                 definition = await self.session.get(PreferenceDefinitionRecord, attribute_id)
                 if definition is not None:
                     attribute_sensitivity[attribute_id] = definition.sensitivity_classification
+                    if definition.description:
+                        attribute_descriptions[attribute_id] = definition.description
             result.append(
                 RuntimeSchemaGrant(
                     schema_id=schema.id,
@@ -132,6 +155,7 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     scope_keys=tuple(scope.scope_keys),
                     field_to_attribute=field_to_attribute,
                     attribute_sensitivity=attribute_sensitivity,
+                    attribute_descriptions=attribute_descriptions,
                 )
             )
         return tuple(result)
@@ -216,3 +240,63 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             topic_sensitivity=topic_sensitivity,
             topic_descriptions=definitions,
         )
+
+    async def list_active_dependents(
+        self, organization_id: str, member_user_id: str
+    ) -> tuple[MemberDependent, ...]:
+        records = await self.session.scalars(
+            select(MemberDependentRecord)
+            .where(
+                MemberDependentRecord.organization_id == organization_id,
+                MemberDependentRecord.member_user_id == member_user_id,
+                MemberDependentRecord.status == "active",
+            )
+            .order_by(MemberDependentRecord.dependent_id)
+        )
+        return tuple(
+            MemberDependent(
+                dependent_id=record.dependent_id,
+                display_name=record.display_name,
+                relationship=record.relationship,
+            )
+            for record in records
+        )
+
+    async def upsert_dependent(
+        self,
+        *,
+        organization_id: str,
+        member_user_id: str,
+        dependent_id: str,
+        display_name: str | None,
+        relationship: str,
+    ) -> None:
+        record = await self.session.get(
+            MemberDependentRecord, (organization_id, member_user_id, dependent_id)
+        )
+        if record is None:
+            self.session.add(
+                MemberDependentRecord(
+                    organization_id=organization_id,
+                    member_user_id=member_user_id,
+                    dependent_id=dependent_id,
+                    display_name=display_name,
+                    relationship=relationship,
+                    status="active",
+                )
+            )
+        else:
+            record.display_name = display_name
+            record.relationship = relationship
+            record.status = "active"
+
+    async def deactivate_dependent(
+        self, *, organization_id: str, member_user_id: str, dependent_id: str
+    ) -> bool:
+        record = await self.session.get(
+            MemberDependentRecord, (organization_id, member_user_id, dependent_id)
+        )
+        if record is None or record.status != "active":
+            return False
+        record.status = "inactive"
+        return True

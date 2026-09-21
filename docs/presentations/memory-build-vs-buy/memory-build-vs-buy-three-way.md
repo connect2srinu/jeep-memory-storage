@@ -117,3 +117,125 @@ Gates capture the binary must-haves; Tier 2 grades the rest — so nothing is do
 - **Multimodal** handling (text-only vs. images/attachments).
 - **Per-project resource cap** for reasoning-engine instances.
 - **Separation-of-duties** granularity in current IAM roles.
+
+---
+
+# Part II — Operational Readiness
+
+Addressing the review feedback: **scalability, operations, adoption**, the **Control-Plane dependency
+delineated**, and a **timeline**.
+
+## 7. Scalability — a known ceiling, with headroom
+
+> **Key message:** the Vertex quota is the one ceiling; it is **raisable (already agreed with Google
+> — Kapil, ~10×)** and our access patterns keep steady-state load far below it.
+
+![Scalability — quota ceiling with a 10x approved increase and three mitigations](img/05_scalability.png)
+
+**Talking points**
+- The scaling constraint is the **Vertex Memory Bank read/write quota** (300 reads/min, 100 writes/min
+  per project·region), **not** token cost — managed generation is off.
+- **The ceiling is not a blocker:** Google (Kapil) sees no issue raising it **~10×** (→ ~3,000
+  reads/min); DSQ / Provisioned Throughput are available for guaranteed capacity.
+- Access patterns keep us well under it: **lazy per-dependent resolve** (member + only the referenced
+  child), **session-cached snapshot** (resolve once per session), and **per-LOB dedicated Memory
+  Banks** (heavy/regulated lines get their own quota bucket).
+- Context stays bounded: the injected snapshot is a fixed set of attributes + topics (~hundreds of
+  tokens/turn), not an unbounded memory dump — see §A3.
+
+## 8. Operational (Day-2) — governed, observable, recoverable
+
+> **Key message:** running it is a known quantity — every write/delete is audited, deletion and
+> retention are first-class, and the failure modes have defined mitigations.
+
+**Talking points**
+- **Observability:** structured `memory_write` / `memory_deletion` audit events (tier, op, sensitivity,
+  source, version, correlation id); values are never logged.
+- **Deletion & retention:** governed `forget` (per-dependent or member-cascade) and `purge`
+  (by tier/attribute/topic, with `dryRun`); TTL-based expiry supported.
+- **Resilience:** provider `429` is being mapped to **`503 + Retry-After`** (Phase 1) so consumers back
+  off cleanly; the 10× quota raise removes the common trip.
+- **Schema evolution:** versioned schemas (`…-v1`) and a `policyVersion` in every snapshot; a schema
+  **registry + change notification** is scoped for Phase 2.
+- **Deployment:** stateless control-plane API + Postgres system-of-record + Vertex Memory Bank;
+  scales horizontally behind the quota.
+
+## 9. Adoption by Application — thin agent
+
+> **Key message:** applications build business logic and **inherit** all memory plumbing; onboarding
+> is hours, not weeks.
+
+![Adoption — what the app owns vs. inherits, and the four onboarding steps](img/07_adoption.png)
+
+**Talking points**
+- The app **owns** prompts, domain tools, workflows, and which domain it serves. It **inherits**
+  memory read/write, governance, RBAC, deletion, audit, and scaling from the platform.
+- Onboarding = **register the agent + grants → set 6 env vars → reuse the client + 2 callbacks + 3
+  tools → ship**. No per-app memory plumbing, no schema knowledge in the agent.
+- The agent learns what it may read/write, the approved topics, and the member's dependents **from the
+  resolve snapshot at runtime** — so new capabilities (e.g. per-child memory) reach every app with no
+  agent change. Full steps: `docs/new-agent-onboarding.md`.
+
+## 10. The Control-Plane dependency, delineated
+
+> **Key message:** this is not "buy the whole Control Plane to get memory." Memory Bank does the
+> storage; the Control Plane adds the enterprise governance; the app is coupled to a **thin standard
+> API**, not locked in.
+
+![Three layers — Memory Bank storage vs. Control Plane governance](img/02_three_layer.png)
+
+**Talking points**
+- **What the Control Plane provides** (and Memory Bank alone cannot): never-store enforcement, RBAC,
+  deterministic resolution, sensitivity screening, governed deletion, audit, and per-dependent scope.
+- **What it delegates to Memory Bank:** durable storage, retrieval, DR, and low per-op cost — GCP's
+  managed engine, unchanged.
+- **Coupling is bounded:** the agent talks to a **small HTTP contract** (`resolve` / `save` /
+  `dynamic` / `forget`) via a self-contained client — no SDK lock-in, no schema baked into the agent.
+- **Failure modes:** if the Control Plane is unavailable, agents fall back to the **cached session
+  snapshot** (reads continue for the session) and **writes are deferred/retried**; the API is
+  stateless and scales horizontally, and Postgres is the durable system-of-record. Storage itself
+  (Memory Bank) is independent of Control-Plane uptime.
+- **Portability:** because Postgres is the system-of-record, data is **SQL-exportable** — no bulk-export
+  dependency on the provider.
+
+## 11. Timeline
+
+> **Key message:** the foundation is delivered; hardening and scale-out are scoped and sequenced.
+
+![Delivery timeline — Phase 0 done, Phase 1 next, Phase 2 planned](img/06_roadmap.png)
+
+**Talking points**
+- **Phase 0 (done):** dual memory, governance (sensitivity/never-store/RBAC), deletion, observability,
+  **Option C per-child memory**, thin-agent onboarding.
+- **Phase 1 (next):** quota **10×** increase (Google-agreed), `429→503` handling, per-LOB Memory Bank
+  strategy, admin UI for the dependent roster, SLA/DR confirmation.
+- **Phase 2 (planned):** memory-quality/evaluation harness, schema registry + change notification,
+  conflict-resolution hardening, cost & usage dashboards.
+
+---
+
+## Appendix — Technical Q&A
+
+**A1. Partial memory deletion — "when I have 2–3 kids, how does it look?"**
+Deletion is scope-precise. `POST /memory/forget` with a `dependentId` deletes **only that child's**
+partition; without a `dependentId` it **cascades** to the member and every dependent. `POST
+/memory/purge` deletes by **tier / attribute / topic** with a `dryRun` preview (e.g. purge just
+`grocery.allergies`). So "forget Timmy's data" removes Timmy's scope and leaves Sara and the member
+intact.
+
+**A2. Conflict resolution when multiple agents use this**
+- **Ownership:** each schema has an owner; agents get **WRITE only on schemas they own**, `READ`
+  elsewhere (per-schema RBAC grants) — so two agents don't both author the same attribute by accident.
+- **Deterministic resolution:** the snapshot is computed by a **resolution policy** — source priority
+  (session > explicit > memory > dynamic) and **schema precedence** for the same logical attribute —
+  not by "last reader wins."
+- **Versioning & isolation:** every write is versioned; scopes isolate users/dependents; reads use
+  authoritative `list_memories`, not similarity — so results are reproducible across agents.
+
+**A3. A long prompt with memories about many things**
+- The injected context is a **bounded snapshot** (the domain's canonical attributes + approved topics
+  + the roster), not an open-ended memory dump — typically a few hundred tokens/turn.
+- It is **resolved once per session and cached**; per-dependent detail is **lazy** (only the child a
+  turn references). Sensitive values are screened/redacted per policy.
+- Result: prompt size stays bounded and predictable regardless of how much long-term memory a user has
+  accumulated.

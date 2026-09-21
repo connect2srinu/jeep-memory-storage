@@ -310,12 +310,20 @@ class VertexMemoryBankStore:
             memory = getattr(item, "memory", item)
             memory_scope = getattr(memory, "scope", None) or {}
             if (
-                memory_scope.get("organization_id") == scope.organization_id
-                and memory_scope.get("user_id") == scope.user_id
+                memory_scope.get("organization_id") != scope.organization_id
+                or memory_scope.get("user_id") != scope.user_id
             ):
-                name = getattr(memory, "name", None)
-                if name:
-                    names.append(name)
+                continue
+            # A dependent-scoped forget targets only that dependent; a member-scoped forget
+            # (dependent_id is None) cascades to the member and every dependent under them.
+            if (
+                scope.dependent_id is not None
+                and memory_scope.get("dependent_id") != scope.dependent_id
+            ):
+                continue
+            name = getattr(memory, "name", None)
+            if name:
+                names.append(name)
         for name in names:
             await asyncio.to_thread(self._client.delete, name=name)
         return len(names)
@@ -502,7 +510,10 @@ class VertexMemoryBankStore:
 
     @staticmethod
     def _scope(scope: MemoryScope) -> dict[str, str]:
-        return {"organization_id": scope.organization_id, "user_id": scope.user_id}
+        mapped = {"organization_id": scope.organization_id, "user_id": scope.user_id}
+        if scope.dependent_id is not None:
+            mapped["dependent_id"] = scope.dependent_id
+        return mapped
 
     @staticmethod
     def _json_object(value: Any) -> dict[str, Any] | None:

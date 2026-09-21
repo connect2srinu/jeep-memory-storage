@@ -7,6 +7,9 @@ from datetime import UTC, datetime, timedelta
 
 from control_plane_api.api.runtime.models import (
     ApprovedTopic,
+    Dependent,
+    DependentDeleteRequest,
+    DependentWriteRequest,
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
@@ -18,6 +21,7 @@ from control_plane_api.api.runtime.models import (
     ResolvePreferencesRequest,
     RuntimeMutationResponse,
     RuntimeScope,
+    WritablePreference,
 )
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.memory import (
@@ -184,6 +188,10 @@ class RuntimeMemoryService:
         catalog, policies = self._resolution_components(agent, grants, config, dynamic_policies)
         candidates: list[Preference] = []
         for grant in readable:
+            # Dependent-scoped schemas are read lazily: only when the turn names a dependent.
+            # A member-level resolve (no dependentId) skips them to keep read fan-out minimal.
+            if self._is_dependent_scoped(grant) and not request.scope.dependent_id:
+                continue
             await self._register_schema(grant)
             scope = self._owner_scope(request.scope, grant)
             _log_flow_step(
@@ -230,7 +238,11 @@ class RuntimeMemoryService:
             if policy is None or grant.domain_id in seen_dynamic_domains:
                 continue
             seen_dynamic_domains.add(grant.domain_id)
-            owner_scope = self._owner_scope(request.scope, grant)
+            # Dynamic (topic) memory is member-level, independent of a schema's scope grain.
+            owner_scope = self.scope_registry.resolve(
+                "organization-user-profile",
+                {"organization_id": grant.owner_organization_id, "user_id": request.scope.user_id},
+            )
             for memory in await self.store.get_dynamic_memories(owner_scope, policy.approved_topics):
                 candidates.append(
                     Preference(
@@ -295,6 +307,37 @@ class RuntimeMemoryService:
                 for attribute in grant.field_to_attribute.values()
             )
         )
+        # Annotate each writable attribute with the scope level it is written at, so the agent
+        # knows a "dependent"-level attribute needs a dependentId — without any local config.
+        seen_writable: set[str] = set()
+        writable_preference_details: list[WritablePreference] = []
+        for grant in grants:
+            if grant.domain_id != agent.domain_id or not self._allows(
+                grant.permission, write=True
+            ):
+                continue
+            level = "dependent" if self._is_dependent_scoped(grant) else "member"
+            for attribute in grant.field_to_attribute.values():
+                if attribute in seen_writable:
+                    continue
+                seen_writable.add(attribute)
+                writable_preference_details.append(
+                    WritablePreference(
+                        attribute=attribute,
+                        level=level,
+                        description=grant.attribute_descriptions.get(attribute),
+                    )
+                )
+        dependents = tuple(
+            Dependent(
+                dependent_id=item.dependent_id,
+                display_name=item.display_name,
+                relationship=item.relationship,
+            )
+            for item in await self.repository.list_active_dependents(
+                agent.organization_id, request.scope.user_id
+            )
+        )
         agent_dynamic_policy = dynamic_policies.get(agent.domain_id)
         approved_topics = agent_dynamic_policy.approved_topics if agent_dynamic_policy else ()
         approved_topic_details = (
@@ -333,8 +376,10 @@ class RuntimeMemoryService:
             policy_version=policies.version,
             schema_versions=schema_versions,
             writable_preferences=writable_preferences,
+            writable_preference_details=tuple(writable_preference_details),
             approved_topics=approved_topics,
             approved_topic_details=approved_topic_details,
+            dependents=dependents,
             generated_at=generated_at,
         )
         _log_flow_step(
@@ -401,6 +446,11 @@ class RuntimeMemoryService:
                 agent.domain_id,
                 candidate.schema_id,
             )
+            if self._is_dependent_scoped(grant):
+                raise ValueError(
+                    f"attribute {candidate.attribute!r} is dependent-scoped; write it via "
+                    "PUT /preferences/{attribute} with a dependentId, not through ingest_event"
+                )
             _screen_memory_write(
                 candidate.value,
                 declared=grant.attribute_sensitivity.get(candidate.attribute),
@@ -479,7 +529,7 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        scope = self._memory_scope(request.scope, agent)
+        scope = self._user_scope(request.scope, agent)
         deleted = await self.store.forget_user(scope)
         _log_memory_deletion(
             op="forget",
@@ -487,9 +537,15 @@ class RuntimeMemoryService:
             domain=agent.domain_id,
             organization_id=agent.organization_id,
             user_id=request.scope.user_id,
+            dependent_id=request.scope.dependent_id,
             deleted=deleted,
         )
-        return {"status": "forgotten", "userId": request.scope.user_id, "deleted": deleted}
+        return {
+            "status": "forgotten",
+            "userId": request.scope.user_id,
+            "dependentId": request.scope.dependent_id,
+            "deleted": deleted,
+        }
 
     async def purge_memories(
         self, principal: AuthenticatedPrincipal, request: PurgeMemoryRequest
@@ -550,8 +606,14 @@ class RuntimeMemoryService:
             label=f"attribute {attribute!r}",
         )
         await self._register_schema(grant)
+        write_scope = self._scope_from(
+            organization_id=agent.organization_id,
+            user_id=request.scope.user_id,
+            dependent_id=request.scope.dependent_id,
+            scope_keys=grant.scope_keys,
+        )
         profile = await self.store.write_preference(
-            self._memory_scope(request.scope, agent),
+            write_scope,
             schema_id=grant.schema_id,
             attribute=profile_field,
             value=request.value,
@@ -572,6 +634,42 @@ class RuntimeMemoryService:
             reference=f"{profile.schema_id}:{attribute}",
             profile_version=profile.version,
         )
+
+    async def upsert_dependent(
+        self, principal: AuthenticatedPrincipal, dependent_id: str, request: DependentWriteRequest
+    ) -> dict[str, object]:
+        """Add or update a dependent on a member's roster (enrolment/admin action)."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
+        await self.repository.upsert_dependent(
+            organization_id=agent.organization_id,
+            member_user_id=request.user_id,
+            dependent_id=dependent_id,
+            display_name=request.display_name,
+            relationship=request.relationship,
+        )
+        return {
+            "status": "upserted",
+            "userId": request.user_id,
+            "dependentId": dependent_id,
+        }
+
+    async def deactivate_dependent(
+        self, principal: AuthenticatedPrincipal, dependent_id: str, request: DependentDeleteRequest
+    ) -> dict[str, object]:
+        """Deactivate a dependent on the roster. Their memory scope is cleared via forget/purge."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
+        removed = await self.repository.deactivate_dependent(
+            organization_id=agent.organization_id,
+            member_user_id=request.user_id,
+            dependent_id=dependent_id,
+        )
+        return {
+            "status": "deactivated" if removed else "not_found",
+            "userId": request.user_id,
+            "dependentId": dependent_id,
+        }
 
     async def _agent(
         self, principal: AuthenticatedPrincipal, requested_agent_id: str | None = None
@@ -697,15 +795,79 @@ class RuntimeMemoryService:
             {"organization_id": agent.organization_id, "user_id": scope.user_id},
         )
 
+    @staticmethod
+    def _is_dependent_scoped(grant: RuntimeSchemaGrant) -> bool:
+        return "dependent_id" in grant.scope_keys
+
+    def _scope_from(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        dependent_id: str | None,
+        scope_keys: tuple[str, ...],
+    ) -> MemoryScope:
+        """Build the memory scope at the level the schema is bound to.
+
+        Member-scoped schemas (``organization_id``, ``user_id``) reject a ``dependentId``;
+        dependent-scoped schemas require one. The scope level is a property of the schema, so the
+        agent never selects it — it only supplies which dependent (if any) the turn concerns.
+        """
+        keys = set(scope_keys)
+        if keys == {"organization_id", "user_id"}:
+            if dependent_id:
+                raise ValueError(
+                    "attribute is member-scoped; a dependentId must not be supplied"
+                )
+            return self.scope_registry.resolve(
+                "organization-user-profile",
+                {"organization_id": organization_id, "user_id": user_id},
+            )
+        if keys == {"organization_id", "user_id", "dependent_id"}:
+            if not dependent_id:
+                raise ValueError(
+                    "attribute is dependent-scoped; a dependentId is required"
+                )
+            return self.scope_registry.resolve(
+                "organization-user-dependent-profile",
+                {
+                    "organization_id": organization_id,
+                    "user_id": user_id,
+                    "dependent_id": dependent_id,
+                },
+            )
+        raise ValueError(f"unsupported runtime scope keys {tuple(scope_keys)!r}")
+
+    def _user_scope(self, scope: RuntimeScope, agent: RuntimeAgent) -> MemoryScope:
+        """Deletion scope: a specific dependent when supplied, else the member (cascades)."""
+        if scope.dependent_id:
+            return self.scope_registry.resolve(
+                "organization-user-dependent-profile",
+                {
+                    "organization_id": agent.organization_id,
+                    "user_id": scope.user_id,
+                    "dependent_id": scope.dependent_id,
+                },
+            )
+        return self._memory_scope(scope, agent)
+
     def _owner_scope(self, scope: RuntimeScope, grant: RuntimeSchemaGrant) -> MemoryScope:
-        if set(grant.scope_keys) != {"organization_id", "user_id"}:
-            raise ValueError(f"unsupported runtime scope keys {grant.scope_keys!r}")
+        """Read scope for a grant during resolve/raw-profiles.
+
+        A dependent resolve mixes scope levels: member-scoped schemas are read at member scope even
+        when the request names a dependent, and dependent-scoped schemas are read at that dependent.
+        (The strict "member-scoped rejects a dependentId" rule applies to *writes*, not reads.)
+        """
+        if self._is_dependent_scoped(grant):
+            return self._scope_from(
+                organization_id=grant.owner_organization_id,
+                user_id=scope.user_id,
+                dependent_id=scope.dependent_id,
+                scope_keys=grant.scope_keys,
+            )
         return self.scope_registry.resolve(
             "organization-user-profile",
-            {
-                "organization_id": grant.owner_organization_id,
-                "user_id": scope.user_id,
-            },
+            {"organization_id": grant.owner_organization_id, "user_id": scope.user_id},
         )
 
     @staticmethod

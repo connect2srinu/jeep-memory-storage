@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator, Callable
 from fastapi import APIRouter, Depends, Request
 
 from control_plane_api.api.runtime.models import (
+    DependentDeleteRequest,
+    DependentWriteRequest,
     DynamicMemoryWrite,
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
@@ -87,6 +89,24 @@ def create_runtime_router(
         service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
     ) -> RuntimeMutationResponse:
         return await service.update_preference(identity, attribute, payload)
+
+    @router.put("/dependents/{dependent_id}")
+    async def upsert_dependent(
+        dependent_id: str,
+        payload: DependentWriteRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.upsert_dependent(identity, dependent_id, payload)
+
+    @router.delete("/dependents/{dependent_id}")
+    async def deactivate_dependent(
+        dependent_id: str,
+        payload: DependentDeleteRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.deactivate_dependent(identity, dependent_id, payload)
 
     @router.post("/preferences/refresh", response_model=EffectivePreferenceSnapshotResponse)
     async def refresh_preferences(

@@ -18,6 +18,10 @@ class ScopeRegistry:
     def __init__(self, contracts: tuple[ScopeContract, ...] | None = None) -> None:
         configured = contracts or (
             ScopeContract("organization-user-profile", ("organization_id", "user_id")),
+            ScopeContract(
+                "organization-user-dependent-profile",
+                ("organization_id", "user_id", "dependent_id"),
+            ),
         )
         self._contracts = {contract.name: contract for contract in configured}
 
@@ -34,4 +38,5 @@ class ScopeRegistry:
         return MemoryScope(
             organization_id=values["organization_id"],
             user_id=values["user_id"],
+            dependent_id=values.get("dependent_id"),
         )

@@ -135,7 +135,10 @@ class MockMemoryStore:
         async with self._lock:
             identity = scope.identity
             removed = 0
-            for key in [key for key in self._profiles if key[0] == identity]:
+            # A member-scoped identity (org, user) is a prefix of its dependents'
+            # (org, user, dependent), so a member forget cascades to every dependent; a
+            # dependent-scoped identity matches only that dependent.
+            for key in [key for key in self._profiles if key[0][: len(identity)] == identity]:
                 removed += len(self._profiles[key].values)
                 del self._profiles[key]
             removed += len(self._dynamic.pop(identity, {}))

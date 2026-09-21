@@ -80,10 +80,11 @@ async def test_db_native_fixture_is_normalized_and_idempotent(tmp_path: Path) ->
             domains = await repository.list_domains()
         assert counts == {
             "domains": len(PREFERENCES) + 1,
-            "preferences": sum(len(fields) for fields in PREFERENCES.values()),
-            "schemas": len(PREFERENCES),
+            # +1 for the dependent-scoped grocery.allergies attribute / schema / grant (Option C).
+            "preferences": sum(len(fields) for fields in PREFERENCES.values()) + 1,
+            "schemas": len(PREFERENCES) + 1,
             "agents": 6,
-            "grants": 15,
+            "grants": 16,
             "audits": 1,
         }
         assert grocery is not None

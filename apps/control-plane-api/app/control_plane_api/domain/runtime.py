@@ -27,6 +27,17 @@ class RuntimeSchemaGrant:
     field_to_attribute: dict[str, str]
     # attribute_id -> catalog sensitivity classification (normal | sensitive | restricted).
     attribute_sensitivity: dict[str, str] = field(default_factory=dict)
+    # attribute_id -> catalog description ("meaning"), surfaced to help the agent map statements.
+    attribute_descriptions: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class MemberDependent:
+    """An active dependent (e.g. a child) on a member's roster."""
+
+    dependent_id: str
+    display_name: str | None
+    relationship: str
 
 
 @dataclass(frozen=True, slots=True)

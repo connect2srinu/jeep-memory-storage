@@ -9,14 +9,20 @@ from typing import Any
 class MemoryScope:
     organization_id: str
     user_id: str
+    # Optional sub-entity partition (e.g. a member's dependent/child). None = member-level scope.
+    dependent_id: str | None = None
 
     def __post_init__(self) -> None:
         if not all(value.strip() for value in (self.organization_id, self.user_id)):
             raise ValueError("memory scope values must be non-empty")
+        if self.dependent_id is not None and not self.dependent_id.strip():
+            raise ValueError("dependent_id, when provided, must be non-empty")
 
     @property
-    def identity(self) -> tuple[str, str]:
-        return self.organization_id, self.user_id
+    def identity(self) -> tuple[str, ...]:
+        if self.dependent_id is None:
+            return self.organization_id, self.user_id
+        return self.organization_id, self.user_id, self.dependent_id
 
 
 @dataclass(frozen=True, slots=True)

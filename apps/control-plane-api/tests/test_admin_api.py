@@ -775,8 +775,11 @@ async def test_domain_detail_aggregates_children(admin_environment) -> None:
     assert data["organization"]["id"] == "retail"
     assert data["project"]["id"] == "shopping"
 
-    # A domain owns its scope(s); grocery has exactly one in the seed.
-    assert [scope["id"] for scope in data["scopes"]] == ["grocery:profile-scope"]
+    # A domain owns its scope(s); grocery has a member and a dependent scope in the seed.
+    assert [scope["id"] for scope in data["scopes"]] == [
+        "grocery:dependent-scope",
+        "grocery:profile-scope",
+    ]
 
     schema = next(item for item in data["schemas"] if item["id"] == "grocery-preferences-v1")
     assert schema["versions"][0]["mappings"], "schema version exposes preference mappings"

@@ -15,6 +15,9 @@ class RuntimeScope(ApiModel):
     organization_id: str | None = Field(default=None, alias="organizationId", min_length=1)
     app_name: str | None = Field(default=None, alias="appName", min_length=1)
     domain: str | None = Field(default=None, min_length=1)
+    # Optional sub-entity (e.g. a member's dependent/child). Required only for dependent-scoped
+    # schemas; the control plane infers the scope level from the attribute's schema, not the agent.
+    dependent_id: str | None = Field(default=None, alias="dependentId", min_length=1)
 
 
 class ResolvePreferencesRequest(ApiModel):
@@ -40,6 +43,24 @@ class ApprovedTopic(ApiModel):
     description: str | None = None
 
 
+class WritablePreference(ApiModel):
+    """A writable canonical attribute annotated with the scope level and its meaning.
+
+    ``description`` mirrors ``ApprovedTopic.description`` so the agent can map a user statement to the
+    right attribute the same way it maps to a topic.
+    """
+
+    attribute: str
+    level: str  # "member" | "dependent"
+    description: str | None = None
+
+
+class Dependent(ApiModel):
+    dependent_id: str = Field(alias="dependentId")
+    display_name: str | None = Field(default=None, alias="displayName")
+    relationship: str = "child"
+
+
 class EffectivePreferenceSnapshotResponse(ApiModel):
     agent_id: str = Field(alias="agentId")
     scope: RuntimeScope
@@ -49,10 +70,14 @@ class EffectivePreferenceSnapshotResponse(ApiModel):
     policy_version: str = Field(alias="policyVersion")
     schema_versions: dict[str, str] = Field(alias="schemaVersions")
     writable_preferences: tuple[str, ...] = Field(default=(), alias="writablePreferences")
+    writable_preference_details: tuple[WritablePreference, ...] = Field(
+        default=(), alias="writablePreferenceDetails"
+    )
     approved_topics: tuple[str, ...] = Field(default=(), alias="approvedTopics")
     approved_topic_details: tuple[ApprovedTopic, ...] = Field(
         default=(), alias="approvedTopicDetails"
     )
+    dependents: tuple[Dependent, ...] = Field(default=(), alias="dependents")
     generated_at: datetime = Field(alias="generatedAt")
 
 
@@ -90,6 +115,16 @@ class DynamicMemoryWrite(ApiModel):
     value: Any
     confidence: float = Field(default=1.0, ge=0, le=1)
     source: str = Field(default="user_directed", pattern=_SOURCE_PATTERN)
+
+
+class DependentWriteRequest(ApiModel):
+    user_id: str = Field(alias="userId", min_length=1)
+    display_name: str | None = Field(default=None, alias="displayName")
+    relationship: str = Field(default="child", min_length=1)
+
+
+class DependentDeleteRequest(ApiModel):
+    user_id: str = Field(alias="userId", min_length=1)
 
 
 class ForgetMemoryRequest(ApiModel):
