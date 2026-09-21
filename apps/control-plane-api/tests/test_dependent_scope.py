@@ -12,6 +12,8 @@ from control_plane_api.services.scope_registry import ScopeRegistry
 
 DEP_KEYS = ("organization_id", "user_id", "dependent_id")
 MEMBER_KEYS = ("organization_id", "user_id")
+HH_KEYS = ("organization_id", "household_id")
+HH_MEMBER_KEYS = ("organization_id", "household_id", "member_id")
 
 
 def test_identity_includes_dependent() -> None:
@@ -31,6 +33,43 @@ def test_scope_registry_dependent_contract() -> None:
             "organization-user-dependent-profile",
             {"organization_id": "org", "user_id": "u1"},  # missing dependent_id
         )
+
+
+def test_scope_registry_household_contracts() -> None:
+    reg = ScopeRegistry()
+    shared = reg.resolve(
+        "organization-household-profile", {"organization_id": "org", "household_id": "h1"}
+    )
+    assert shared.identity == ("org", "h1")
+    member = reg.resolve(
+        "organization-household-member-profile",
+        {"organization_id": "org", "household_id": "h1", "member_id": "m1"},
+    )
+    assert member.identity == ("org", "h1", "m1")
+
+
+@pytest.mark.asyncio
+async def test_mock_store_isolates_household_members() -> None:
+    store = MockMemoryStore()
+    await store.register_schema(
+        MemoryProfileSchema(id="hh", domain="ksa", version="v1", fields=frozenset({"diet"}))
+    )
+    shared = MemoryScope("org", household_id="h1")
+    m1 = MemoryScope("org", household_id="h1", member_id="m1")
+    m2 = MemoryScope("org", household_id="h1", member_id="m2")
+    await store.write_preference(shared, schema_id="hh", attribute="diet", value="vegetarian")
+    await store.write_preference(m1, schema_id="hh", attribute="diet", value="vegan")
+
+    assert (await store.get_profiles(shared, ("hh",)))[0].values["diet"] == "vegetarian"
+    assert (await store.get_profiles(m1, ("hh",)))[0].values["diet"] == "vegan"
+    assert await store.get_profiles(m2, ("hh",)) == ()  # a member with no profile is empty
+
+    # A household forget cascades to its members; a member forget targets just that member.
+    assert await store.forget_user(m1) == 1
+    assert await store.get_profiles(m1, ("hh",)) == ()
+    assert (await store.get_profiles(shared, ("hh",)))[0].values["diet"] == "vegetarian"
+    assert await store.forget_user(shared) >= 1
+    assert await store.get_profiles(shared, ("hh",)) == ()
 
 
 @pytest.mark.asyncio
@@ -94,32 +133,57 @@ def _grant(scope_keys: tuple[str, ...]) -> RuntimeSchemaGrant:
     )
 
 
-def test_is_dependent_scoped() -> None:
-    assert RuntimeMemoryService._is_dependent_scoped(_grant(DEP_KEYS))
-    assert not RuntimeMemoryService._is_dependent_scoped(_grant(MEMBER_KEYS))
+def test_entity_key() -> None:
+    assert RuntimeMemoryService._entity_key(_grant(DEP_KEYS)) == "dependent_id"
+    assert RuntimeMemoryService._entity_key(_grant(MEMBER_KEYS)) is None
+    assert RuntimeMemoryService._entity_key(_grant(HH_MEMBER_KEYS)) == "member_id"
 
 
-def test_scope_from_member_rejects_dependent_id() -> None:
-    with pytest.raises(ValueError, match="member-scoped"):
-        _service()._scope_from(
-            organization_id="org", user_id="u1", dependent_id="child1", scope_keys=MEMBER_KEYS
+def test_scope_levels() -> None:
+    assert RuntimeMemoryService._scope_level(_grant(MEMBER_KEYS)) == "member"
+    assert RuntimeMemoryService._scope_level(_grant(DEP_KEYS)) == "dependent"
+    assert RuntimeMemoryService._scope_level(_grant(HH_KEYS)) == "household"
+    assert RuntimeMemoryService._scope_level(_grant(HH_MEMBER_KEYS)) == "household_member"
+
+
+def test_build_scope_write_rejects_mismatched_entity_key() -> None:
+    with pytest.raises(ValueError, match="not valid"):
+        _service()._build_scope(
+            organization_id="org",
+            scope_keys=MEMBER_KEYS,
+            values={"user_id": "u1", "dependent_id": "child1"},
+            strict=True,
         )
 
 
-def test_scope_from_dependent_requires_and_builds() -> None:
+def test_build_scope_requires_and_builds() -> None:
     svc = _service()
-    with pytest.raises(ValueError, match="dependent-scoped"):
-        svc._scope_from(
-            organization_id="org", user_id="u1", dependent_id=None, scope_keys=DEP_KEYS
+    with pytest.raises(ValueError, match="required"):
+        svc._build_scope(
+            organization_id="org", scope_keys=DEP_KEYS, values={"user_id": "u1"}, strict=True
         )
-    scope = svc._scope_from(
-        organization_id="org", user_id="u1", dependent_id="child1", scope_keys=DEP_KEYS
+    scope = svc._build_scope(
+        organization_id="org",
+        scope_keys=DEP_KEYS,
+        values={"user_id": "u1", "dependent_id": "child1"},
+        strict=True,
     )
     assert scope.dependent_id == "child1"
+    household = svc._build_scope(
+        organization_id="org",
+        scope_keys=HH_MEMBER_KEYS,
+        values={"household_id": "h1", "member_id": "m1"},
+        strict=True,
+    )
+    assert household.household_id == "h1"
+    assert household.member_id == "m1"
 
 
-def test_scope_from_rejects_unsupported_keys() -> None:
+def test_build_scope_rejects_unsupported_keys() -> None:
     with pytest.raises(ValueError, match="unsupported"):
-        _service()._scope_from(
-            organization_id="org", user_id="u1", dependent_id=None, scope_keys=("organization_id",)
+        _service()._build_scope(
+            organization_id="org",
+            scope_keys=("organization_id",),
+            values={"user_id": "u1"},
+            strict=True,
         )

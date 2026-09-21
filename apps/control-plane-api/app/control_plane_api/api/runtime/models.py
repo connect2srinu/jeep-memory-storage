@@ -11,13 +11,18 @@ class ApiModel(BaseModel):
 
 
 class RuntimeScope(ApiModel):
+    # userId is the acting caller (always present) — also the member key for the classic {org,user}
+    # and {org,user,dependent} scopes. The household keys below are separate partition selectors.
     user_id: str = Field(alias="userId", min_length=1)
     organization_id: str | None = Field(default=None, alias="organizationId", min_length=1)
     app_name: str | None = Field(default=None, alias="appName", min_length=1)
     domain: str | None = Field(default=None, min_length=1)
-    # Optional sub-entity (e.g. a member's dependent/child). Required only for dependent-scoped
-    # schemas; the control plane infers the scope level from the attribute's schema, not the agent.
+    # Optional sub-entity partitions. dependentId (a member's child) and, for the household model,
+    # householdId (the shared grouping) + memberId (a person in the household). The control plane
+    # infers the scope level from the attribute's schema, not the agent.
     dependent_id: str | None = Field(default=None, alias="dependentId", min_length=1)
+    household_id: str | None = Field(default=None, alias="householdId", min_length=1)
+    member_id: str | None = Field(default=None, alias="memberId", min_length=1)
 
 
 class ResolvePreferencesRequest(ApiModel):

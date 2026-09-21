@@ -63,6 +63,34 @@ from control_plane_api.services.scope_registry import ScopeRegistry
 
 logger = logging.getLogger("uvicorn.error.control_plane_api.preference_resolution")
 
+# Scope keys beyond organization_id, and which scope contract each combination maps to.
+_SUB_SCOPE_KEYS = ("user_id", "dependent_id", "household_id", "member_id")
+# Per-sub-entity keys: a schema bound to one is resolved lazily (only when the request names it).
+_ENTITY_SCOPE_KEYS = frozenset({"dependent_id", "member_id"})
+_CONTRACT_BY_KEYS = {
+    frozenset({"organization_id", "user_id"}): "organization-user-profile",
+    frozenset({"organization_id", "user_id", "dependent_id"}): "organization-user-dependent-profile",
+    frozenset({"organization_id", "household_id"}): "organization-household-profile",
+    frozenset(
+        {"organization_id", "household_id", "member_id"}
+    ): "organization-household-member-profile",
+}
+
+
+def _scope_values(scope: RuntimeScope) -> dict[str, str]:
+    """The sub-entity scope keys the request carries (userId / dependentId / householdId / memberId)."""
+    return {key: getattr(scope, key) for key in _SUB_SCOPE_KEYS if getattr(scope, key, None)}
+
+
+def _primary_scope_values(scope: RuntimeScope) -> dict[str, str]:
+    """The top-level partition for member/household-level writes (dynamic memory)."""
+    if scope.user_id:
+        return {"user_id": scope.user_id}
+    if scope.household_id:
+        return {"household_id": scope.household_id}
+    raise ValueError("scope requires a userId or householdId")
+
+
 def _screen_memory_write(
     value: object, *, declared: str | None, source: str, label: str
 ) -> SensitivityTier:
@@ -188,9 +216,10 @@ class RuntimeMemoryService:
         catalog, policies = self._resolution_components(agent, grants, config, dynamic_policies)
         candidates: list[Preference] = []
         for grant in readable:
-            # Dependent-scoped schemas are read lazily: only when the turn names a dependent.
-            # A member-level resolve (no dependentId) skips them to keep read fan-out minimal.
-            if self._is_dependent_scoped(grant) and not request.scope.dependent_id:
+            # Per-sub-entity schemas (dependent/member) are read lazily: only when the turn names
+            # that entity. A top-level resolve skips them to keep read fan-out minimal.
+            entity_key = self._entity_key(grant)
+            if entity_key and not getattr(request.scope, entity_key):
                 continue
             await self._register_schema(grant)
             scope = self._owner_scope(request.scope, grant)
@@ -238,10 +267,10 @@ class RuntimeMemoryService:
             if policy is None or grant.domain_id in seen_dynamic_domains:
                 continue
             seen_dynamic_domains.add(grant.domain_id)
-            # Dynamic (topic) memory is member-level, independent of a schema's scope grain.
-            owner_scope = self.scope_registry.resolve(
-                "organization-user-profile",
-                {"organization_id": grant.owner_organization_id, "user_id": request.scope.user_id},
+            # Dynamic (topic) memory is top-level (member/household), independent of a schema's grain.
+            owner_scope = MemoryScope(
+                organization_id=grant.owner_organization_id,
+                **_primary_scope_values(request.scope),
             )
             for memory in await self.store.get_dynamic_memories(owner_scope, policy.approved_topics):
                 candidates.append(
@@ -316,7 +345,7 @@ class RuntimeMemoryService:
                 grant.permission, write=True
             ):
                 continue
-            level = "dependent" if self._is_dependent_scoped(grant) else "member"
+            level = self._scope_level(grant)
             for attribute in grant.field_to_attribute.values():
                 if attribute in seen_writable:
                     continue
@@ -446,10 +475,10 @@ class RuntimeMemoryService:
                 agent.domain_id,
                 candidate.schema_id,
             )
-            if self._is_dependent_scoped(grant):
+            if self._entity_key(grant):
                 raise ValueError(
-                    f"attribute {candidate.attribute!r} is dependent-scoped; write it via "
-                    "PUT /preferences/{attribute} with a dependentId, not through ingest_event"
+                    f"attribute {candidate.attribute!r} is sub-entity-scoped; write it via "
+                    "PUT /preferences/{attribute} with the entity id, not through ingest_event"
                 )
             _screen_memory_write(
                 candidate.value,
@@ -606,11 +635,11 @@ class RuntimeMemoryService:
             label=f"attribute {attribute!r}",
         )
         await self._register_schema(grant)
-        write_scope = self._scope_from(
+        write_scope = self._build_scope(
             organization_id=agent.organization_id,
-            user_id=request.scope.user_id,
-            dependent_id=request.scope.dependent_id,
             scope_keys=grant.scope_keys,
+            values=_scope_values(request.scope),
+            strict=True,
         )
         profile = await self.store.write_preference(
             write_scope,
@@ -790,84 +819,86 @@ class RuntimeMemoryService:
         )
 
     def _memory_scope(self, scope: RuntimeScope, agent: RuntimeAgent) -> MemoryScope:
-        return self.scope_registry.resolve(
-            "organization-user-profile",
-            {"organization_id": agent.organization_id, "user_id": scope.user_id},
-        )
+        """The primary member/household scope for top-level writes (dynamic memory)."""
+        return MemoryScope(organization_id=agent.organization_id, **_primary_scope_values(scope))
 
     @staticmethod
-    def _is_dependent_scoped(grant: RuntimeSchemaGrant) -> bool:
-        return "dependent_id" in grant.scope_keys
+    def _entity_key(grant: RuntimeSchemaGrant) -> str | None:
+        """The per-sub-entity key a grant partitions on (dependent_id/member_id), if any."""
+        return next((key for key in grant.scope_keys if key in _ENTITY_SCOPE_KEYS), None)
 
-    def _scope_from(
+    @staticmethod
+    def _scope_level(grant: RuntimeSchemaGrant) -> str:
+        """The scope level surfaced to the agent so it knows which id (if any) to supply."""
+        keys = set(grant.scope_keys)
+        if "dependent_id" in keys:
+            return "dependent"
+        if "member_id" in keys:
+            return "household_member"
+        if "household_id" in keys:
+            return "household"
+        return "member"
+
+    def _build_scope(
         self,
         *,
         organization_id: str,
-        user_id: str,
-        dependent_id: str | None,
         scope_keys: tuple[str, ...],
+        values: dict[str, str],
+        strict: bool,
     ) -> MemoryScope:
-        """Build the memory scope at the level the schema is bound to.
+        """Build the scope a schema is bound to from the request's available scope values.
 
-        Member-scoped schemas (``organization_id``, ``user_id``) reject a ``dependentId``;
-        dependent-scoped schemas require one. The scope level is a property of the schema, so the
-        agent never selects it — it only supplies which dependent (if any) the turn concerns.
+        ``strict`` (writes) rejects sub-entity keys the schema does not use; non-strict (reads) ignores
+        them, so a resolve can read broader-scoped schemas at their own level while it names a
+        specific dependent/member for the narrower ones.
         """
-        keys = set(scope_keys)
-        if keys == {"organization_id", "user_id"}:
-            if dependent_id:
+        contract = _CONTRACT_BY_KEYS.get(frozenset(scope_keys))
+        if contract is None:
+            raise ValueError(f"unsupported runtime scope keys {tuple(scope_keys)!r}")
+        needed = [key for key in scope_keys if key != "organization_id"]
+        scope_values = {"organization_id": organization_id}
+        for key in needed:
+            value = values.get(key)
+            if not value:
                 raise ValueError(
-                    "attribute is member-scoped; a dependentId must not be supplied"
+                    f"scope key {key!r} is required for this schema but was not supplied"
                 )
-            return self.scope_registry.resolve(
-                "organization-user-profile",
-                {"organization_id": organization_id, "user_id": user_id},
-            )
-        if keys == {"organization_id", "user_id", "dependent_id"}:
-            if not dependent_id:
+            scope_values[key] = value
+        if strict:
+            # A write must not name a per-entity partition (dependentId/memberId) the schema
+            # doesn't use — e.g. a dependentId on a member-level attribute.
+            invalid = {key for key in _ENTITY_SCOPE_KEYS if values.get(key)} - set(scope_keys)
+            if invalid:
                 raise ValueError(
-                    "attribute is dependent-scoped; a dependentId is required"
+                    f"scope keys {sorted(invalid)} are not valid for this attribute's schema"
                 )
-            return self.scope_registry.resolve(
-                "organization-user-dependent-profile",
-                {
-                    "organization_id": organization_id,
-                    "user_id": user_id,
-                    "dependent_id": dependent_id,
-                },
-            )
-        raise ValueError(f"unsupported runtime scope keys {tuple(scope_keys)!r}")
+        return self.scope_registry.resolve(contract, scope_values)
 
     def _user_scope(self, scope: RuntimeScope, agent: RuntimeAgent) -> MemoryScope:
-        """Deletion scope: a specific dependent when supplied, else the member (cascades)."""
-        if scope.dependent_id:
-            return self.scope_registry.resolve(
-                "organization-user-dependent-profile",
-                {
-                    "organization_id": agent.organization_id,
-                    "user_id": scope.user_id,
-                    "dependent_id": scope.dependent_id,
-                },
-            )
-        return self._memory_scope(scope, agent)
+        """Deletion scope: the exact partition the request names; a broader scope cascades.
+
+        A householdId (optionally + memberId) targets the household partition; otherwise the member
+        (userId), optionally narrowed to a dependent. A member/household forget cascades to the
+        narrower partitions under it.
+        """
+        if scope.household_id:
+            keys = {"household_id": scope.household_id}
+            if scope.member_id:
+                keys["member_id"] = scope.member_id
+        else:
+            keys = {"user_id": scope.user_id}
+            if scope.dependent_id:
+                keys["dependent_id"] = scope.dependent_id
+        return MemoryScope(organization_id=agent.organization_id, **keys)
 
     def _owner_scope(self, scope: RuntimeScope, grant: RuntimeSchemaGrant) -> MemoryScope:
-        """Read scope for a grant during resolve/raw-profiles.
-
-        A dependent resolve mixes scope levels: member-scoped schemas are read at member scope even
-        when the request names a dependent, and dependent-scoped schemas are read at that dependent.
-        (The strict "member-scoped rejects a dependentId" rule applies to *writes*, not reads.)
-        """
-        if self._is_dependent_scoped(grant):
-            return self._scope_from(
-                organization_id=grant.owner_organization_id,
-                user_id=scope.user_id,
-                dependent_id=scope.dependent_id,
-                scope_keys=grant.scope_keys,
-            )
-        return self.scope_registry.resolve(
-            "organization-user-profile",
-            {"organization_id": grant.owner_organization_id, "user_id": scope.user_id},
+        """Read scope for a grant during resolve/raw-profiles (non-strict — ignores extra keys)."""
+        return self._build_scope(
+            organization_id=grant.owner_organization_id,
+            scope_keys=grant.scope_keys,
+            values=_scope_values(scope),
+            strict=False,
         )
 
     @staticmethod

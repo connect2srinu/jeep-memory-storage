@@ -4,25 +4,45 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+# The optional scope keys beyond organization_id, in canonical order. A scope is org + any subset,
+# supporting member ({user_id}), dependent ({user_id, dependent_id}), household-shared
+# ({household_id}), and household-member ({household_id, member_id}) partitions.
+_SCOPE_KEY_ORDER = ("user_id", "dependent_id", "household_id", "member_id")
+
 
 @dataclass(frozen=True, slots=True)
 class MemoryScope:
     organization_id: str
-    user_id: str
-    # Optional sub-entity partition (e.g. a member's dependent/child). None = member-level scope.
+    user_id: str | None = None
     dependent_id: str | None = None
+    household_id: str | None = None
+    member_id: str | None = None
 
     def __post_init__(self) -> None:
-        if not all(value.strip() for value in (self.organization_id, self.user_id)):
-            raise ValueError("memory scope values must be non-empty")
-        if self.dependent_id is not None and not self.dependent_id.strip():
-            raise ValueError("dependent_id, when provided, must be non-empty")
+        if not self.organization_id.strip():
+            raise ValueError("organization_id must be non-empty")
+        for key in _SCOPE_KEY_ORDER:
+            value = getattr(self, key)
+            if value is not None and not value.strip():
+                raise ValueError(f"{key}, when provided, must be non-empty")
+        if not any(getattr(self, key) is not None for key in _SCOPE_KEY_ORDER):
+            raise ValueError("memory scope requires at least one key beyond organization_id")
+
+    @property
+    def keys(self) -> tuple[tuple[str, str], ...]:
+        """The present scope keys (name, value) beyond organization_id, in canonical order."""
+        return tuple(
+            (key, getattr(self, key))
+            for key in _SCOPE_KEY_ORDER
+            if getattr(self, key) is not None
+        )
 
     @property
     def identity(self) -> tuple[str, ...]:
-        if self.dependent_id is None:
-            return self.organization_id, self.user_id
-        return self.organization_id, self.user_id, self.dependent_id
+        return (self.organization_id, *(value for _, value in self.keys))
+
+    def as_dict(self) -> dict[str, str]:
+        return {"organization_id": self.organization_id, **dict(self.keys)}
 
 
 @dataclass(frozen=True, slots=True)

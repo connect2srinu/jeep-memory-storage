@@ -22,6 +22,13 @@ class ScopeRegistry:
                 "organization-user-dependent-profile",
                 ("organization_id", "user_id", "dependent_id"),
             ),
+            # Household model: shared attributes at the household level, and per-member profiles
+            # (the account holder and dependents are all members of the household).
+            ScopeContract("organization-household-profile", ("organization_id", "household_id")),
+            ScopeContract(
+                "organization-household-member-profile",
+                ("organization_id", "household_id", "member_id"),
+            ),
         )
         self._contracts = {contract.name: contract for contract in configured}
 
@@ -37,6 +44,5 @@ class ScopeRegistry:
             raise ValueError(f"invalid scope keys; missing={missing}, unexpected={unexpected}")
         return MemoryScope(
             organization_id=values["organization_id"],
-            user_id=values["user_id"],
-            dependent_id=values.get("dependent_id"),
+            **{key: values[key] for key in contract.keys if key != "organization_id"},
         )
