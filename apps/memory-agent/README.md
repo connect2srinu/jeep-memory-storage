@@ -40,6 +40,12 @@ persists non-canonical facts that fall inside the domain's **approved topics**.
   child's allergies), the agent passes the `dependentId` to `save_preference` / `get_preferences`;
   the platform routes the write/read to that dependent's scope and requires the id. The agent holds
   no scope logic — it only maps a named dependent to its id from the snapshot.
+- **Household preferences:** the snapshot also carries `householdId` and `householdMembers`
+  (`{memberId, displayName, relationship, hasLogin, isGuardian}`), and the attribute `level` can be
+  `household` (shared) or `household_member` (per person). The platform **derives** the household
+  from the acting member, so the agent passes nothing for `household` attributes; for
+  `household_member` attributes it passes the `memberId` of the named person (writing another member
+  requires the caller to be their guardian — enforced by the platform).
 
 ## Configuration
 

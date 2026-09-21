@@ -70,3 +70,16 @@ async def test_resolve_and_update_forward_dependent_id(monkeypatch) -> None:
         value="mango chips",
     )
     assert "dependentId" not in captured["payload"]["scope"]
+
+    # A household-member write forwards memberId (the person the write is for).
+    await client.update_preference(
+        user_id="u1",
+        app_name="app",
+        consumer_domain="grocery",
+        agent_id="grocery-agent",
+        attribute="grocery.member_allergies",
+        value="peanut",
+        member_id="kid1",
+    )
+    assert captured["payload"]["scope"]["memberId"] == "kid1"
+    assert "dependentId" not in captured["payload"]["scope"]

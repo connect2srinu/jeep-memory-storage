@@ -54,6 +54,8 @@ class EffectivePreferenceSnapshot(ApiModel):
         default=(), alias="approvedTopicDetails"
     )
     dependents: tuple[dict[str, Any], ...] = Field(default=(), alias="dependents")
+    household_id: str | None = Field(default=None, alias="householdId")
+    household_members: tuple[dict[str, Any], ...] = Field(default=(), alias="householdMembers")
     generated_at: str = Field(alias="generatedAt")
 
 
@@ -155,10 +157,13 @@ class ControlPlaneApiClient:
         app_name: str,
         consumer_domain: str,
         dependent_id: str | None = None,
+        member_id: str | None = None,
     ) -> dict[str, str]:
         scope = {"userId": user_id, "appName": app_name, "domain": consumer_domain}
         if dependent_id:
             scope["dependentId"] = dependent_id
+        if member_id:
+            scope["memberId"] = member_id
         return scope
 
     async def resolve_preferences(
@@ -171,13 +176,16 @@ class ControlPlaneApiClient:
         agent_id: str,
         include_provenance: bool = False,
         dependent_id: str | None = None,
+        member_id: str | None = None,
     ) -> EffectivePreferenceSnapshot:
         payload = await self._request(
             "POST",
             "/api/v1/runtime/preferences/resolve",
             agent_id=agent_id,
             payload={
-                "scope": self._scope(user_id, app_name, consumer_domain, dependent_id),
+                "scope": self._scope(
+                    user_id, app_name, consumer_domain, dependent_id, member_id
+                ),
                 "sessionId": session_id,
                 "agentId": agent_id,
                 "includeProvenance": include_provenance,
@@ -220,9 +228,10 @@ class ControlPlaneApiClient:
         value: Any,
         schema_id: str | None = None,
         dependent_id: str | None = None,
+        member_id: str | None = None,
     ) -> RuntimeMutation:
         body: dict[str, Any] = {
-            "scope": self._scope(user_id, app_name, consumer_domain, dependent_id),
+            "scope": self._scope(user_id, app_name, consumer_domain, dependent_id, member_id),
             "value": value,
         }
         if schema_id is not None:
