@@ -148,6 +148,8 @@ async def test_user_1001_approval_resolution_update_and_refresh(tmp_path: Path) 
                 "customer-preferences-v1": "1.0",
                 "grocery-preferences-v1": "1.0",
                 "grocery-dependent-preferences-v1": "1.0",
+                "grocery-household-preferences-v1": "1.0",
+                "grocery-member-preferences-v1": "1.0",
                 "inventory-preferences-v1": "1.0",
                 "store-preferences-v1": "1.0",
                 "delivery-preferences-v1": "1.0",

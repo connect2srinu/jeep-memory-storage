@@ -775,9 +775,11 @@ async def test_domain_detail_aggregates_children(admin_environment) -> None:
     assert data["organization"]["id"] == "retail"
     assert data["project"]["id"] == "shopping"
 
-    # A domain owns its scope(s); grocery has a member and a dependent scope in the seed.
+    # A domain owns its scope(s); grocery has member, dependent, and household scopes in the seed.
     assert [scope["id"] for scope in data["scopes"]] == [
         "grocery:dependent-scope",
+        "grocery:household-member-scope",
+        "grocery:household-scope",
         "grocery:profile-scope",
     ]
 

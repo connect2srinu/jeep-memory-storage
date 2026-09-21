@@ -304,6 +304,80 @@ async def seed_control_plane(database: Database) -> None:
             )
         )
 
+        # Household model: a household-shared schema (org + household_id) and a per-member schema
+        # (org + household_id + member_id). Every person (account holder + children) is a member.
+        for scope_id, scope_keys in (
+            ("grocery:household-scope", ["organization_id", "household_id"]),
+            ("grocery:household-member-scope", ["organization_id", "household_id", "member_id"]),
+        ):
+            await session.merge(
+                ScopeDefinitionRecord(
+                    id=scope_id,
+                    scope_type="DOMAIN_HOUSEHOLD_PROFILE",
+                    scope_keys=scope_keys,
+                    description=f"Test-only household scope {scope_id}.",
+                    owner_domain_id="grocery",
+                    status="ACTIVE",
+                )
+            )
+        for attribute, sensitivity in (
+            ("grocery.household_delivery_note", "normal"),
+            ("grocery.member_allergies", "sensitive"),
+        ):
+            field = attribute.split(".", 1)[1]
+            await session.merge(
+                PreferenceDefinitionRecord(
+                    attribute_id=attribute,
+                    display_name=field.replace("_", " ").title(),
+                    description=f"Test-only definition for {attribute}.",
+                    data_type="string",
+                    allowed_values=[],
+                    sensitivity_classification=sensitivity,
+                    canonical_owner_id="grocery",
+                    validation_rules={"aliases": [field]},
+                    default_resolution_behavior={"policy": field},
+                    catalog_version="1",
+                )
+            )
+        for schema_id, scope_id, field in (
+            ("grocery-household-preferences-v1", "grocery:household-scope", "household_delivery_note"),
+            ("grocery-member-preferences-v1", "grocery:household-member-scope", "member_allergies"),
+        ):
+            version_id = f"{schema_id}:1.0"
+            await session.merge(
+                ProfileSchemaRecord(
+                    id=schema_id,
+                    domain_id="grocery",
+                    display_name=schema_id.replace("-", " ").title(),
+                    description=f"Test-only household profile {schema_id}.",
+                    owner_team="grocery-platform",
+                    status="ACTIVE",
+                )
+            )
+            await session.merge(
+                ProfileSchemaVersionRecord(
+                    id=version_id,
+                    schema_id=schema_id,
+                    version="1.0",
+                    status="ACTIVE",
+                    scope_definition_id=scope_id,
+                    vertex_schema_definition={
+                        "type": "object",
+                        "properties": {field: {"type": "string"}},
+                        "additionalProperties": False,
+                    },
+                    generation_config={"enabled": False},
+                )
+            )
+            await session.merge(
+                SchemaPreferenceMappingRecord(
+                    id=f"{version_id}:{field}",
+                    schema_version_id=version_id,
+                    attribute_id=f"grocery.{field}",
+                    profile_field=field,
+                )
+            )
+
         for agent_id, (domain, submit, provenance) in AGENTS.items():
             project_id = "customer-experience" if domain == "customer" else "shopping"
             await session.merge(
@@ -340,18 +414,23 @@ async def seed_control_plane(database: Database) -> None:
                     )
                 )
 
-        # grocery-agent may read/write the dependent-scoped schema (per-child allergies).
-        await session.merge(
-            AgentSchemaGrantRecord(
-                id="grocery-agent:grocery-dependent-preferences-v1",
-                agent_id="grocery-agent",
-                schema_id="grocery-dependent-preferences-v1",
-                permission="READ_WRITE",
-                status="ACTIVE",
-                approved_by="test-seed",
-                approved_at=now,
+        # grocery-agent may read/write the dependent-scoped and household schemas.
+        for schema_id in (
+            "grocery-dependent-preferences-v1",
+            "grocery-household-preferences-v1",
+            "grocery-member-preferences-v1",
+        ):
+            await session.merge(
+                AgentSchemaGrantRecord(
+                    id=f"grocery-agent:{schema_id}",
+                    agent_id="grocery-agent",
+                    schema_id=schema_id,
+                    permission="READ_WRITE",
+                    status="ACTIVE",
+                    approved_by="test-seed",
+                    approved_at=now,
+                )
             )
-        )
 
         defaults = {
             "source_priority": [

@@ -26,7 +26,10 @@ async def test_only_active_approved_schema_versions_are_exported(tmp_path: Path)
 
     configs = spec["memory_bank_config"]["structured_memory_configs"]
     assert configs
-    assert configs[0]["scope_keys"] == ["organization_id", "user_id"]
+    # Schemas are grouped by their scope shape; the member scope is one of the groups.
+    scope_key_groups = [tuple(group["scope_keys"]) for group in configs]
+    assert ("organization_id", "user_id") in scope_key_groups
+    assert ("organization_id", "household_id", "member_id") in scope_key_groups
     schema_ids = {item["id"] for group in configs for item in group["schema_configs"]}
     assert {"customer-preferences-v1", "grocery-preferences-v1"} <= schema_ids
 

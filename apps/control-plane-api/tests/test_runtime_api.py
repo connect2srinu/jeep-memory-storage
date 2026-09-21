@@ -691,3 +691,89 @@ async def test_dependent_scoped_write_and_resolve_are_isolated(runtime_client) -
         json={"scope": {**scope("u1"), "dependentId": "child2"}, "sessionId": "c2b"},
     )
     assert after2.json()["preferences"]["allergies"]["value"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_household_shared_and_member_scopes(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+
+    # Enrol a household: u1 is the account holder (guardian), kid1 is a no-login child.
+    for member_id, body in (
+        ("u1", {"displayName": "Parent", "relationship": "account_holder", "hasLogin": True, "isGuardian": True}),
+        ("kid1", {"displayName": "Timmy", "relationship": "child"}),
+    ):
+        up = await runtime_client.put(
+            f"/api/v1/runtime/households/hh1/members/{member_id}", headers=headers, json=body
+        )
+        assert up.status_code == 200, up.text
+
+    # Household-shared write (household_id derived from u1 -> hh1; no memberId needed).
+    shared = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.household_delivery_note",
+        headers=headers,
+        json={"scope": scope("u1"), "value": "leave at back door"},
+    )
+    assert shared.status_code == 200, shared.text
+
+    # Guardian writes the child's per-member allergy (memberId=kid1, acting user u1 is a guardian).
+    child = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.member_allergies",
+        headers=headers,
+        json={"scope": {**scope("u1"), "memberId": "kid1"}, "value": "peanut"},
+    )
+    assert child.status_code == 200, child.text
+
+    # Member resolve (no memberId): household-shared surfaces; per-member is lazy (absent).
+    member = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": scope("u1"), "sessionId": "h"},
+    )
+    assert member.status_code == 200, member.text
+    body = member.json()
+    assert body["householdId"] == "hh1"
+    assert {m["memberId"] for m in body["householdMembers"]} == {"u1", "kid1"}
+    assert body["preferences"]["household_delivery_note"]["value"] == "leave at back door"
+    assert "member_allergies" not in body["preferences"]
+
+    # Resolving the child returns the child's allergy.
+    kid = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": {**scope("u1"), "memberId": "kid1"}, "sessionId": "hk"},
+    )
+    assert kid.json()["preferences"]["member_allergies"]["value"] == "peanut"
+
+    # Forget just the child member leaves the household-shared note intact.
+    forgotten = await runtime_client.post(
+        "/api/v1/runtime/memory/forget",
+        headers=headers,
+        json={"scope": {**scope("u1"), "householdId": "hh1", "memberId": "kid1"}},
+    )
+    assert forgotten.status_code == 200, forgotten.text
+    after = await runtime_client.post(
+        "/api/v1/runtime/preferences/resolve",
+        headers=headers,
+        json={"scope": {**scope("u1"), "memberId": "kid1"}, "sessionId": "hk2"},
+    )
+    assert "member_allergies" not in after.json()["preferences"]
+    assert after.json()["preferences"]["household_delivery_note"]["value"] == "leave at back door"
+
+
+@pytest.mark.asyncio
+async def test_non_guardian_cannot_write_another_member(runtime_client) -> None:
+    headers = {"X-Agent-ID": "grocery-agent"}
+    # u2 is a household member without guardian rights; kid2 is another member.
+    for member_id, body in (
+        ("u2", {"displayName": "Roommate", "hasLogin": True, "isGuardian": False}),
+        ("kid2", {"displayName": "Sam", "relationship": "child"}),
+    ):
+        await runtime_client.put(
+            f"/api/v1/runtime/households/hh2/members/{member_id}", headers=headers, json=body
+        )
+    denied = await runtime_client.put(
+        "/api/v1/runtime/preferences/grocery.member_allergies",
+        headers=headers,
+        json={"scope": {**scope("u2"), "memberId": "kid2"}, "value": "peanut"},
+    )
+    assert denied.status_code == 403, denied.text
