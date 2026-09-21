@@ -1,12 +1,15 @@
-# Household Scope — Design Analysis
+# Household Scope — Design & Implementation
 
-**Context:** today the Memory Bank scope key is `organization_id + user_id`, where `user_id` **is** the
+**Status: implemented** on `feature/household-scope` (control plane, DB, and memory-agent). This is
+the design of record for household memory.
+
+**Context:** the Memory Bank scope key was `organization_id + user_id`, where `user_id` **is** the
 member id (1 household = 1 member for ~95% of users). A minority (~5%, growing) are households with
 **multiple member ids**. This documents how we model households.
 
-**POC note:** we have **no production data yet**, so we can change schemas freely and there is **no
-migration** to worry about. That removes the only reason to prefer a "parallel/additive" scheme, so
-this design adopts the cleaner **nested** model: every person is a `member_id` under a `household_id`.
+**POC note:** with **no production data yet**, we changed schemas freely with **no migration**. That
+removed the only reason to prefer a "parallel/additive" scheme, so this adopts the cleaner **nested**
+model: every person is a `member_id` under a `household_id`.
 
 **Recommended model:** a **household** groups people who share an account/roof. Everyone in it — the
 account holder (has a login) and dependents like children (no login) — is a **member** with a stable
@@ -41,14 +44,14 @@ and "dependent" into one concept and naturally handles **multi-adult** household
 - **Member profile:** `{organization_id, household_id, member_id}` (3 keys).
 - **Household-shared profile:** `{organization_id, household_id}` (2 keys).
 - Each **schema** is bound to exactly one scope shape (its scope definition), so a schema is either
-  household-shared or member-level — never both. Same modeling discipline as member-vs-dependent:
-  **one schema per scope level; don't combine.**
+  household-shared or member-level — never both. The modeling discipline is **one schema per scope
+  level; don't combine.**
 
 ### Resolve — bound the fan-out
 Vyas's table correctly flags that resolving the whole household is **one `retrieve_profiles` per
 member** (fan-out). To keep this scalable:
 - **Default = the member in context** (+ the household-shared profile), resolved once per session and
-  **cached** — same lazy pattern we use for per-child reads today.
+  **cached** — the lazy per-member read pattern.
 - **Whole-household view** (e.g. an account-holder asking "what are my kids allergic to?") is an
   **explicit** aggregate: fan out per member, aggregate, cache. Not paid on every turn.
 - Merge order in the snapshot: **household-shared → member** (member overrides household defaults).
@@ -66,47 +69,42 @@ member** (fan-out). To keep this scalable:
 - Retention/TTL is per scope, so a member or the household can expire independently.
 
 ### The household roster (Postgres, system of record)
-A `household_members` table (`organization_id, household_id, member_id, display_name, relationship,
-has_login, guardian_of, status`) — the mirror of today's `member_dependents` roster. It answers "who
-is in this household," "who may write for whom," and supplies `member_id` values. Memory Bank stores
-*profiles*; Postgres stores the *relationships*.
+The `household_members` table (`organization_id, household_id, member_id, display_name, relationship,
+has_login, is_guardian, status`) answers "who is in this household," "who may write for whom"
+(`is_guardian`), and supplies `member_id` values, plus the member→household lookup that derives
+`household_id` from the acting member. Memory Bank stores *profiles*; Postgres stores the
+*relationships*.
 
 ---
 
-## What changes in the build (cheap — POC, no data)
+## How it is built
 
-The Option C work already made scope levels **pluggable** (a scope registry, `scope_keys` per grant,
-a roster table, a per-scope schema). Adopting the household model **re-points** that same machinery:
+The memory scope is `organization_id` + an ordered set of optional keys, so a schema is bound to one
+of three scope shapes via its scope contract:
 
-| Piece we built (Option C) | Change for household |
-|---|---|
-| Scope contract `…-dependent-profile` = `[org, user, dependent_id]` | Re-point to `[org, household_id, member_id]`, and add `[org, household_id]` for shared data |
-| `member_dependents` roster | Becomes `household_members` (adds `has_login`, `guardian_of`) |
-| Dependent-scoped schema + grant (seed) | Household-shared + member schemas + grants |
-| Lazy per-dependent resolve + cache | Lazy per-member resolve + optional whole-household aggregate |
-| `forget` (per-dependent / cascade) | `forget member` / `forget household` |
+| Scope level | `scope_keys` | Holds |
+|---|---|---|
+| Member (classic) | `[organization_id, user_id]` | the acting person's base preferences |
+| Household-shared | `[organization_id, household_id]` | attributes shared by the whole household |
+| Household-member | `[organization_id, household_id, member_id]` | a specific member's per-person attributes |
 
-No new Memory Bank mechanism is introduced at any layer — every "Memory Bank change" in the table is
-either **None** or **a scope-key shape change**, which is an app-side contract, not an engine gap.
+- **Roster:** the `household_members` table + the member→household lookup that **derives**
+  `household_id` from the acting member (defaulting to the member id for the single-member 95% case).
+- **Guardian auth:** the control plane checks `is_guardian` before a cross-member write.
+- **Resolve:** household-shared is always read; per-member is **lazy** (only when the turn names a
+  `member_id`); the snapshot carries `householdId` + `householdMembers`.
+- **Deletion:** `forget` with `householdId` (+ optional `memberId`) targets or cascades; `purge`
+  filters by tier/attribute/topic.
+- **Agent:** one optional `member_id` argument on the tools; `household_id` is derived server-side, so
+  the agent passes nothing for member/household-level attributes.
 
----
+No new Memory Bank mechanism is introduced at any layer — every "Memory Bank change" in the table
+above is either **None** or **a scope-key shape change**, an app-side contract rather than an engine gap.
 
-## Is the earlier (Option C) design still valid?
-
-**Partly — and it is superseded where it was optimized for a constraint we no longer have.**
-
-- My earlier recommendation was **parallel/additive** (keep `{org, user_id}`, add household beside it)
-  **specifically to avoid migration**. With **no data and POC flexibility**, that rationale is gone, so
-  I've switched to the cleaner **nested** `{org, household_id, member_id}` model.
-- My **dependent-only** model (`{org, user_id, dependent_id}`) handled kids hanging off one member but
-  **not** the real 5% case — **multiple adult members** in a household. The **household-of-members**
-  model handles both uniformly, so it is the better target.
-- **What stays valid and is folded in:** household-shared vs member-private separation; lazy
-  resolve + caching to bound fan-out; and — importantly — the **scope-plumbing investment is reused**,
-  not thrown away (we re-point `dependent_id` to `{household_id, member_id}`).
-
-**Net:** the recommendation is updated to the nested household model above; the engineering built for
-Option C is the enabler that makes adopting it a configuration/seed change, not a rewrite.
+> **History:** an earlier iteration modeled children as a separate `dependent` scope
+> (`{org, user_id, dependent_id}`). That handled kids under one member but not the multi-adult
+> household, so it was **folded into "members of a household"** and removed. The pluggable
+> scope-plumbing it introduced was reused, not rewritten.
 
 ---
 

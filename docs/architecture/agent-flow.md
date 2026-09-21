@@ -24,7 +24,7 @@ root_agent = Agent(
 | `instruction` | `INSTRUCTION` | the decision order (map → `save_preference`; else topic → `remember_dynamic_preference`; else decline) |
 | `tools` | `get_preferences`, `save_preference`, `remember_dynamic_preference` | ADK turns each into a **function declaration** from its **signature + docstring** — that's what the model reads to decide when to call it |
 | `before_agent_callback` | `initialize_preference_snapshot` | resolves the snapshot once per session via `POST /preferences/resolve` and caches it in `state[SNAPSHOT_STATE_KEY]` — **an HTTP call, not an LLM call** |
-| `before_model_callback` | `inject_preference_snapshot` | `llm_request.append_instructions([... snapshot JSON ...])` — puts `writablePreferences` / `writablePreferenceDetails` / `approvedTopics` / `approvedTopicDetails` / `dependents` in front of the model |
+| `before_model_callback` | `inject_preference_snapshot` | `llm_request.append_instructions([... snapshot JSON ...])` — puts `writablePreferences` / `writablePreferenceDetails` / `approvedTopics` / `approvedTopicDetails` / `householdMembers` in front of the model |
 
 Everything else below is **ADK calling back into these four things**.
 
@@ -58,7 +58,7 @@ any tool execution; it loops until the model answers with no tool call.
    - ADK checks `model_response_event.get_function_calls()` (~1492) → `_postprocess_handle_function_calls_async`
      (~1645) → `functions.handle_function_calls_async` matches `function_call.name` to our Python
      function and calls it, e.g.
-     `save_preference("grocery.allergies", "peanut", dependent_id="child1", tool_context=…)`.
+     `save_preference("grocery.member_allergies", "peanut", member_id="kid1", tool_context=…)`.
    - Our tool hits the Control Plane runtime API; the platform validates + screens + stores; the tool
      returns a dict, which ADK appends as a `function_response` to the contents.
 
@@ -79,7 +79,7 @@ sequenceDiagram
     U->>ADK: user message
     ADK->>CB: before_agent_callback (initialize_preference_snapshot)
     CB->>CP: POST /preferences/resolve   (HTTP, no LLM)
-    CP-->>CB: snapshot (writable*, approvedTopics*, dependents)
+    CP-->>CB: snapshot (writable*, approvedTopics*, householdMembers)
     Note over ADK: _preprocess_async registers tools<br/>(function decls from signature+docstring)<br/>+ system instruction + contents
     ADK->>CB: before_model_callback (inject_preference_snapshot)
     Note over CB: append snapshot JSON to LlmRequest

@@ -137,7 +137,7 @@ delineated**, and a **timeline**.
   per project·region), **not** token cost — managed generation is off.
 - **The ceiling is not a blocker:** Google (Kapil) sees no issue raising it **~10×** (→ ~3,000
   reads/min); DSQ / Provisioned Throughput are available for guaranteed capacity.
-- Access patterns keep us well under it: **lazy per-dependent resolve** (member + only the referenced
+- Access patterns keep us well under it: **lazy per-member resolve** (member + only the referenced
   child), **session-cached snapshot** (resolve once per session), and **per-LOB dedicated Memory
   Banks** (heavy/regulated lines get their own quota bucket).
 - Context stays bounded: the injected snapshot is a fixed set of attributes + topics (~hundreds of
@@ -151,7 +151,7 @@ delineated**, and a **timeline**.
 **Talking points**
 - **Observability:** structured `memory_write` / `memory_deletion` audit events (tier, op, sensitivity,
   source, version, correlation id); values are never logged.
-- **Deletion & retention:** governed `forget` (per-dependent or member-cascade) and `purge`
+- **Deletion & retention:** governed `forget` (per-member or household-cascade) and `purge`
   (by tier/attribute/topic, with `dryRun`); TTL-based expiry supported.
 - **Resilience:** provider `429` is being mapped to **`503 + Retry-After`** (Phase 1) so consumers back
   off cleanly; the 10× quota raise removes the common trip.
@@ -172,7 +172,7 @@ delineated**, and a **timeline**.
   memory read/write, governance, RBAC, deletion, audit, and scaling from the platform.
 - Onboarding = **register the agent + grants → set 6 env vars → reuse the client + 2 callbacks + 3
   tools → ship**. No per-app memory plumbing, no schema knowledge in the agent.
-- The agent learns what it may read/write, the approved topics, and the member's dependents **from the
+- The agent learns what it may read/write, the approved topics, and the household roster **from the
   resolve snapshot at runtime** — so new capabilities (e.g. per-child memory) reach every app with no
   agent change. Full steps: `docs/new-agent-onboarding.md`.
 
@@ -186,7 +186,7 @@ delineated**, and a **timeline**.
 
 **Talking points**
 - **What the Control Plane provides** (and Memory Bank alone cannot): never-store enforcement, RBAC,
-  deterministic resolution, sensitivity screening, governed deletion, audit, and per-dependent scope.
+  deterministic resolution, sensitivity screening, governed deletion, audit, and per-member scope.
 - **What it delegates to Memory Bank:** durable storage, retrieval, DR, and low per-op cost — GCP's
   managed engine, unchanged.
 - **Coupling is bounded:** the agent talks to a **small HTTP contract** (`resolve` / `save` /
@@ -206,9 +206,9 @@ delineated**, and a **timeline**.
 
 **Talking points**
 - **Phase 0 (done):** dual memory, governance (sensitivity/never-store/RBAC), deletion, observability,
-  **Option C per-child memory**, thin-agent onboarding.
+  **household + per-member memory**, thin-agent onboarding.
 - **Phase 1 (next):** quota **10×** increase (Google-agreed), `429→503` handling, per-LOB Memory Bank
-  strategy, admin UI for the dependent roster, SLA/DR confirmation.
+  strategy, admin UI for the household roster, SLA/DR confirmation.
 - **Phase 2 (planned):** memory-quality/evaluation harness, schema registry + change notification,
   conflict-resolution hardening, cost & usage dashboards.
 
@@ -217,11 +217,11 @@ delineated**, and a **timeline**.
 ## Appendix — Technical Q&A
 
 **A1. Partial memory deletion — "when I have 2–3 kids, how does it look?"**
-Deletion is scope-precise. `POST /memory/forget` with a `dependentId` deletes **only that child's**
-partition; without a `dependentId` it **cascades** to the member and every dependent. `POST
-/memory/purge` deletes by **tier / attribute / topic** with a `dryRun` preview (e.g. purge just
-`grocery.allergies`). So "forget Timmy's data" removes Timmy's scope and leaves Sara and the member
-intact.
+Deletion is scope-precise. Kids are members of the household, so `POST /memory/forget` with a
+`householdId` + `memberId` deletes **only that member's** partition; with a `householdId` alone it
+**cascades** to the whole household. `POST /memory/purge` deletes by **tier / attribute / topic**
+with a `dryRun` preview. So "forget Timmy's data" removes Timmy's member scope and leaves Sara and
+the shared household data intact.
 
 **A2. Conflict resolution when multiple agents use this**
 - **Ownership:** each schema has an owner; agents get **WRITE only on schemas they own**, `READ`
@@ -229,13 +229,13 @@ intact.
 - **Deterministic resolution:** the snapshot is computed by a **resolution policy** — source priority
   (session > explicit > memory > dynamic) and **schema precedence** for the same logical attribute —
   not by "last reader wins."
-- **Versioning & isolation:** every write is versioned; scopes isolate users/dependents; reads use
+- **Versioning & isolation:** every write is versioned; scopes isolate members/households; reads use
   authoritative `list_memories`, not similarity — so results are reproducible across agents.
 
 **A3. A long prompt with memories about many things**
 - The injected context is a **bounded snapshot** (the domain's canonical attributes + approved topics
   + the roster), not an open-ended memory dump — typically a few hundred tokens/turn.
-- It is **resolved once per session and cached**; per-dependent detail is **lazy** (only the child a
+- It is **resolved once per session and cached**; per-member detail is **lazy** (only the member a
   turn references). Sensitive values are screened/redacted per policy.
 - Result: prompt size stays bounded and predictable regardless of how much long-term memory a user has
   accumulated.

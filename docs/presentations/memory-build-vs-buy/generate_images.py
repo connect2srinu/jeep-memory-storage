@@ -321,7 +321,7 @@ def scalability():
     # mitigations (right)
     d.text((780, 178), "Mitigations that keep reads bounded", font=font(22, True), fill=PURPLE[2])
     mits = [
-        ("1. Lazy per-dependent resolve", "Member + only the referenced child, not all kids every turn"),
+        ("1. Lazy per-member resolve", "Only the referenced member, not the whole household every turn"),
         ("2. Session-cached snapshot", "Resolve once per session; reuse across turns"),
         ("3. Per-LOB dedicated Memory Bank", "Heavy / regulated lines get their own quota bucket"),
     ]
@@ -346,16 +346,16 @@ def roadmap():
         ("PHASE 0 — Foundation", "DONE", GREEN, [
             "Dual memory (short-term + governed long-term)",
             "Governance: sensitivity, never-store, RBAC",
-            "Deletion: forget (per-dependent / cascade) + purge",
+            "Deletion: forget (per-member / household cascade) + purge",
             "Observability & audit events",
-            "Option C: per-dependent (per-child) memory",
+            "Household + per-member memory",
             "Thin-agent onboarding",
         ]),
         ("PHASE 1 — Hardening", "NEXT", BLUE, [
             "Quota increase to 10x (Google-agreed)",
             "429 → 503 + Retry-After handling",
             "Per-LOB Memory Bank strategy",
-            "Admin UI for the dependent roster",
+            "Admin UI for the household roster",
             "SLA / DR posture confirmation",
         ]),
         ("PHASE 2 — Quality", "PLANNED", PURPLE, [

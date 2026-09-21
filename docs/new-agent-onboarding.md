@@ -6,7 +6,7 @@ resolution) behind it. The [`memory-agent`](../apps/memory-agent) is the referen
 copy it.
 
 **Guiding principle:** the agent holds **zero** schema/scope knowledge. It learns what it may
-read/write, the approved topics, and the member's dependents entirely from the **resolve snapshot** at
+read/write, the approved topics, and the household roster entirely from the **resolve snapshot** at
 runtime. Onboarding a new agent is mostly *registration* in the control plane + pointing the same thin
 client/callbacks/tools at your domain.
 
@@ -28,8 +28,10 @@ for tests, `tests/db_seed.py`.
 - [ ] **Schema grants** (`AgentSchemaGrantRecord`): one per schema the agent uses, with
       `READ` / `WRITE` / `READ_WRITE`. Grant **WRITE only on schemas the agent owns**; `READ` for the rest.
 - [ ] (If using topic memory) the domain has an **enabled dynamic-memory policy** with approved topics.
-- [ ] (If using per-dependent memory) a **dependent-scoped schema** exists (scope keys
-      `[organization_id, user_id, dependent_id]`) — see [option-c-dependent-scope-design.md](option-c-dependent-scope-design.md).
+- [ ] (If using household memory) a **household-shared** schema (scope keys
+      `[organization_id, household_id]`) and/or a **per-member** schema (scope keys
+      `[organization_id, household_id, member_id]`) exist, plus a `household_members` roster — see
+      [household-scope-design.md](household-scope-design.md).
 
 ### Part B — Agent-side code (the whole integration)
 - [ ] **Runtime-API client** — copy [`client.py`](../apps/memory-agent/app/memory_agent/client.py)
@@ -40,8 +42,8 @@ for tests, `tests/db_seed.py`.
 - [ ] **`before_agent_callback`** — resolve the snapshot once per session, cache it in session state.
 - [ ] **`before_model_callback`** — inject the cached snapshot into the model context.
 - [ ] **Tools** — `get_preferences` (read), `save_preference` (canonical write),
-      `remember_dynamic_preference` (dynamic write). Add optional `dependent_id` for per-dependent memory.
-- [ ] **Instruction** — the write decision order + how to use `dependents[]` (below).
+      `remember_dynamic_preference` (dynamic write). Add optional `member_id` for per-member memory.
+- [ ] **Instruction** — the write decision order + how to use `householdMembers[]` (below).
 - [ ] **Short-term sessions** — `DatabaseSessionService` on Postgres (async driver URL).
 
 ### Environment variables
@@ -62,11 +64,12 @@ for tests, `tests/db_seed.py`.
 `resolve_preferences` returns, for the `{userId, appName, domain}` scope:
 - `preferences` — current effective values (each with `sensitivity`, `memorySource`).
 - `writablePreferences` — canonical attributes the agent may write.
-- `writablePreferenceDetails` — each writable attribute annotated with `level` (`member` | `dependent`).
+- `writablePreferenceDetails` — each writable attribute annotated with `level`
+  (`member` | `household` | `household_member`).
 - `approvedTopics` / `approvedTopicDetails` — non-canonical categories (with meaning + sensitivity).
-- `dependents` — the member's dependents `[{dependentId, displayName}]`.
+- `householdId` / `householdMembers` — the household and its members `[{memberId, displayName, …}]`.
 
-The agent reads all of this at runtime; it never hard-codes schema ids, attributes, topics, or kids.
+The agent reads all of this at runtime; it never hard-codes schema ids, attributes, topics, or members.
 
 ---
 
@@ -95,14 +98,15 @@ INSTRUCTION = f"""
 You are an assistant for the {settings.consumer_domain} domain. The user's long-term preferences are
 resolved from the Control Plane and injected as an "Effective user preference snapshot" JSON. It holds
 current values ("preferences"), the attributes you may write ("writablePreferences" /
-"writablePreferenceDetails" — each with a "level" of member or dependent), the approved topics
-("approvedTopics"), and the member's dependents ("dependents": [{{dependentId, displayName}}]).
+"writablePreferenceDetails" — each with a "level" of member, household, or household_member), the
+approved topics ("approvedTopics"), and the household roster ("householdId" / "householdMembers":
+[{{memberId, displayName}}]).
 
 Answer preference questions from the snapshot (or call get_preferences). To remember something:
 1. If it maps to a writablePreferences attribute, call save_preference. If that attribute's level is
-   "dependent", map the named dependent to its dependentId from "dependents" and pass it.
+   "household_member", map the named person to its memberId from "householdMembers" and pass it.
 2. Else if it fits an approvedTopics entry, call remember_dynamic_preference with that exact topic.
-3. Else decline. Never invent an attribute, topic, or dependentId.
+3. Else decline. Never invent an attribute, topic, or memberId.
 """
 
 def _client() -> ControlPlaneApiClient:
@@ -122,18 +126,18 @@ def _identity(ctx: Any) -> tuple[str, str]:
         raise ValueError("ADK context missing user/session id")
     return str(user_id), str(session_id)
 
-def _key(dependent_id: str | None) -> str:
-    return SNAPSHOT_KEY if not dependent_id else f"{SNAPSHOT_KEY}:{dependent_id}"
+def _key(member_id: str | None) -> str:
+    return SNAPSHOT_KEY if not member_id else f"{SNAPSHOT_KEY}:{member_id}"
 
-async def _resolve(ctx: Any, dependent_id: str | None = None) -> dict[str, Any]:
+async def _resolve(ctx: Any, member_id: str | None = None) -> dict[str, Any]:
     user_id, session_id = _identity(ctx)
     snap = await _client().resolve_preferences(
         user_id=user_id, session_id=session_id, app_name=settings.app_name,
         consumer_domain=settings.consumer_domain, agent_id=settings.agent_id,
-        include_provenance=True, dependent_id=dependent_id,
+        include_provenance=True, member_id=member_id,
     )
     payload = snap.model_dump(by_alias=True, mode="json")
-    ctx.state[_key(dependent_id)] = payload
+    ctx.state[_key(member_id)] = payload
     return payload
 
 async def initialize_snapshot(cb: CallbackContext) -> None:
@@ -147,21 +151,21 @@ async def inject_snapshot(cb: CallbackContext, req: LlmRequest) -> None:
             ["Effective user preference snapshot (JSON):\n" + json.dumps(snap, sort_keys=True)]
         )
 
-async def get_preferences(tool_context: ToolContext, dependent_id: str | None = None) -> dict[str, Any]:
-    """Return the current preferences snapshot (member, or a specific dependent)."""
-    cached = tool_context.state.get(_key(dependent_id))
-    return cached if isinstance(cached, dict) else await _resolve(tool_context, dependent_id)
+async def get_preferences(tool_context: ToolContext, member_id: str | None = None) -> dict[str, Any]:
+    """Return the current preferences snapshot (member, or a specific household member)."""
+    cached = tool_context.state.get(_key(member_id))
+    return cached if isinstance(cached, dict) else await _resolve(tool_context, member_id)
 
 async def save_preference(attribute: str, value: str, tool_context: ToolContext,
-                          dependent_id: str | None = None) -> dict[str, Any]:
+                          member_id: str | None = None) -> dict[str, Any]:
     """Persist a canonical preference; the platform resolves the owning schema and scope level."""
     user_id, _ = _identity(tool_context)
     mutation = await _client().update_preference(
         user_id=user_id, app_name=settings.app_name, consumer_domain=settings.consumer_domain,
-        agent_id=settings.agent_id, attribute=attribute, value=value, dependent_id=dependent_id,
+        agent_id=settings.agent_id, attribute=attribute, value=value, member_id=member_id,
     )
     return {"mutation": mutation.model_dump(by_alias=True, mode="json"),
-            "snapshot": await _resolve(tool_context, dependent_id)}
+            "snapshot": await _resolve(tool_context, member_id)}
 
 async def remember_dynamic_preference(topic: str, value: str, tool_context: ToolContext) -> dict[str, Any]:
     """Persist a non-canonical fact within an approved topic (rejected otherwise)."""
@@ -200,8 +204,9 @@ tools) unchanged.
 ## What the platform enforces for you (so the agent stays simple)
 - Writes to an **unregistered attribute** or an **unapproved topic** are rejected.
 - **Sensitivity**: restricted content (phone/SSN/card/email/secret) → blocked; sensitive + inferred → refused.
-- **Scope routing**: member vs dependent scope is inferred from the schema — a dependent-level
-  attribute requires a `dependentId`, a member-level one rejects it.
+- **Scope routing**: the scope level is inferred from the schema — a `household_member`-level
+  attribute requires a `memberId`, and `household_id` is derived from the acting member. A guardian
+  check gates writing another member's data.
 - **Deletion / retention, RBAC, audit** — all central; the agent just calls the interface.
 
 ---

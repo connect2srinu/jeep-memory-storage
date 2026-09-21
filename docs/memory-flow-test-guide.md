@@ -1,9 +1,9 @@
 # Memory Flow Test Guide
 
 End-to-end test steps for the governed memory flows: **canonical (member) preferences**, **dynamic
-topics**, **sensitivity classification**, **deletion**, and the new **dependent-scoped memory
-(Option C — per-child preferences)**. Each case gives the **example text a user provides** and the
-**expected behavior**.
+topics**, **sensitivity classification**, **deletion**, and **household memory** (household-shared +
+per-member preferences, where children are members of a household). Each case gives the **example text
+a user provides** and the **expected behavior**.
 
 Two ways to test:
 - **A. Automated (fastest, deterministic)** — pytest against the mock store. Proves every flow.
@@ -16,11 +16,11 @@ Two ways to test:
 From `apps/control-plane-api` (with the dev deps installed):
 
 ```bash
-# Dependent-scope unit + service routing (Slice 1)
-python -m pytest tests/test_dependent_scope.py -q
+# Scope plumbing + service routing (unit)
+python -m pytest tests/test_household_scope.py -q
 
-# End-to-end HTTP: per-child isolation, lazy resolve, roster, forget (Slices 2-3)
-python -m pytest tests/test_runtime_api.py -k "dependent or roster" -q
+# End-to-end HTTP: household-shared + per-member isolation, guardian auth, lazy resolve, forget
+python -m pytest tests/test_runtime_api.py -k "household or member or guardian" -q
 
 # Everything
 python -m pytest -q
@@ -29,14 +29,15 @@ python -m pytest -q
 Agent-side client (from `apps/memory-agent`):
 
 ```bash
-python -m pytest tests/ -q      # dependentId is forwarded through the scope
+python -m pytest tests/ -q      # memberId is forwarded through the scope
 ```
 
-What the end-to-end test proves (`test_dependent_scoped_write_and_resolve_are_isolated`): a member
-write takes no `dependentId`; `allergies` for `child1` vs `child2` land in **separate partitions**; a
-dependent-scoped write **without** a `dependentId` is rejected (400); a **member** resolve does not
-surface any child's allergies (lazy); resolving a **specific child** returns only that child's value;
-**forgetting one child** leaves the other and the member intact.
+What the end-to-end test proves (`test_household_shared_and_member_scopes`): a household-shared write
+takes no `memberId`; a guardian writes a child's `member_allergies` with `memberId`; a **member**
+resolve (no `memberId`) surfaces household-shared but **not** any member's per-member data (lazy);
+resolving a **specific member** returns only that member's value; **forgetting one member** leaves the
+other members and the shared household data intact. `test_non_guardian_cannot_write_another_member`
+proves the guardian check.
 
 ---
 
@@ -59,99 +60,106 @@ docker exec geap-memory-postgres-1 psql -U shared_memory -d shared_memory -c \
 "UPDATE dynamic_memory_policies SET memory_topics='[\"shopping\",\"fulfillment\",\"wellness:sensitive\"]'::json WHERE domain_id='grocery';"
 ```
 
-### B3. Provision the dependent-scoped schema (one time)
-The dependent schema is not created by default in the dev DB. Apply it once (mirrors what
-`tests/db_seed.py` seeds for the automated tests). Assumes the `grocery` domain and `grocery-agent`
-already exist:
+### B3. Provision the household schemas (one time)
+The household schemas are not created by default in the dev DB. Apply them once (mirrors what
+`tests/db_seed.py` seeds). Assumes the `grocery` domain and `grocery-agent` already exist:
 
 ```bash
 docker exec geap-memory-postgres-1 psql -U shared_memory -d shared_memory <<'SQL'
-INSERT INTO scope_definitions (id, scope_type, scope_keys, description, owner_domain_id, status)
-VALUES ('grocery:dependent-scope','DOMAIN_DEPENDENT_PROFILE',
-        '["organization_id","user_id","dependent_id"]'::json,
-        'Per-dependent scope for grocery.','grocery','ACTIVE')
+-- Scope definitions: household-shared (org + household) and per-member (org + household + member)
+INSERT INTO scope_definitions (id, scope_type, scope_keys, description, owner_domain_id, status) VALUES
+ ('grocery:household-scope','DOMAIN_HOUSEHOLD_PROFILE','["organization_id","household_id"]'::json,
+  'Household-shared scope for grocery.','grocery','ACTIVE'),
+ ('grocery:household-member-scope','DOMAIN_HOUSEHOLD_PROFILE',
+  '["organization_id","household_id","member_id"]'::json,'Per-member scope for grocery.','grocery','ACTIVE')
 ON CONFLICT (id) DO NOTHING;
 
+-- Attributes: a shared delivery note (normal) and a per-member allergy list (sensitive)
 INSERT INTO preference_definitions
-  (attribute_id, display_name, description, data_type, allowed_values,
-   sensitivity_classification, canonical_owner_id, validation_rules,
-   default_resolution_behavior, catalog_version)
-VALUES ('grocery.allergies','Allergies','Per-dependent allergy list.','string','[]'::json,
-        'sensitive','grocery','{"aliases":["allergies"]}'::json,'{"policy":"allergies"}'::json,'1')
+ (attribute_id, display_name, description, data_type, allowed_values, sensitivity_classification,
+  canonical_owner_id, validation_rules, default_resolution_behavior, catalog_version) VALUES
+ ('grocery.household_delivery_note','Household Delivery Note','Shared delivery instructions.','string',
+  '[]'::json,'normal','grocery','{"aliases":["household_delivery_note"]}'::json,
+  '{"policy":"household_delivery_note"}'::json,'1'),
+ ('grocery.member_allergies','Member Allergies','Per-member allergy list.','string','[]'::json,
+  'sensitive','grocery','{"aliases":["member_allergies"]}'::json,'{"policy":"member_allergies"}'::json,'1')
 ON CONFLICT (attribute_id) DO NOTHING;
 
-INSERT INTO profile_schemas (id, domain_id, display_name, description, owner_team, status)
-VALUES ('grocery-dependent-preferences-v1','grocery','Grocery Dependent Preferences',
-        'Per-dependent structured profile for grocery.','grocery-platform','ACTIVE')
+-- Schemas + versions + mappings
+INSERT INTO profile_schemas (id, domain_id, display_name, description, owner_team, status) VALUES
+ ('grocery-household-preferences-v1','grocery','Grocery Household Preferences','Shared household profile.','grocery-platform','ACTIVE'),
+ ('grocery-member-preferences-v1','grocery','Grocery Member Preferences','Per-member profile.','grocery-platform','ACTIVE')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO profile_schema_versions
-  (id, schema_id, version, status, scope_definition_id, vertex_schema_definition, generation_config)
-VALUES ('grocery-dependent-preferences-v1:1.0','grocery-dependent-preferences-v1','1.0','ACTIVE',
-        'grocery:dependent-scope',
-        '{"type":"object","properties":{"allergies":{"type":"string"}},"additionalProperties":false}'::json,
-        '{"enabled":false}'::json)
+ (id, schema_id, version, status, scope_definition_id, vertex_schema_definition, generation_config) VALUES
+ ('grocery-household-preferences-v1:1.0','grocery-household-preferences-v1','1.0','ACTIVE','grocery:household-scope',
+  '{"type":"object","properties":{"household_delivery_note":{"type":"string"}},"additionalProperties":false}'::json,'{"enabled":false}'::json),
+ ('grocery-member-preferences-v1:1.0','grocery-member-preferences-v1','1.0','ACTIVE','grocery:household-member-scope',
+  '{"type":"object","properties":{"member_allergies":{"type":"string"}},"additionalProperties":false}'::json,'{"enabled":false}'::json)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO schema_preference_mappings (id, schema_version_id, attribute_id, profile_field)
-VALUES ('grocery-dependent-preferences-v1:1.0:allergies','grocery-dependent-preferences-v1:1.0',
-        'grocery.allergies','allergies')
+INSERT INTO schema_preference_mappings (id, schema_version_id, attribute_id, profile_field) VALUES
+ ('grocery-household-preferences-v1:1.0:household_delivery_note','grocery-household-preferences-v1:1.0','grocery.household_delivery_note','household_delivery_note'),
+ ('grocery-member-preferences-v1:1.0:member_allergies','grocery-member-preferences-v1:1.0','grocery.member_allergies','member_allergies')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO agent_schema_grants (id, agent_id, schema_id, permission, status, approved_by, approved_at)
-VALUES ('grocery-agent:grocery-dependent-preferences-v1','grocery-agent',
-        'grocery-dependent-preferences-v1','READ_WRITE','ACTIVE','manual-setup', now())
+-- Grants for grocery-agent
+INSERT INTO agent_schema_grants (id, agent_id, schema_id, permission, status, approved_by, approved_at) VALUES
+ ('grocery-agent:grocery-household-preferences-v1','grocery-agent','grocery-household-preferences-v1','READ_WRITE','ACTIVE','manual-setup', now()),
+ ('grocery-agent:grocery-member-preferences-v1','grocery-agent','grocery-member-preferences-v1','READ_WRITE','ACTIVE','manual-setup', now())
 ON CONFLICT (id) DO NOTHING;
 SQL
 ```
 
-### B4. Add the member's dependents (roster)
-The roster is populated through the runtime API (requires `ADMINISTER_MEMORY`; `grocery-agent` has it).
-The organization is taken from the agent, so you only supply `userId`:
+### B4. Enrol the household members (roster)
+Members are added through the runtime API (requires `ADMINISTER_MEMORY`; `grocery-agent` has it). The
+organization is taken from the agent. `u1` is the account holder (a guardian, with a login); `kid1` is
+a no-login child. The platform **derives** `household_id` from the acting member, so once `u1` is a
+member of `hh1`, requests for `u1` resolve household `hh1` automatically.
 
 ```bash
-curl -s -X PUT http://localhost:8080/api/v1/runtime/dependents/child1 \
+curl -s -X PUT http://localhost:8080/api/v1/runtime/households/hh1/members/u1 \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"userId":"u1","displayName":"Timmy"}'
-curl -s -X PUT http://localhost:8080/api/v1/runtime/dependents/child2 \
+  -d '{"displayName":"Parent","relationship":"account_holder","hasLogin":true,"isGuardian":true}'
+curl -s -X PUT http://localhost:8080/api/v1/runtime/households/hh1/members/kid1 \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"userId":"u1","displayName":"Sara"}'
+  -d '{"displayName":"Timmy","relationship":"child"}'
 ```
 
-After this, a resolve for `u1` returns `dependents: [{dependentId:"child1",displayName:"Timmy"}, …]`.
+After this, a resolve for `u1` returns `householdId:"hh1"` and
+`householdMembers:[{memberId:"u1",…},{memberId:"kid1",displayName:"Timmy",…}]`.
 
 ---
 
 ## 1. Dev-UI prompt matrix (agent behavior)
 
-Drive the chat as user `u1`. The **agent maps a named child to its `dependentId`** using the roster
-in the snapshot — you never type an id.
+Drive the chat as user `u1`. The **agent maps a named person to its `memberId`** using the
+`householdMembers` roster in the snapshot — you never type an id.
 
 | # | User says | Expected behavior |
 |---|---|---|
-| 1 | "I always shop at Kroger." | canonical member write → `save_preference("grocery.preferred_store", "Kroger")` (no dependentId) → 200 |
+| 1 | "I always shop at Kroger." | canonical member write → `save_preference("grocery.preferred_store", "Kroger")` (no memberId) → 200 |
 | 2 | "Remember I do a big shop early Sunday mornings." | dynamic, approved topic → `remember_dynamic_preference("shopping", …)` → 200 |
-| 3 | "Remember to leave deliveries at the back door." | dynamic, approved topic → `remember_dynamic_preference("fulfillment", …)` → 200 |
+| 3 | "Remember to leave deliveries at the back door." | **household-shared** → `save_preference("grocery.household_delivery_note", …)` (level `household`, no id) → 200 |
 | 4 | "Remember I walk daily for my wellness routine." | dynamic, **sensitive** topic → stored (user-directed), tagged sensitive |
 | 5 | "Remember I love gardening tomatoes." | **unapproved** topic → declined ("not an approved memory type") |
 | 6 | "Remember my phone number is 555-123-4567." | **restricted (PII)** → tool returns 400, blocked |
-| 7 | "What are my preferences?" | read → answered from the injected snapshot (may call `get_preferences`); no dependent data shown |
-| 8 | **"My son Timmy is allergic to peanuts."** | agent finds "Timmy" → `child1`; **dependent** write → `save_preference("grocery.allergies","peanut", dependentId="child1")` → 200 |
-| 9 | **"My daughter Sara has no allergies."** | agent finds "Sara" → `child2`; `save_preference("grocery.allergies","none", dependentId="child2")` → 200 |
-| 10 | **"What is Timmy allergic to?"** | `get_preferences(dependentId="child1")` → "peanut"; **only Timmy's** data |
-| 11 | **"What are Sara's allergies?"** | `get_preferences(dependentId="child2")` → "none"; not Timmy's |
-| 12 | **"Remember an allergy."** (no child named) | agent asks **which dependent** — it never guesses a `dependentId` |
-| 13 | New session → "What do you know about my shopping habits?" | recalled from the resolved snapshot (cross-session) |
+| 7 | "What are my preferences?" | read → answered from the injected snapshot; no per-member data shown |
+| 8 | **"My son Timmy is allergic to peanuts."** | agent finds "Timmy" → `kid1`; **household_member** write → `save_preference("grocery.member_allergies","peanut", memberId="kid1")` → 200 (u1 is a guardian) |
+| 9 | **"What is Timmy allergic to?"** | `get_preferences(memberId="kid1")` → "peanut"; **only Timmy's** data |
+| 10 | **"Remember an allergy."** (no member named) | agent asks **which member** — it never guesses a `memberId` |
+| 11 | New session → "What do you know about my shopping habits?" | recalled from the resolved snapshot (cross-session) |
 
 Open the dev UI **Events / trace** panel to confirm which tool fired and the scope used
-(`dependentId` present or absent).
+(`memberId` present or absent).
 
 ---
 
 ## 2. Canonical (member) preferences — API
 
 ```bash
-# write a member-level attribute (no dependentId)
+# write a member-level attribute (no memberId)
 curl -s -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.preferred_store \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
   -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery"},"value":"Kroger"}'
@@ -187,7 +195,6 @@ curl -s -X POST http://localhost:8080/api/v1/runtime/memory/dynamic \
 | Restricted content (PII) | `topic:"shopping"`, value `"my SSN is 123-45-6789"` | **400** — restricted content blocked |
 | Sensitive + **inferred** | `topic:"wellness"`, `source:"inference"`, value `"walks daily"` | **403** — only user-directed sensitive memories may be stored |
 | Sensitive + **user-directed** | `topic:"wellness"`, `source:"user_directed"`, value `"walks daily"` | **200** — stored, tagged sensitive |
-| Protected class inferred | `topic:"shopping"`, `source:"inference"`, value `"user is Muslim"` | **403** — inferred protected-class content refused |
 
 ```bash
 # sensitive + inferred -> 403
@@ -200,33 +207,36 @@ Sensitivity is `max(declared tier, content scan)`: **restricted → 400**, **sen
 
 ---
 
-## 5. Dependent-scoped memory (Option C) — API
+## 5. Household memory — API
+
+`householdId` is **derived** from the acting member (`u1` → `hh1`), so you don't pass it for writes.
 
 ```bash
-# write child1's allergy (dependent-scoped attribute REQUIRES dependentId)
-curl -s -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.allergies \
+# household-shared write (level "household" — no memberId)
+curl -s -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.household_delivery_note \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","dependentId":"child1"},"value":"peanut"}'
-# write child2's allergy
-curl -s -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.allergies \
+  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery"},"value":"leave at back door"}'
+
+# per-member write for a child (guardian u1 writes memberId=kid1)
+curl -s -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.member_allergies \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","dependentId":"child2"},"value":"none"}'
+  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","memberId":"kid1"},"value":"peanut"}'
 ```
-**Expected:** both 200, stored in **separate** partitions.
+**Expected:** both 200; the per-member write is stored in `{org, hh1, kid1}`.
 
 | Case | Request | Expected |
 |---|---|---|
-| Dependent write **without** `dependentId` | `PUT grocery.allergies` scope has no `dependentId` | **400** — "attribute is dependent-scoped; a dependentId is required" |
-| Member write **with** `dependentId` | `PUT grocery.preferred_store` scope has `dependentId` | **400** — "attribute is member-scoped; a dependentId must not be supplied" |
-| Member resolve (no `dependentId`) | `POST /preferences/resolve` scope has no `dependentId` | 200; **`allergies` absent** (lazy — dependent schemas skipped); member prefs present; snapshot has `dependents[]` + `writablePreferenceDetails` (allergies → `level:"dependent"`) |
-| Resolve `child1` | resolve scope `dependentId:"child1"` | `preferences.allergies.value == "peanut"`; member prefs also present; **not** child2's |
-| Resolve `child2` | resolve scope `dependentId:"child2"` | `preferences.allergies.value == "none"` |
+| Per-member write **without** `memberId` where the schema needs one | resolve/write member schema with no `memberId` | **400** — "scope key 'member_id' is required" |
+| Household-shared write **with** `memberId` | `PUT grocery.household_delivery_note` scope has `memberId` | **400** — "scope keys ['member_id'] are not valid for this attribute's schema" |
+| Non-guardian writes another member | acting `u2` (not a guardian) writes `memberId:"kid2"` | **403** — caller is not a guardian |
+| Member resolve (no `memberId`) | `POST /preferences/resolve` scope has no `memberId` | 200; household-shared present, **`member_allergies` absent** (lazy); snapshot has `householdId` + `householdMembers` + `writablePreferenceDetails` (member_allergies → `level:"household_member"`) |
+| Resolve `kid1` | resolve scope `memberId:"kid1"` | `preferences.member_allergies.value == "peanut"`; household-shared also present |
 
 ```bash
-# resolve a specific child
+# resolve a specific member
 curl -s -X POST http://localhost:8080/api/v1/runtime/preferences/resolve \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","dependentId":"child1"},"sessionId":"s","agentId":"grocery-agent"}'
+  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","memberId":"kid1"},"sessionId":"s","agentId":"grocery-agent"}'
 ```
 
 ---
@@ -235,16 +245,16 @@ curl -s -X POST http://localhost:8080/api/v1/runtime/preferences/resolve \
 
 | Case | Request | Expected |
 |---|---|---|
-| Forget one dependent | `POST /memory/forget` scope `dependentId:"child1"` | deletes **only** child1; child2 and member intact |
-| Forget the member | `POST /memory/forget` scope **no** `dependentId` | cascades — deletes the member **and every dependent** |
-| Purge by attribute (preview) | `POST /memory/purge {"attribute":"grocery.allergies","dryRun":true}` | lists matches, deletes nothing |
-| Purge by attribute | same with `"dryRun":false` | deletes matches (requires `ADMINISTER_MEMORY`) |
+| Forget one member | `POST /memory/forget` scope `householdId:"hh1"`, `memberId:"kid1"` | deletes **only** that member; other members + household-shared intact |
+| Forget the whole household | `POST /memory/forget` scope `householdId:"hh1"` (no `memberId`) | cascades — deletes the household-shared data **and every member** |
+| Forget the member (classic) | `POST /memory/forget` scope only `userId` | deletes the `{org, user}` member profile |
+| Purge by attribute | `POST /memory/purge {"attribute":"grocery.member_allergies","dryRun":true}` | lists matches, deletes nothing (drop `dryRun` to delete; needs `ADMINISTER_MEMORY`) |
 
 ```bash
-# forget just child1
+# forget just one member
 curl -s -X POST http://localhost:8080/api/v1/runtime/memory/forget \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","dependentId":"child1"}}'
+  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","householdId":"hh1","memberId":"kid1"}}'
 ```
 
 > Memory Bank reads are eventually consistent, so an immediate resolve after a write or delete can
@@ -252,12 +262,12 @@ curl -s -X POST http://localhost:8080/api/v1/runtime/memory/forget \
 
 ---
 
-## 7. Roster management — API
+## 7. Household roster management — API
 
 | Case | Request | Expected |
 |---|---|---|
-| Add / update a dependent | `PUT /dependents/child3 {"userId":"u1","displayName":"Alex"}` | 200 `{"status":"upserted"}`; appears in the next resolve's `dependents[]` |
-| Deactivate a dependent | `DELETE /dependents/child3 {"userId":"u1"}` | 200 `{"status":"deactivated"}`; gone from `dependents[]` (its memories still exist — clear them with forget) |
+| Add / update a member | `PUT /households/hh1/members/kid2 {"displayName":"Sara","relationship":"child"}` | 200 `{"status":"upserted"}`; appears in the next resolve's `householdMembers` |
+| Deactivate a member | `DELETE /households/hh1/members/kid2` | 200 `{"status":"deactivated"}`; gone from `householdMembers` (its memories still exist — clear them with forget) |
 | Manage without `ADMINISTER_MEMORY` | same as a read-only agent (e.g. `grocery-readonly-agent`) | **403** — regular agents can only read the roster |
 
 ---
@@ -269,11 +279,11 @@ Watch the audit log while testing:
 docker logs -f geap-memory-control-plane-api-1 2>&1 | grep -E "memory_write|memory_deletion"
 ```
 `memory_write` carries `{tier, op, sensitivity, source, version, correlation_id}`; `memory_deletion`
-carries the forget/purge details (including `dependent_id`). Values are never logged.
+carries the forget/purge details (including `household_id` / `member_id`). Values are never logged.
 
-Remove all of the test user's memories (member + every dependent):
+Remove all of a household's memories (household-shared + every member):
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/runtime/memory/forget \
   -H "Content-Type: application/json" -H "X-Agent-ID: grocery-agent" \
-  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery"}}'
+  -d '{"scope":{"userId":"u1","appName":"a","domain":"grocery","householdId":"hh1"}}'
 ```
