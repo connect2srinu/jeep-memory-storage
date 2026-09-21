@@ -41,6 +41,17 @@ class MemberDependent:
 
 
 @dataclass(frozen=True, slots=True)
+class HouseholdMember:
+    """An active member of a household (the account holder or a no-login dependent)."""
+
+    member_id: str
+    display_name: str | None
+    relationship: str
+    has_login: bool
+    is_guardian: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeResolutionConfig:
     policy_id: str
     version: str

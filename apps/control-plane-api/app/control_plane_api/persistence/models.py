@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -314,6 +315,28 @@ class MemberDependentRecord(TimestampMixin, Base):
     dependent_id: Mapped[str] = mapped_column(String(255), primary_key=True)
     display_name: Mapped[str | None] = mapped_column(String(255))
     relationship: Mapped[str] = mapped_column(String(64), nullable=False, default="child")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+
+class HouseholdMemberRecord(TimestampMixin, Base):
+    """Roster of a household's members — the system of record for who belongs to a household.
+
+    Every person (account holder with a login, and no-login dependents like children) is a member
+    with a stable ``member_id`` under a ``household_id``. Member *preferences* live in Memory Bank
+    keyed by the household/member scope; this table holds the *relationships* and answers who may
+    write on whose behalf (a guardian).
+    """
+
+    __tablename__ = "household_members"
+    __table_args__ = (Index("ix_household_members_member", "organization_id", "member_id"),)
+
+    organization_id: Mapped[str] = mapped_column(String(127), primary_key=True)
+    household_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    member_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    relationship: Mapped[str] = mapped_column(String(64), nullable=False, default="member")
+    has_login: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_guardian: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
 
 

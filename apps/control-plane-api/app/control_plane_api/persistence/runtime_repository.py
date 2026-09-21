@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.runtime import (
+    HouseholdMember,
     MemberDependent,
     RuntimeAgent,
     RuntimeDynamicPolicy,
@@ -17,6 +18,7 @@ from control_plane_api.domain.runtime import (
 from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
     DynamicMemoryPolicyRecord,
+    HouseholdMemberRecord,
     MemberDependentRecord,
     MemoryDomainRecord,
     PreferenceDefinitionRecord,
@@ -61,6 +63,34 @@ class RuntimeControlPlaneRepository(Protocol):
 
     async def deactivate_dependent(
         self, *, organization_id: str, member_user_id: str, dependent_id: str
+    ) -> bool: ...
+
+    async def get_household_for_member(
+        self, organization_id: str, member_id: str
+    ) -> str | None: ...
+
+    async def list_household_members(
+        self, organization_id: str, household_id: str
+    ) -> tuple[HouseholdMember, ...]: ...
+
+    async def get_household_member(
+        self, organization_id: str, household_id: str, member_id: str
+    ) -> HouseholdMember | None: ...
+
+    async def upsert_household_member(
+        self,
+        *,
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+        display_name: str | None,
+        relationship: str,
+        has_login: bool,
+        is_guardian: bool,
+    ) -> None: ...
+
+    async def deactivate_household_member(
+        self, *, organization_id: str, household_id: str, member_id: str
     ) -> bool: ...
 
 
@@ -295,6 +325,99 @@ class SqlAlchemyRuntimeControlPlaneRepository:
     ) -> bool:
         record = await self.session.get(
             MemberDependentRecord, (organization_id, member_user_id, dependent_id)
+        )
+        if record is None or record.status != "active":
+            return False
+        record.status = "inactive"
+        return True
+
+    @staticmethod
+    def _to_household_member(record: HouseholdMemberRecord) -> HouseholdMember:
+        return HouseholdMember(
+            member_id=record.member_id,
+            display_name=record.display_name,
+            relationship=record.relationship,
+            has_login=record.has_login,
+            is_guardian=record.is_guardian,
+        )
+
+    async def get_household_for_member(
+        self, organization_id: str, member_id: str
+    ) -> str | None:
+        record = await self.session.scalar(
+            select(HouseholdMemberRecord)
+            .where(
+                HouseholdMemberRecord.organization_id == organization_id,
+                HouseholdMemberRecord.member_id == member_id,
+                HouseholdMemberRecord.status == "active",
+            )
+            .limit(1)
+        )
+        return record.household_id if record is not None else None
+
+    async def list_household_members(
+        self, organization_id: str, household_id: str
+    ) -> tuple[HouseholdMember, ...]:
+        records = await self.session.scalars(
+            select(HouseholdMemberRecord)
+            .where(
+                HouseholdMemberRecord.organization_id == organization_id,
+                HouseholdMemberRecord.household_id == household_id,
+                HouseholdMemberRecord.status == "active",
+            )
+            .order_by(HouseholdMemberRecord.member_id)
+        )
+        return tuple(self._to_household_member(record) for record in records)
+
+    async def get_household_member(
+        self, organization_id: str, household_id: str, member_id: str
+    ) -> HouseholdMember | None:
+        record = await self.session.get(
+            HouseholdMemberRecord, (organization_id, household_id, member_id)
+        )
+        if record is None or record.status != "active":
+            return None
+        return self._to_household_member(record)
+
+    async def upsert_household_member(
+        self,
+        *,
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+        display_name: str | None,
+        relationship: str,
+        has_login: bool,
+        is_guardian: bool,
+    ) -> None:
+        record = await self.session.get(
+            HouseholdMemberRecord, (organization_id, household_id, member_id)
+        )
+        if record is None:
+            self.session.add(
+                HouseholdMemberRecord(
+                    organization_id=organization_id,
+                    household_id=household_id,
+                    member_id=member_id,
+                    display_name=display_name,
+                    relationship=relationship,
+                    has_login=has_login,
+                    is_guardian=is_guardian,
+                    status="active",
+                )
+            )
+        else:
+            record.display_name = display_name
+            record.relationship = relationship
+            record.has_login = has_login
+            record.is_guardian = is_guardian
+            record.status = "active"
+
+    async def deactivate_household_member(
+        self, *, organization_id: str, household_id: str, member_id: str
+    ) -> bool:
+        record = await self.session.get(
+            HouseholdMemberRecord, (organization_id, household_id, member_id)
         )
         if record is None or record.status != "active":
             return False

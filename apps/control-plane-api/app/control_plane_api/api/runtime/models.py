@@ -66,6 +66,14 @@ class Dependent(ApiModel):
     relationship: str = "child"
 
 
+class HouseholdMemberModel(ApiModel):
+    member_id: str = Field(alias="memberId")
+    display_name: str | None = Field(default=None, alias="displayName")
+    relationship: str = "member"
+    has_login: bool = Field(default=False, alias="hasLogin")
+    is_guardian: bool = Field(default=False, alias="isGuardian")
+
+
 class EffectivePreferenceSnapshotResponse(ApiModel):
     agent_id: str = Field(alias="agentId")
     scope: RuntimeScope
@@ -83,6 +91,10 @@ class EffectivePreferenceSnapshotResponse(ApiModel):
         default=(), alias="approvedTopicDetails"
     )
     dependents: tuple[Dependent, ...] = Field(default=(), alias="dependents")
+    household_id: str | None = Field(default=None, alias="householdId")
+    household_members: tuple[HouseholdMemberModel, ...] = Field(
+        default=(), alias="householdMembers"
+    )
     generated_at: datetime = Field(alias="generatedAt")
 
 
@@ -130,6 +142,13 @@ class DependentWriteRequest(ApiModel):
 
 class DependentDeleteRequest(ApiModel):
     user_id: str = Field(alias="userId", min_length=1)
+
+
+class HouseholdMemberWriteRequest(ApiModel):
+    display_name: str | None = Field(default=None, alias="displayName")
+    relationship: str = Field(default="member", min_length=1)
+    has_login: bool = Field(default=False, alias="hasLogin")
+    is_guardian: bool = Field(default=False, alias="isGuardian")
 
 
 class ForgetMemoryRequest(ApiModel):

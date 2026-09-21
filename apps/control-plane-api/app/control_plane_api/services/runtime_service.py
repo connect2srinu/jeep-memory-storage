@@ -14,6 +14,8 @@ from control_plane_api.api.runtime.models import (
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     ForgetMemoryRequest,
+    HouseholdMemberModel,
+    HouseholdMemberWriteRequest,
     MemoryEventRequest,
     PreferenceValue,
     PurgeMemoryRequest,
@@ -214,15 +216,20 @@ class RuntimeMemoryService:
             if dynamic is not None and dynamic.enabled and dynamic.approved_topics:
                 dynamic_policies[domain_id] = dynamic
         catalog, policies = self._resolution_components(agent, grants, config, dynamic_policies)
+        # Populate household_id (derived from the acting member) when any readable schema is
+        # household-scoped, so household-shared and household-member profiles can be addressed.
+        effective_scope = request.scope
+        if any("household_id" in grant.scope_keys for grant in readable):
+            effective_scope = await self._with_household(request.scope, agent)
         candidates: list[Preference] = []
         for grant in readable:
             # Per-sub-entity schemas (dependent/member) are read lazily: only when the turn names
             # that entity. A top-level resolve skips them to keep read fan-out minimal.
             entity_key = self._entity_key(grant)
-            if entity_key and not getattr(request.scope, entity_key):
+            if entity_key and not getattr(effective_scope, entity_key):
                 continue
             await self._register_schema(grant)
-            scope = self._owner_scope(request.scope, grant)
+            scope = self._owner_scope(effective_scope, grant)
             _log_flow_step(
                 "authorized_memory_profiles_read_started",
                 agent_id=agent.id,
@@ -367,6 +374,20 @@ class RuntimeMemoryService:
                 agent.organization_id, request.scope.user_id
             )
         )
+        household_members: tuple[HouseholdMemberModel, ...] = ()
+        if effective_scope.household_id:
+            household_members = tuple(
+                HouseholdMemberModel(
+                    member_id=item.member_id,
+                    display_name=item.display_name,
+                    relationship=item.relationship,
+                    has_login=item.has_login,
+                    is_guardian=item.is_guardian,
+                )
+                for item in await self.repository.list_household_members(
+                    agent.organization_id, effective_scope.household_id
+                )
+            )
         agent_dynamic_policy = dynamic_policies.get(agent.domain_id)
         approved_topics = agent_dynamic_policy.approved_topics if agent_dynamic_policy else ()
         approved_topic_details = (
@@ -409,6 +430,8 @@ class RuntimeMemoryService:
             approved_topics=approved_topics,
             approved_topic_details=approved_topic_details,
             dependents=dependents,
+            household_id=effective_scope.household_id,
+            household_members=household_members,
             generated_at=generated_at,
         )
         _log_flow_step(
@@ -634,11 +657,15 @@ class RuntimeMemoryService:
             source=request.source,
             label=f"attribute {attribute!r}",
         )
+        write_request_scope = request.scope
+        if "household_id" in grant.scope_keys:
+            write_request_scope = await self._with_household(request.scope, agent)
+            await self._require_household_write(write_request_scope, agent, grant)
         await self._register_schema(grant)
         write_scope = self._build_scope(
             organization_id=agent.organization_id,
             scope_keys=grant.scope_keys,
-            values=_scope_values(request.scope),
+            values=_scope_values(write_request_scope),
             strict=True,
         )
         profile = await self.store.write_preference(
@@ -698,6 +725,44 @@ class RuntimeMemoryService:
             "status": "deactivated" if removed else "not_found",
             "userId": request.user_id,
             "dependentId": dependent_id,
+        }
+
+    async def upsert_household_member(
+        self,
+        principal: AuthenticatedPrincipal,
+        household_id: str,
+        member_id: str,
+        request: HouseholdMemberWriteRequest,
+    ) -> dict[str, object]:
+        """Add or update a member on a household roster (enrolment/admin action)."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
+        await self.repository.upsert_household_member(
+            organization_id=agent.organization_id,
+            household_id=household_id,
+            member_id=member_id,
+            display_name=request.display_name,
+            relationship=request.relationship,
+            has_login=request.has_login,
+            is_guardian=request.is_guardian,
+        )
+        return {"status": "upserted", "householdId": household_id, "memberId": member_id}
+
+    async def deactivate_household_member(
+        self, principal: AuthenticatedPrincipal, household_id: str, member_id: str
+    ) -> dict[str, object]:
+        """Deactivate a household member. Their memory scope is cleared via forget/purge."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.ADMINISTER_MEMORY)
+        removed = await self.repository.deactivate_household_member(
+            organization_id=agent.organization_id,
+            household_id=household_id,
+            member_id=member_id,
+        )
+        return {
+            "status": "deactivated" if removed else "not_found",
+            "householdId": household_id,
+            "memberId": member_id,
         }
 
     async def _agent(
@@ -900,6 +965,39 @@ class RuntimeMemoryService:
             values=_scope_values(scope),
             strict=False,
         )
+
+    async def _resolve_household_id(self, scope: RuntimeScope, agent: RuntimeAgent) -> str:
+        """The acting member's household. Derived from the roster; defaults to the member id when a
+        household is not modeled (the 95% case where one household == one member)."""
+        if scope.household_id:
+            return scope.household_id
+        derived = await self.repository.get_household_for_member(
+            agent.organization_id, scope.user_id
+        )
+        return derived or scope.user_id
+
+    async def _with_household(self, scope: RuntimeScope, agent: RuntimeAgent) -> RuntimeScope:
+        """Return the scope with household_id populated, deriving it if the request omitted it."""
+        household_id = await self._resolve_household_id(scope, agent)
+        return scope.model_copy(update={"household_id": household_id})
+
+    async def _require_household_write(
+        self, scope: RuntimeScope, agent: RuntimeAgent, grant: RuntimeSchemaGrant
+    ) -> None:
+        """Guardian check: writing another member's profile requires the caller to be a guardian."""
+        if "member_id" not in grant.scope_keys:
+            return
+        target = scope.member_id
+        if not target or target == scope.user_id:
+            return
+        member = await self.repository.get_household_member(
+            agent.organization_id, scope.household_id, scope.user_id
+        )
+        if member is None or not member.is_guardian:
+            raise PermissionError(
+                f"caller {scope.user_id!r} is not a guardian and cannot write for member "
+                f"{target!r}"
+            )
 
     @staticmethod
     def _resolution_components(

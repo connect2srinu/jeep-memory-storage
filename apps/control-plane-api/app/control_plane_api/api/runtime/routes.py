@@ -11,6 +11,7 @@ from control_plane_api.api.runtime.models import (
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     ForgetMemoryRequest,
+    HouseholdMemberWriteRequest,
     MemoryEventRequest,
     PurgeMemoryRequest,
     RawProfilesRequest,
@@ -107,6 +108,25 @@ def create_runtime_router(
         service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
     ) -> dict[str, object]:
         return await service.deactivate_dependent(identity, dependent_id, payload)
+
+    @router.put("/households/{household_id}/members/{member_id}")
+    async def upsert_household_member(
+        household_id: str,
+        member_id: str,
+        payload: HouseholdMemberWriteRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.upsert_household_member(identity, household_id, member_id, payload)
+
+    @router.delete("/households/{household_id}/members/{member_id}")
+    async def deactivate_household_member(
+        household_id: str,
+        member_id: str,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return await service.deactivate_household_member(identity, household_id, member_id)
 
     @router.post("/preferences/refresh", response_model=EffectivePreferenceSnapshotResponse)
     async def refresh_preferences(
