@@ -11,6 +11,7 @@ import { JsonCreateForm, ResourceDetailPanel } from "./features/resources/Resour
 import { OrganizationManagement, type ContextSelection, type OrganizationTab, type ProjectTab } from "./features/organizations/OrganizationWorkspace";
 import { PlatformOverview } from "./features/dashboard/PlatformOverview";
 import { MemorySetupWizard } from "./features/memory-setup/Wizard";
+import { HouseholdsWorkspace } from "./features/households/HouseholdsWorkspace";
 
 export const primarySections = [
   ["dashboard", "Dashboard", "home"],
@@ -19,6 +20,7 @@ export const primarySections = [
 
 export const advancedSections = [
   ["organizations", "Organizations & Projects", "building"],
+  ["households", "Households", "users"],
   ["domains", "Domains", "domain"],
   ["scopes", "Scopes", "scope"],
   ["schemas", "Schemas", "schema"],
@@ -60,11 +62,11 @@ export function ConsolePage({ section, identity, api, organizationNavigation = d
   const [records, setRecords] = useState<AdminRecord[]>([]);
   const [changeRequests, setChangeRequests] = useState<AdminRecord[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<AdminRecord | null>(null);
-  const [loading, setLoading] = useState(!["dashboard", "create-setup", "organizations"].includes(section));
+  const [loading, setLoading] = useState(!["dashboard", "create-setup", "organizations", "households"].includes(section));
   const [error, setError] = useState("");
   const title = sections.find(([id]) => id === section)?.[1] ?? section;
   const reload = useCallback(() => {
-    if (["dashboard", "create-setup", "organizations"].includes(section)) return;
+    if (["dashboard", "create-setup", "organizations", "households"].includes(section)) return;
     setLoading(true);
     const operation = section === "approvals"
       ? Promise.all([api.list("access-requests"), api.listResourceChanges()]).then(([access, changes]) => { setRecords(access); setChangeRequests(changes); })
@@ -75,6 +77,7 @@ export function ConsolePage({ section, identity, api, organizationNavigation = d
   if (section === "dashboard") return <PlatformOverview />;
   if (section === "create-setup") return canMutate(identity, section) ? <MemorySetupWizard api={api} /> : <p className="read-only">Platform Administrator role is required to create a memory setup.</p>;
   if (section === "organizations") return <OrganizationManagement identity={identity} api={api} {...organizationNavigation} />;
+  if (section === "households") return <HouseholdsWorkspace identity={identity} api={api} organizationId={organizationNavigation.selectedOrganization?.id} />;
   const writable = canMutate(identity, section);
   const hasPendingApprovals = changeRequests.some((record) => record.status === "PENDING") || records.some((record) => record.status === "PENDING");
   if (section === "approvals" && !writable) return <section><div className="section-heading"><div><span className="eyebrow">Control plane</span><h2>{title}</h2></div><button type="button" onClick={reload}>Refresh</button></div><ErrorBanner error={error} /><ResourceTable records={[...changeRequests, ...records]} /><p className="read-only">Platform Administrator role is required to approve or reject requests.</p></section>;

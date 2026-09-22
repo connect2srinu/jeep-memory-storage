@@ -154,6 +154,9 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   });
   const [scopeType, setScopeType] = useState("USER");
   const [customScopeKeys, setCustomScopeKeys] = useState("organization_id,user_id");
+  const [preferenceLevels, setPreferenceLevels] = useState<Record<string, "household" | "member">>(
+    {},
+  );
   const [canonical, setCanonical] = useState(true);
   const [dynamicEnabled, setDynamicEnabled] = useState(true);
   const [confidence, setConfidence] = useState(0.85);
@@ -258,10 +261,22 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     setSharingEnabled(recommendedSchemas.length > 0);
   }, [discoverableSchemas, externalOwners]);
 
-  const ownedSchemaId = `${domain}-preferences-v1`;
+  const preferenceLevelFor = (attribute: string): "household" | "member" =>
+    preferenceLevels[attribute] ?? "household";
+  const ownedSchemaIds = useMemo(() => {
+    if (scopeType !== "HOUSEHOLD_MEMBERS") return [`${domain}-preferences-v1`];
+    const ids: string[] = [];
+    if (selectedPreferences.some((attr) => preferenceLevelFor(attr) === "household")) {
+      ids.push(`${domain}-household-preferences-v1`);
+    }
+    if (selectedPreferences.some((attr) => preferenceLevelFor(attr) === "member")) {
+      ids.push(`${domain}-member-preferences-v1`);
+    }
+    return ids.length ? ids : [`${domain}-household-preferences-v1`];
+  }, [scopeType, domain, selectedPreferences, preferenceLevels]);
   const availableSchemas = useMemo(
-    () => [ownedSchemaId, ...sharedSchemaIds],
-    [ownedSchemaId, sharedSchemaIds],
+    () => [...ownedSchemaIds, ...sharedSchemaIds],
+    [ownedSchemaIds, sharedSchemaIds],
   );
 
   useEffect(() => setPrecedence(availableSchemas), [availableSchemas]);
@@ -342,10 +357,11 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     resolution: availableSchemas.length > 1
       ? { schemaPrecedence: precedence, attributeOverrides: [] }
       : null,
+    preferenceLevels: scopeType === "HOUSEHOLD_MEMBERS" ? preferenceLevels : {},
   }), [
     agentId, agentMode, agentName, availableSchemas.length, canonical, confidence,
     confirmation, customPreferences, customScopeKeys, description, domain, dynamicEnabled,
-    environment, name, organizationId, permission, precedence, projectId, retention, scopeType, selectedPreferences,
+    environment, name, organizationId, permission, precedence, preferenceLevels, projectId, retention, scopeType, selectedPreferences,
     sharedSchemaIds, team, topicRows,
   ]);
 
@@ -432,8 +448,9 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       </>}
       {step === "Scope" && <>
         <h3>Choose who the memory belongs to</h3><p>The platform generates provider scope keys from this business-level selection.</p>
-        <div className="choice-grid">{[["USER", "Per User", "One profile per user"], ["HOUSEHOLD", "Per Household", "Shared household profile"], ["USER_STORE", "Per User + Store", "Different values per store"], ["CUSTOM", "Custom", "Advanced scope keys"]].map(([value, title, detail]) => <label className={scopeType === value ? "choice selected" : "choice"} key={value}><input type="radio" name="scope" checked={scopeType === value} onChange={() => setScopeType(value)} /><strong>{title}</strong><span>{detail}</span></label>)}</div>
+        <div className="choice-grid">{[["USER", "Per User", "One profile per user"], ["HOUSEHOLD", "Per Household", "Shared household profile"], ["HOUSEHOLD_MEMBERS", "Household + members", "Shared household prefs plus per-member prefs (e.g. a child's allergies)"], ["USER_STORE", "Per User + Store", "Different values per store"], ["CUSTOM", "Custom", "Advanced scope keys"]].map(([value, title, detail]) => <label className={scopeType === value ? "choice selected" : "choice"} key={value}><input type="radio" name="scope" checked={scopeType === value} onChange={() => setScopeType(value)} /><strong>{title}</strong><span>{detail}</span></label>)}</div>
         <div className="scope-callout"><strong>Organization isolation</strong><span>Memory Bank profiles use organization_id + user_id. Projects and domains are enforced by the control-plane authorization layer.</span></div>
+        {scopeType === "HOUSEHOLD_MEMBERS" && <div className="tier-assign"><p>Assign each preference to a tier. <strong>Household</strong> prefs are shared by everyone (scope <code>org + household</code>); <strong>Member</strong> prefs are per person such as a child's allergies (scope <code>org + household + member</code>). This generates one schema per tier.</p>{selectedPreferences.length ? selectedPreferences.map((attribute) => <div className="tier-row" key={attribute}><span>{attribute}</span><select value={preferenceLevelFor(attribute)} onChange={(event) => setPreferenceLevels((current) => ({ ...current, [attribute]: event.target.value as "household" | "member" }))}><option value="household">Household (shared)</option><option value="member">Member (per person)</option></select></div>) : <p className="empty">Select preferences first.</p>}</div>}
         {scopeType === "CUSTOM" && <label className="advanced-field">Custom keys<input value={customScopeKeys} onChange={(event) => setCustomScopeKeys(event.target.value)} /><small>Comma separated. organization_id is always included.</small></label>}
       </>}
       {step === "Memory" && <>

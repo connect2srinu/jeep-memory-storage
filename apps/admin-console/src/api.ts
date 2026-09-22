@@ -159,6 +159,58 @@ export class AdminApiClient {
     ).data;
   }
 
+  async listHouseholds(organizationId: string): Promise<AdminRecord[]> {
+    return (
+      await this.request<AdminRecordList>(
+        `/organizations/${encodeURIComponent(organizationId)}/households`,
+      )
+    ).items;
+  }
+
+  async listHouseholdMembers(
+    organizationId: string,
+    householdId: string,
+  ): Promise<AdminRecord[]> {
+    return (
+      await this.request<AdminRecordList>(
+        `/organizations/${encodeURIComponent(organizationId)}/households/${encodeURIComponent(
+          householdId,
+        )}/members`,
+      )
+    ).items;
+  }
+
+  async upsertHouseholdMember(
+    organizationId: string,
+    householdId: string,
+    memberId: string,
+    payload: AdminRecord,
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/households/${encodeURIComponent(
+          householdId,
+        )}/members/${encodeURIComponent(memberId)}`,
+        { method: "PUT", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
+  async deactivateHouseholdMember(
+    organizationId: string,
+    householdId: string,
+    memberId: string,
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/households/${encodeURIComponent(
+          householdId,
+        )}/members/${encodeURIComponent(memberId)}`,
+        { method: "DELETE" },
+      )
+    ).data;
+  }
+
   async addProjectMember(projectId: string, payload: AdminRecord): Promise<AdminRecord> {
     return (
       await this.request<AdminRecordEnvelope>(
