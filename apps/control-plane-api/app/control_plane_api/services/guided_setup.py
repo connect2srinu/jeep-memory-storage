@@ -80,8 +80,6 @@ class GuidedMemorySetupService:
         self.admin.authorizer.require_platform(principal)
         preview = await self.preview(principal, request)
         domain = request.use_case.domain
-        schema_id = f"{domain}-preferences-v1"
-        scope_id = f"{domain}:profile-scope"
         policy_id = f"{domain}:guided-policy:1"
         dynamic_id = f"{domain}:guided-dynamic:1"
 
@@ -119,8 +117,6 @@ class GuidedMemorySetupService:
                 f"project {project_id!r} does not belong to organization {organization_id!r}"
             )
 
-        existing_schema = await self.session.get(ProfileSchemaRecord, schema_id)
-
         if not await self.session.get(MemoryDomainRecord, domain):
             await self.admin.create_resource(
                 principal,
@@ -136,26 +132,6 @@ class GuidedMemorySetupService:
                 ),
             )
             await self._activate_resource(principal, "domains", domain)
-
-        scope_keys = self._scope_keys(request)
-        existing_scope = await self.session.get(ScopeDefinitionRecord, scope_id)
-        if existing_scope is None:
-            await self.admin.create_resource(
-                principal,
-                "scopes",
-                ScopeCreate(
-                    id=scope_id,
-                    scopeType=f"{request.scope.type}_PROFILE",
-                    scopeKeys=scope_keys,
-                    description=f"Generated scope for {request.use_case.name}",
-                    ownerDomainId=domain,
-                ),
-            )
-            await self._activate_resource(principal, "scopes", scope_id)
-        elif existing_scope.status != "ACTIVE" or list(existing_scope.scope_keys) != scope_keys:
-            raise ResourceConflictError(
-                f"existing scope {scope_id!r} is not active with the requested keys"
-            )
 
         for item in request.custom_preferences:
             if not item.attribute_id.startswith(f"{domain}."):
@@ -184,8 +160,423 @@ class GuidedMemorySetupService:
                     ),
                 )
 
-        owned_preferences = await self._preference_specs(request)
-        owned_preferences = [item for item in owned_preferences if item["owner"] == domain]
+        owned_specs = [
+            item for item in await self._preference_specs(request) if item["owner"] == domain
+        ]
+        tiers = self._tiers(request, owned_specs)
+        tier_results: list[tuple[dict[str, Any], str, set[str]]] = []
+        for tier in tiers:
+            version, fields = await self._provision_tier(principal, request, tier)
+            tier_results.append((tier, version, fields))
+        owned_schema_ids = [tier["schema_id"] for tier in tiers]
+
+        agent = await self.session.get(RegisteredAgentRecord, request.agent.id)
+        if request.agent.existing:
+            if agent is None:
+                raise ValueError(f"selected agent {request.agent.id!r} does not exist")
+            if (
+                agent.domain_id != domain
+                or agent.organization_id != organization_id
+                or agent.project_id != project_id
+            ):
+                raise ValueError(
+                    "selected existing agent must belong to the use-case organization, project, "
+                    "and primary domain"
+                )
+        elif agent is not None:
+            raise ResourceConflictError(f"agent {request.agent.id!r} already exists")
+        else:
+            await self.admin.create_resource(
+                principal,
+                "agents",
+                AgentCreate(
+                    id=request.agent.id,
+                    displayName=request.agent.display_name,
+                    organizationId=organization_id,
+                    projectId=project_id,
+                    domainId=domain,
+                    runtimeType=request.agent.runtime_type,
+                    identityType=request.agent.identity_type,
+                    principal=request.agent.principal,
+                    capabilities={
+                        "resolve_context": True,
+                        "submit_candidates": request.agent.owned_schema_permission != "READ",
+                        "inspect_provenance": True,
+                        "administer_memory": False,
+                    },
+                ),
+            )
+            await self._activate_resource(principal, "agents", request.agent.id)
+
+        for owned_schema_id in owned_schema_ids:
+            owned_request = await self.admin.create_access_request(
+                principal,
+                AccessRequestCreate(
+                    requestingAgentId=request.agent.id,
+                    requestingTeam=request.use_case.owning_team,
+                    targetSchemaId=owned_schema_id,
+                    requestedPermission=request.agent.owned_schema_permission,
+                    businessReason=f"Owned schema access for {request.use_case.name}",
+                ),
+            )
+            await self.admin.decide_access_request(
+                principal,
+                str(owned_request["id"]),
+                AccessRequestStatus.APPROVED,
+                reason="Automatically approved for the owning domain",
+            )
+
+        pending = []
+        for shared in request.shared_schemas:
+            shared_request = await self.admin.create_access_request(
+                principal,
+                AccessRequestCreate(
+                    requestingAgentId=request.agent.id,
+                    requestingTeam=request.use_case.owning_team,
+                    targetSchemaId=shared.schema_id,
+                    requestedPermission=shared.permission,
+                    businessReason=f"Shared schema requested by {request.use_case.name}",
+                ),
+            )
+            pending.append(str(shared_request["id"]))
+
+        schema_precedence = [*owned_schema_ids, *[item.schema_id for item in request.shared_schemas]]
+        if len(schema_precedence) > 1:
+            chosen = request.resolution.schema_precedence if request.resolution else []
+            if chosen:
+                if len(chosen) != len(set(chosen)) or set(chosen) != set(schema_precedence):
+                    raise ValueError(
+                        "resolution precedence must contain every available schema once"
+                    )
+                schema_precedence = chosen
+            await self.admin.create_resource(
+                principal,
+                "resolution-policies",
+                ResolutionPolicyCreate(
+                    id=policy_id,
+                    agentId=request.agent.id,
+                    name=f"{request.use_case.name} generated resolution policy",
+                    version="1",
+                    defaultRules={
+                        "source_priority": [
+                            "SESSION_OVERRIDE",
+                            "EXPLICIT_PROFILE",
+                            "MEMORY_PROFILE",
+                            "DOMAIN_MEMORY",
+                            "DYNAMIC_MEMORY",
+                            "INFERRED_MEMORY",
+                            "DEFAULT",
+                        ],
+                        "strategies": [
+                            "SOURCE_PRIORITY",
+                            "DOMAIN_PRIORITY",
+                            "EXPLICIT_OVER_INFERRED",
+                            "MOST_RECENT",
+                            "HIGHEST_CONFIDENCE",
+                        ],
+                        "minimum_confidence": request.memory.confidence_threshold,
+                    },
+                    schemaPriorities=[
+                        {"schemaId": item, "priority": index}
+                        for index, item in enumerate(schema_precedence)
+                    ],
+                    attributeOverrides=(
+                        request.resolution.attribute_overrides if request.resolution else []
+                    ),
+                ),
+            )
+            await self._activate_resource(principal, "resolution-policies", policy_id)
+
+        if request.memory.dynamic_enabled:
+            await self.admin.create_resource(
+                principal,
+                "dynamic-memory-policies",
+                DynamicMemoryPolicyCreate(
+                    id=dynamic_id,
+                    level="DOMAIN",
+                    domainId=domain,
+                    enabled=True,
+                    confidenceThreshold=request.memory.confidence_threshold,
+                    memoryTopics=request.memory.memory_topics,
+                    topicDefinitions=request.memory.topic_definitions,
+                    retentionPolicy={"retention_days": request.memory.retention_days},
+                    confirmationRequired=request.memory.confirmation_required,
+                    version="1",
+                ),
+            )
+            await self._activate_resource(principal, "dynamic-memory-policies", dynamic_id)
+
+        for tier, version, fields in tier_results:
+            await self.store.register_schema(
+                MemoryProfileSchema(
+                    id=tier["schema_id"],
+                    domain=domain,
+                    version=version,
+                    fields=frozenset(fields),
+                )
+            )
+        primary_schema_id = owned_schema_ids[0]
+        primary_scope_id = tiers[0]["scope_id"]
+        await self.admin._audit(
+            principal,
+            "memory_setup.activated",
+            "memory_setup",
+            primary_schema_id,
+            None,
+            {
+                "environment": request.use_case.environment,
+                "pending_approvals": pending,
+                "profiles_created": 0,
+            },
+        )
+        provisioning = (
+            await self.provisioner.provision(self.session)
+            if self.provisioner
+            else {
+                "status": "REGISTERED_LOCAL",
+                "backend": type(self.store).__name__,
+                "profileInstancesCreated": 0,
+                "message": "Schema registered with the local runtime backend; user profiles remain lazy.",
+            }
+        )
+        return GuidedMemorySetupActivation(
+            **preview.model_dump(by_alias=True),
+            status="ACTIVE_WITH_PENDING_ACCESS" if pending else "ACTIVE",
+            resources={
+                "organizationId": organization_id,
+                "projectId": project_id,
+                "domainId": domain,
+                "scopeId": primary_scope_id,
+                "scopeIds": [tier["scope_id"] for tier in tiers],
+                "schemaId": primary_schema_id,
+                "schemaIds": owned_schema_ids,
+                "agentId": request.agent.id,
+                "resolutionPolicyId": policy_id if len(schema_precedence) > 1 else None,
+                "dynamicPolicyId": dynamic_id if request.memory.dynamic_enabled else None,
+            },
+            pendingApprovals=pending,
+            provisioning=provisioning,
+        )
+
+    async def _compile(
+        self, request: GuidedMemorySetupRequest
+    ) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+        preferences = await self._preference_specs(request)
+        owned = [item for item in preferences if item["owner"] == request.use_case.domain]
+        if not owned:
+            raise ValueError(
+                "select or create at least one preference owned by the use-case domain"
+            )
+        tiers = self._tiers(request, owned)
+        owned_schema_ids = [tier["schema_id"] for tier in tiers]
+        available_schemas = [
+            *owned_schema_ids,
+            *[item.schema_id for item in request.shared_schemas],
+        ]
+        warnings = []
+        external = [
+            item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain
+        ]
+        if external:
+            warnings.append(
+                "Externally owned preferences are consumed through shared schema access, not copied "
+                f"into the new schema: {', '.join(external)}"
+            )
+        if request.shared_schemas:
+            warnings.append(
+                "Shared schema access remains pending until the target schema owner approves it."
+            )
+        schemas_contract = [
+            {
+                "id": tier["schema_id"],
+                "scope": {"type": tier["scope_type"], "keys": tier["scope_keys"]},
+                "preferences": {
+                    item["attributeId"]: {
+                        "type": item["dataType"],
+                        **(
+                            {"allowedValues": item["allowedValues"]}
+                            if item["allowedValues"]
+                            else {}
+                        ),
+                    }
+                    for item in tier["specs"]
+                },
+            }
+            for tier in tiers
+        ]
+        contract = {
+            "apiVersion": "memory.platform/v1alpha1",
+            "kind": "GuidedMemorySetup",
+            "metadata": {
+                "name": request.use_case.name,
+                "environment": request.use_case.environment,
+                "generatedAt": datetime.now(UTC).isoformat(),
+            },
+            "organization": {"id": request.use_case.organization_id},
+            "project": {
+                "id": request.use_case.project_id,
+                "organizationId": request.use_case.organization_id,
+            },
+            "domain": {
+                "id": request.use_case.domain,
+                "description": request.use_case.description,
+                "owningTeam": request.use_case.owning_team,
+            },
+            "schema": schemas_contract[0],
+            "schemas": schemas_contract,
+            "dynamicMemory": request.memory.model_dump(by_alias=True),
+            "agent": {
+                "id": request.agent.id,
+                "schemaAccess": {
+                    **{
+                        schema_id: request.agent.owned_schema_permission
+                        for schema_id in owned_schema_ids
+                    },
+                    **{item.schema_id: item.permission for item in request.shared_schemas},
+                },
+            },
+            **(
+                {
+                    "resolution": {
+                        "defaultPrecedence": (
+                            request.resolution.schema_precedence
+                            if request.resolution and request.resolution.schema_precedence
+                            else available_schemas
+                        ),
+                        "attributeOverrides": (
+                            [
+                                item.model_dump(by_alias=True)
+                                for item in request.resolution.attribute_overrides
+                            ]
+                            if request.resolution
+                            else []
+                        ),
+                    }
+                }
+                if len(available_schemas) > 1
+                else {}
+            ),
+        }
+        summary = {
+            "useCase": request.use_case.name,
+            "organization": request.use_case.organization_id,
+            "project": request.use_case.project_id,
+            "domain": request.use_case.domain,
+            "environment": request.use_case.environment,
+            "ownedPreferenceCount": len(owned),
+            "scope": request.scope.type,
+            "agent": request.agent.id,
+            "sharedSchemaCount": len(request.shared_schemas),
+            "requiresResolution": len(available_schemas) > 1,
+            "profileInstancesCreated": 0,
+        }
+        return contract, summary, warnings
+
+    def _scope_keys(self, request: GuidedMemorySetupRequest) -> list[str]:
+        if request.scope.type == "CUSTOM":
+            keys = list(dict.fromkeys(request.scope.custom_keys))
+            if not keys:
+                raise ValueError("custom scope requires at least one key")
+            for required in ("organization_id",):
+                if required not in keys:
+                    keys.append(required)
+            return keys
+        return list(SCOPE_KEYS[request.scope.type])
+
+    def _level_map(self, request: GuidedMemorySetupRequest) -> dict[str, str]:
+        levels: dict[str, str] = {
+            item.attribute_id: item.level for item in request.custom_preferences
+        }
+        levels.update(request.preference_levels)
+        return levels
+
+    def _tiers(
+        self, request: GuidedMemorySetupRequest, owned_specs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """The schema tiers to provision for this setup.
+
+        Every mode except HOUSEHOLD_MEMBERS produces a single tier. HOUSEHOLD_MEMBERS splits the
+        owned preferences into a household-shared schema ({org, household_id}) and a per-member
+        schema ({org, household_id, member_id}) by each preference's level.
+        """
+        domain = request.use_case.domain
+        if request.scope.type == "HOUSEHOLD_MEMBERS":
+            levels = self._level_map(request)
+            groups = {
+                "household": (
+                    f"{domain}-household-preferences-v1",
+                    f"{domain}:household-scope",
+                    "HOUSEHOLD_PROFILE",
+                    ["organization_id", "household_id"],
+                ),
+                "member": (
+                    f"{domain}-member-preferences-v1",
+                    f"{domain}:household-member-scope",
+                    "HOUSEHOLD_MEMBER_PROFILE",
+                    ["organization_id", "household_id", "member_id"],
+                ),
+            }
+            tiers: list[dict[str, Any]] = []
+            for level, (schema_id, scope_id, scope_type, scope_keys) in groups.items():
+                specs = [
+                    item
+                    for item in owned_specs
+                    if levels.get(item["attributeId"], "household") == level
+                ]
+                if specs:
+                    tiers.append(
+                        {
+                            "schema_id": schema_id,
+                            "scope_id": scope_id,
+                            "scope_type": scope_type,
+                            "scope_keys": scope_keys,
+                            "specs": specs,
+                        }
+                    )
+            if not tiers:
+                raise ValueError("household setup requires at least one preference")
+            return tiers
+        return [
+            {
+                "schema_id": f"{domain}-preferences-v1",
+                "scope_id": f"{domain}:profile-scope",
+                "scope_type": f"{request.scope.type}_PROFILE",
+                "scope_keys": self._scope_keys(request),
+                "specs": owned_specs,
+            }
+        ]
+
+    async def _provision_tier(
+        self,
+        principal: AdminPrincipal,
+        request: GuidedMemorySetupRequest,
+        tier: dict[str, Any],
+    ) -> tuple[str, set[str]]:
+        """Create (or validate) one tier's scope and schema; return its version and profile fields."""
+        domain = request.use_case.domain
+        scope_id = tier["scope_id"]
+        scope_keys = tier["scope_keys"]
+        existing_scope = await self.session.get(ScopeDefinitionRecord, scope_id)
+        if existing_scope is None:
+            await self.admin.create_resource(
+                principal,
+                "scopes",
+                ScopeCreate(
+                    id=scope_id,
+                    scopeType=tier["scope_type"],
+                    scopeKeys=scope_keys,
+                    description=f"Generated scope for {request.use_case.name}",
+                    ownerDomainId=domain,
+                ),
+            )
+            await self._activate_resource(principal, "scopes", scope_id)
+        elif existing_scope.status != "ACTIVE" or list(existing_scope.scope_keys) != scope_keys:
+            raise ResourceConflictError(
+                f"existing scope {scope_id!r} is not active with the requested keys"
+            )
+
+        schema_id = tier["schema_id"]
+        owned_preferences = tier["specs"]
         properties = {
             item["attributeId"].rsplit(".", 1)[-1]: {
                 "type": self._json_type(item["dataType"]),
@@ -196,6 +587,7 @@ class GuidedMemorySetupService:
         }
         schema_fields = set(properties)
         schema_version = "1"
+        existing_schema = await self.session.get(ProfileSchemaRecord, schema_id)
         if existing_schema is None:
             await self.admin.create_resource(
                 principal,
@@ -262,302 +654,7 @@ class GuidedMemorySetupService:
                     f"{sorted(missing_attributes)}"
                 )
             schema_fields = {item.profile_field for item in mappings}
-
-        agent = await self.session.get(RegisteredAgentRecord, request.agent.id)
-        if request.agent.existing:
-            if agent is None:
-                raise ValueError(f"selected agent {request.agent.id!r} does not exist")
-            if (
-                agent.domain_id != domain
-                or agent.organization_id != organization_id
-                or agent.project_id != project_id
-            ):
-                raise ValueError(
-                    "selected existing agent must belong to the use-case organization, project, "
-                    "and primary domain"
-                )
-        elif agent is not None:
-            raise ResourceConflictError(f"agent {request.agent.id!r} already exists")
-        else:
-            await self.admin.create_resource(
-                principal,
-                "agents",
-                AgentCreate(
-                    id=request.agent.id,
-                    displayName=request.agent.display_name,
-                    organizationId=organization_id,
-                    projectId=project_id,
-                    domainId=domain,
-                    runtimeType=request.agent.runtime_type,
-                    identityType=request.agent.identity_type,
-                    principal=request.agent.principal,
-                    capabilities={
-                        "resolve_context": True,
-                        "submit_candidates": request.agent.owned_schema_permission != "READ",
-                        "inspect_provenance": True,
-                        "administer_memory": False,
-                    },
-                ),
-            )
-            await self._activate_resource(principal, "agents", request.agent.id)
-
-        owned_request = await self.admin.create_access_request(
-            principal,
-            AccessRequestCreate(
-                requestingAgentId=request.agent.id,
-                requestingTeam=request.use_case.owning_team,
-                targetSchemaId=schema_id,
-                requestedPermission=request.agent.owned_schema_permission,
-                businessReason=f"Owned schema access for {request.use_case.name}",
-            ),
-        )
-        await self.admin.decide_access_request(
-            principal,
-            str(owned_request["id"]),
-            AccessRequestStatus.APPROVED,
-            reason="Automatically approved for the owning domain",
-        )
-
-        pending = []
-        for shared in request.shared_schemas:
-            shared_request = await self.admin.create_access_request(
-                principal,
-                AccessRequestCreate(
-                    requestingAgentId=request.agent.id,
-                    requestingTeam=request.use_case.owning_team,
-                    targetSchemaId=shared.schema_id,
-                    requestedPermission=shared.permission,
-                    businessReason=f"Shared schema requested by {request.use_case.name}",
-                ),
-            )
-            pending.append(str(shared_request["id"]))
-
-        schema_precedence = [schema_id, *[item.schema_id for item in request.shared_schemas]]
-        if len(schema_precedence) > 1:
-            chosen = request.resolution.schema_precedence if request.resolution else []
-            if chosen:
-                if len(chosen) != len(set(chosen)) or set(chosen) != set(schema_precedence):
-                    raise ValueError(
-                        "resolution precedence must contain every available schema once"
-                    )
-                schema_precedence = chosen
-            await self.admin.create_resource(
-                principal,
-                "resolution-policies",
-                ResolutionPolicyCreate(
-                    id=policy_id,
-                    agentId=request.agent.id,
-                    name=f"{request.use_case.name} generated resolution policy",
-                    version="1",
-                    defaultRules={
-                        "source_priority": [
-                            "SESSION_OVERRIDE",
-                            "EXPLICIT_PROFILE",
-                            "MEMORY_PROFILE",
-                            "DOMAIN_MEMORY",
-                            "DYNAMIC_MEMORY",
-                            "INFERRED_MEMORY",
-                            "DEFAULT",
-                        ],
-                        "strategies": [
-                            "SOURCE_PRIORITY",
-                            "DOMAIN_PRIORITY",
-                            "EXPLICIT_OVER_INFERRED",
-                            "MOST_RECENT",
-                            "HIGHEST_CONFIDENCE",
-                        ],
-                        "minimum_confidence": request.memory.confidence_threshold,
-                    },
-                    schemaPriorities=[
-                        {"schemaId": item, "priority": index}
-                        for index, item in enumerate(schema_precedence)
-                    ],
-                    attributeOverrides=(
-                        request.resolution.attribute_overrides if request.resolution else []
-                    ),
-                ),
-            )
-            await self._activate_resource(principal, "resolution-policies", policy_id)
-
-        if request.memory.dynamic_enabled:
-            await self.admin.create_resource(
-                principal,
-                "dynamic-memory-policies",
-                DynamicMemoryPolicyCreate(
-                    id=dynamic_id,
-                    level="DOMAIN",
-                    domainId=domain,
-                    enabled=True,
-                    confidenceThreshold=request.memory.confidence_threshold,
-                    memoryTopics=request.memory.memory_topics,
-                    topicDefinitions=request.memory.topic_definitions,
-                    retentionPolicy={"retention_days": request.memory.retention_days},
-                    confirmationRequired=request.memory.confirmation_required,
-                    version="1",
-                ),
-            )
-            await self._activate_resource(principal, "dynamic-memory-policies", dynamic_id)
-
-        await self.store.register_schema(
-            MemoryProfileSchema(
-                id=schema_id,
-                domain=domain,
-                version=schema_version,
-                fields=frozenset(schema_fields),
-            )
-        )
-        await self.admin._audit(
-            principal,
-            "memory_setup.activated",
-            "memory_setup",
-            schema_id,
-            None,
-            {
-                "environment": request.use_case.environment,
-                "pending_approvals": pending,
-                "profiles_created": 0,
-            },
-        )
-        provisioning = (
-            await self.provisioner.provision(self.session)
-            if self.provisioner
-            else {
-                "status": "REGISTERED_LOCAL",
-                "backend": type(self.store).__name__,
-                "profileInstancesCreated": 0,
-                "message": "Schema registered with the local runtime backend; user profiles remain lazy.",
-            }
-        )
-        return GuidedMemorySetupActivation(
-            **preview.model_dump(by_alias=True),
-            status="ACTIVE_WITH_PENDING_ACCESS" if pending else "ACTIVE",
-            resources={
-                "organizationId": organization_id,
-                "projectId": project_id,
-                "domainId": domain,
-                "scopeId": scope_id,
-                "schemaId": schema_id,
-                "agentId": request.agent.id,
-                "resolutionPolicyId": policy_id if len(schema_precedence) > 1 else None,
-                "dynamicPolicyId": dynamic_id if request.memory.dynamic_enabled else None,
-            },
-            pendingApprovals=pending,
-            provisioning=provisioning,
-        )
-
-    async def _compile(
-        self, request: GuidedMemorySetupRequest
-    ) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
-        scope_keys = self._scope_keys(request)
-        preferences = await self._preference_specs(request)
-        owned = [item for item in preferences if item["owner"] == request.use_case.domain]
-        if not owned:
-            raise ValueError(
-                "select or create at least one preference owned by the use-case domain"
-            )
-        schema_id = f"{request.use_case.domain}-preferences-v1"
-        available_schemas = [schema_id, *[item.schema_id for item in request.shared_schemas]]
-        warnings = []
-        external = [
-            item["attributeId"] for item in preferences if item["owner"] != request.use_case.domain
-        ]
-        if external:
-            warnings.append(
-                "Externally owned preferences are consumed through shared schema access, not copied "
-                f"into the new schema: {', '.join(external)}"
-            )
-        if request.shared_schemas:
-            warnings.append(
-                "Shared schema access remains pending until the target schema owner approves it."
-            )
-        contract = {
-            "apiVersion": "memory.platform/v1alpha1",
-            "kind": "GuidedMemorySetup",
-            "metadata": {
-                "name": request.use_case.name,
-                "environment": request.use_case.environment,
-                "generatedAt": datetime.now(UTC).isoformat(),
-            },
-            "organization": {"id": request.use_case.organization_id},
-            "project": {
-                "id": request.use_case.project_id,
-                "organizationId": request.use_case.organization_id,
-            },
-            "domain": {
-                "id": request.use_case.domain,
-                "description": request.use_case.description,
-                "owningTeam": request.use_case.owning_team,
-            },
-            "schema": {
-                "id": schema_id,
-                "scope": {"type": request.scope.type, "keys": scope_keys},
-                "preferences": {
-                    item["attributeId"]: {
-                        "type": item["dataType"],
-                        **(
-                            {"allowedValues": item["allowedValues"]}
-                            if item["allowedValues"]
-                            else {}
-                        ),
-                    }
-                    for item in owned
-                },
-            },
-            "dynamicMemory": request.memory.model_dump(by_alias=True),
-            "agent": {
-                "id": request.agent.id,
-                "schemaAccess": {
-                    schema_id: request.agent.owned_schema_permission,
-                    **{item.schema_id: item.permission for item in request.shared_schemas},
-                },
-            },
-            **(
-                {
-                    "resolution": {
-                        "defaultPrecedence": (
-                            request.resolution.schema_precedence
-                            if request.resolution and request.resolution.schema_precedence
-                            else available_schemas
-                        ),
-                        "attributeOverrides": (
-                            [
-                                item.model_dump(by_alias=True)
-                                for item in request.resolution.attribute_overrides
-                            ]
-                            if request.resolution
-                            else []
-                        ),
-                    }
-                }
-                if len(available_schemas) > 1
-                else {}
-            ),
-        }
-        summary = {
-            "useCase": request.use_case.name,
-            "organization": request.use_case.organization_id,
-            "project": request.use_case.project_id,
-            "domain": request.use_case.domain,
-            "environment": request.use_case.environment,
-            "ownedPreferenceCount": len(owned),
-            "scope": request.scope.type,
-            "agent": request.agent.id,
-            "sharedSchemaCount": len(request.shared_schemas),
-            "requiresResolution": len(available_schemas) > 1,
-            "profileInstancesCreated": 0,
-        }
-        return contract, summary, warnings
-
-    def _scope_keys(self, request: GuidedMemorySetupRequest) -> list[str]:
-        if request.scope.type == "CUSTOM":
-            keys = list(dict.fromkeys(request.scope.custom_keys))
-            if not keys:
-                raise ValueError("custom scope requires at least one key")
-            for required in ("organization_id",):
-                if required not in keys:
-                    keys.append(required)
-            return keys
-        return list(SCOPE_KEYS[request.scope.type])
+        return schema_version, schema_fields
 
     async def _preference_specs(self, request: GuidedMemorySetupRequest) -> list[dict[str, Any]]:
         custom = {item.attribute_id: item for item in request.custom_preferences}

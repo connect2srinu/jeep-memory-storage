@@ -230,10 +230,13 @@ class GuidedCustomPreference(AdminModel):
     data_type: Literal["string", "boolean", "integer", "number"] = Field(alias="dataType")
     allowed_values: list[Any] = Field(default_factory=list, alias="allowedValues")
     sensitivity: Literal["normal", "sensitive", "restricted"] = "normal"
+    # For the HOUSEHOLD_MEMBERS scope, which tier this preference belongs to: shared by the whole
+    # household ("household") or specific to one member such as a child ("member").
+    level: Literal["household", "member"] = "household"
 
 
 class GuidedScope(AdminModel):
-    type: Literal["USER", "HOUSEHOLD", "USER_STORE", "CUSTOM"]
+    type: Literal["USER", "HOUSEHOLD", "USER_STORE", "HOUSEHOLD_MEMBERS", "CUSTOM"]
     custom_keys: list[str] = Field(default_factory=list, alias="customKeys")
 
 
@@ -282,6 +285,12 @@ class GuidedMemorySetupRequest(AdminModel):
     agent: GuidedAgent
     shared_schemas: list[GuidedSharedSchema] = Field(default_factory=list, alias="sharedSchemas")
     resolution: GuidedResolution | None = None
+    # Optional per-attribute tier override for HOUSEHOLD_MEMBERS setups, keyed by attribute id
+    # ("household" or "member"). Catalog preferences default to "household" when absent; custom
+    # preferences fall back to their own `level`.
+    preference_levels: dict[str, Literal["household", "member"]] = Field(
+        default_factory=dict, alias="preferenceLevels"
+    )
 
 
 class GuidedMemorySetupPreview(AdminModel):
