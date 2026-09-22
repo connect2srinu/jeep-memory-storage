@@ -18,6 +18,7 @@ from control_plane_api.api.admin.models import (
     GuidedMemorySetupActivation,
     GuidedMemorySetupPreview,
     GuidedMemorySetupRequest,
+    HouseholdMemberAdminWrite,
     MembershipCreate,
     OrganizationCreate,
     OrganizationSettingsUpdate,
@@ -69,6 +70,73 @@ def create_admin_router(
         service: GuidedMemorySetupService = Depends(guided_service_dependency),
     ) -> GuidedMemorySetupActivation:
         return await service.activate(identity, payload)
+
+    @router.get(
+        "/organizations/{organization_id}/households",
+        response_model=AdminRecordList,
+    )
+    async def list_households(
+        organization_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(items=await service.list_households(identity, organization_id))
+
+    @router.get(
+        "/organizations/{organization_id}/households/{household_id}/members",
+        response_model=AdminRecordList,
+    )
+    async def list_household_members(
+        organization_id: str,
+        household_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(
+            items=await service.list_household_members(identity, organization_id, household_id)
+        )
+
+    @router.put(
+        "/organizations/{organization_id}/households/{household_id}/members/{member_id}",
+        response_model=AdminRecord,
+    )
+    async def upsert_household_member(
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+        payload: HouseholdMemberAdminWrite,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.upsert_household_member(
+                identity,
+                organization_id,
+                household_id,
+                member_id,
+                display_name=payload.display_name,
+                relationship=payload.relationship,
+                has_login=payload.has_login,
+                is_guardian=payload.is_guardian,
+            )
+        )
+
+    @router.delete(
+        "/organizations/{organization_id}/households/{household_id}/members/{member_id}",
+        response_model=AdminRecord,
+    )
+    async def deactivate_household_member(
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.deactivate_household_member(
+                identity, organization_id, household_id, member_id
+            )
+        )
 
     async def listed(
         resource: str,

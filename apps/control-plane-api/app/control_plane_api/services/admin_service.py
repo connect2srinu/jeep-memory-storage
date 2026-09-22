@@ -35,6 +35,7 @@ from control_plane_api.persistence.models import (
     AgentSchemaGrantRecord,
     AuditEventRecord,
     DynamicMemoryPolicyRecord,
+    HouseholdMemberRecord,
     MemoryDomainRecord,
     OrganizationMembershipRecord,
     OrganizationRecord,
@@ -216,6 +217,124 @@ class AdminControlPlaneService:
         if record is None:
             raise ResourceNotFoundError(f"{resource} resource {resource_id} was not found")
         return record
+
+    async def list_households(
+        self, principal: AdminPrincipal, organization_id: str
+    ) -> list[dict[str, Any]]:
+        self.authorizer.require_read(principal)
+        records = list(
+            (
+                await self.session.scalars(
+                    select(HouseholdMemberRecord)
+                    .where(HouseholdMemberRecord.organization_id == organization_id)
+                    .order_by(
+                        HouseholdMemberRecord.household_id, HouseholdMemberRecord.member_id
+                    )
+                )
+            ).all()
+        )
+        households: dict[str, dict[str, Any]] = {}
+        for record in records:
+            summary = households.setdefault(
+                record.household_id,
+                {
+                    "organization_id": organization_id,
+                    "household_id": record.household_id,
+                    "member_count": 0,
+                    "guardian_count": 0,
+                },
+            )
+            if record.status == "active":
+                summary["member_count"] += 1
+                if record.is_guardian:
+                    summary["guardian_count"] += 1
+        return list(households.values())
+
+    async def list_household_members(
+        self, principal: AdminPrincipal, organization_id: str, household_id: str
+    ) -> list[dict[str, Any]]:
+        self.authorizer.require_read(principal)
+        records = await self.session.scalars(
+            select(HouseholdMemberRecord)
+            .where(
+                HouseholdMemberRecord.organization_id == organization_id,
+                HouseholdMemberRecord.household_id == household_id,
+            )
+            .order_by(HouseholdMemberRecord.member_id)
+        )
+        return [_record_data(record) for record in records]
+
+    async def upsert_household_member(
+        self,
+        principal: AdminPrincipal,
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+        *,
+        display_name: str | None,
+        relationship: str,
+        has_login: bool,
+        is_guardian: bool,
+    ) -> dict[str, Any]:
+        self.authorizer.require_platform(principal)
+        record = await self.session.get(
+            HouseholdMemberRecord, (organization_id, household_id, member_id)
+        )
+        before = _record_data(record) if record is not None else None
+        if record is None:
+            record = HouseholdMemberRecord(
+                organization_id=organization_id,
+                household_id=household_id,
+                member_id=member_id,
+            )
+            self.session.add(record)
+        record.display_name = display_name
+        record.relationship = relationship
+        record.has_login = has_login
+        record.is_guardian = is_guardian
+        record.status = "active"
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "household_member.upserted",
+            "household_member",
+            f"{organization_id}:{household_id}:{member_id}",
+            before,
+            after,
+        )
+        return after
+
+    async def deactivate_household_member(
+        self,
+        principal: AdminPrincipal,
+        organization_id: str,
+        household_id: str,
+        member_id: str,
+    ) -> dict[str, Any]:
+        self.authorizer.require_platform(principal)
+        record = await self.session.get(
+            HouseholdMemberRecord, (organization_id, household_id, member_id)
+        )
+        if record is None:
+            raise ResourceNotFoundError(
+                f"household member {member_id} was not found in household {household_id}"
+            )
+        before = _record_data(record)
+        record.status = "inactive"
+        await self.session.flush()
+        await self.session.refresh(record)
+        after = _record_data(record)
+        await self._audit(
+            principal,
+            "household_member.deactivated",
+            "household_member",
+            f"{organization_id}:{household_id}:{member_id}",
+            before,
+            after,
+        )
+        return after
 
     async def _domain_for(self, resource: str, record: Any) -> str | None:
         if resource in {"organizations", "projects"}:

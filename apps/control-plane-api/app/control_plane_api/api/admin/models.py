@@ -213,6 +213,13 @@ class AdminRecordList(AdminModel):
     items: list[dict[str, Any]]
 
 
+class HouseholdMemberAdminWrite(AdminModel):
+    display_name: str | None = Field(default=None, alias="displayName")
+    relationship: str = Field(default="member", min_length=1)
+    has_login: bool = Field(default=False, alias="hasLogin")
+    is_guardian: bool = Field(default=False, alias="isGuardian")
+
+
 class GuidedUseCase(AdminModel):
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
