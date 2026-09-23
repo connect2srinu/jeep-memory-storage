@@ -359,7 +359,8 @@ async def test_guided_setup_household_two_tier(tmp_path: Path) -> None:
             "/api/v1/runtime/preferences/familygrocery.allergies",
             headers={"X-Agent-ID": "familygrocery-assistant"},
             json={
-                "scope": {"userId": "alice", "domain": "familygrocery", "memberId": "alice"},
+                # No memberId: a per-member value about the customer themself.
+                "scope": {"userId": "alice", "domain": "familygrocery"},
                 "schemaId": "familygrocery-member-preferences-v1",
                 "value": "peanuts",
             },

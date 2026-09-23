@@ -14,6 +14,8 @@ class RuntimeAgent:
     domain_id: str
     principal: str | None
     capabilities: frozenset[str]
+    # Declared use of the memory it reads (personalization | analytics | advertising).
+    purpose: str = "personalization"
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,17 +31,28 @@ class RuntimeSchemaGrant:
     attribute_sensitivity: dict[str, str] = field(default_factory=dict)
     # attribute_id -> catalog description ("meaning"), surfaced to help the agent map statements.
     attribute_descriptions: dict[str, str] = field(default_factory=dict)
+    # Attributes flagged as health data (stricter matching, confirmation, consent).
+    health_attributes: frozenset[str] = frozenset()
+    # Purposes an agent may declare to use this schema.
+    allowed_purposes: tuple[str, ...] = ("personalization",)
 
 
 @dataclass(frozen=True, slots=True)
 class HouseholdMember:
-    """An active member of a household (the account holder or a no-login dependent)."""
+    """A household member: the logged-in root, a dependent (child), or a proxy adult."""
 
     member_id: str
     display_name: str | None
     relationship: str
     has_login: bool
     is_guardian: bool
+    household_id: str = ""
+    member_kind: str = "PROXY_ADULT"
+    minor: bool = False
+    status: str = "active"
+    login_id: str | None = None
+    provenance: str = "ADMIN"
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

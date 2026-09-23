@@ -27,6 +27,7 @@ from control_plane_api.api.admin.models import (
     ProjectSettingsUpdate,
     ResolutionPolicyCreate,
     ResourceUpdate,
+    RetentionSweepRequest,
     SchemaCreate,
     SchemaVersionChange,
     ScopeCreate,
@@ -35,9 +36,11 @@ from control_plane_api.domain import AccessRequestStatus
 from control_plane_api.security.admin import AdminAuthenticator, AdminPrincipal
 from control_plane_api.services.admin_service import AdminControlPlaneService
 from control_plane_api.services.guided_setup import GuidedMemorySetupService
+from control_plane_api.services.retention_service import RetentionService
 
 ServiceDependency = Callable[[], AsyncIterator[AdminControlPlaneService]]
 GuidedServiceDependency = Callable[[], AsyncIterator[GuidedMemorySetupService]]
+RetentionServiceDependency = Callable[[], AsyncIterator[RetentionService]]
 
 
 def create_admin_router(
@@ -45,11 +48,25 @@ def create_admin_router(
     authenticator: AdminAuthenticator,
     service_dependency: ServiceDependency,
     guided_service_dependency: GuidedServiceDependency,
+    retention_service_dependency: RetentionServiceDependency,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
     async def principal(request: Request) -> AdminPrincipal:
         return await authenticator.authenticate(request)
+
+    @router.post("/organizations/{organization_id}/retention/sweep", response_model=AdminRecord)
+    async def retention_sweep(
+        organization_id: str,
+        payload: RetentionSweepRequest,
+        identity: AdminPrincipal = Depends(principal),
+        service: RetentionService = Depends(retention_service_dependency),
+    ) -> AdminRecord:
+        return AdminRecord(
+            data=await service.sweep(
+                identity, organization_id, dry_run=payload.dry_run, as_of=payload.as_of
+            )
+        )
 
     @router.post("/memory-setups/preview", response_model=GuidedMemorySetupPreview)
     async def preview_memory_setup(
@@ -118,7 +135,22 @@ def create_admin_router(
                 relationship=payload.relationship,
                 has_login=payload.has_login,
                 is_guardian=payload.is_guardian,
+                minor=payload.minor,
             )
+        )
+
+    @router.get(
+        "/organizations/{organization_id}/households/{household_id}/consents",
+        response_model=AdminRecordList,
+    )
+    async def list_household_consents(
+        organization_id: str,
+        household_id: str,
+        identity: AdminPrincipal = Depends(principal),
+        service: AdminControlPlaneService = Depends(service_dependency),
+    ) -> AdminRecordList:
+        return AdminRecordList(
+            items=await service.list_household_consents(identity, organization_id, household_id)
         )
 
     @router.delete(

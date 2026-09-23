@@ -11,9 +11,14 @@ from control_plane_api.api.runtime.models import (
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     ForgetMemoryRequest,
+    HouseholdMemberAddRequest,
+    HouseholdMemberMergeRequest,
     HouseholdMemberModel,
+    HouseholdMemberUpdateRequest,
     HouseholdMemberWriteRequest,
     MemoryEventRequest,
+    PreferenceForgetRequest,
+    PreferenceMoveRequest,
     PreferenceValue,
     PurgeMemoryRequest,
     RawProfilesRequest,
@@ -23,6 +28,22 @@ from control_plane_api.api.runtime.models import (
     WritablePreference,
 )
 from control_plane_api.domain.control_plane import AccessPermission
+from control_plane_api.domain.governance import RESTRICTED_PURPOSE
+from control_plane_api.domain.household_identity import (
+    MemberCandidate,
+    Resolution,
+    ambiguous_prompt,
+    attribute_label,
+    describe_member,
+    health_prompt,
+    is_self_reference,
+    member_kind_for,
+    merge_prompt,
+    new_member_prompt,
+    normalize_name,
+    resolve_reference,
+    value_digest,
+)
 from control_plane_api.domain.memory import (
     MemoryEvent,
     MemoryProfile,
@@ -40,6 +61,7 @@ from control_plane_api.domain.resolution import (
     ResolutionStrategy,
 )
 from control_plane_api.domain.runtime import (
+    HouseholdMember,
     RuntimeAgent,
     RuntimeDynamicPolicy,
     RuntimeResolutionConfig,
@@ -73,6 +95,12 @@ _CONTRACT_BY_KEYS = {
         {"organization_id", "household_id", "member_id"}
     ): "organization-household-member-profile",
 }
+
+
+_CONFIRM_MESSAGE = (
+    "Nothing was saved yet. Ask the user exactly the confirmationPrompt. Only if they answer yes, "
+    "repeat the same call with memberId (when given) and confirmed=true."
+)
 
 
 def _scope_values(scope: RuntimeScope) -> dict[str, str]:
@@ -193,7 +221,7 @@ class RuntimeMemoryService:
         agent = await self._agent(principal, request.requested_agent_id)
         self._require_capability(agent, AgentCapability.RESOLVE_CONTEXT)
         self._require_consumer_scope(agent, request.scope)
-        grants = await self.repository.list_schema_grants(agent.id)
+        grants = await self._grants(agent)
         readable = tuple(grant for grant in grants if self._allows(grant.permission, write=False))
         writable = tuple(grant for grant in grants if self._allows(grant.permission, write=True))
         _log_flow_step(
@@ -212,11 +240,20 @@ class RuntimeMemoryService:
             if dynamic is not None and dynamic.enabled and dynamic.approved_topics:
                 dynamic_policies[domain_id] = dynamic
         catalog, policies = self._resolution_components(agent, grants, config, dynamic_policies)
-        # Populate household_id (derived from the acting member) when any readable schema is
-        # household-scoped, so household-shared and household-member profiles can be addressed.
+        # With household-scoped schemas, the logged-in customer is the household root (created on
+        # first use). Per-member values default to the customer's own; memberId selects another.
         effective_scope = request.scope
+        acting: HouseholdMember | None = None
         if any("household_id" in grant.scope_keys for grant in readable):
-            effective_scope = await self._with_household(request.scope, agent)
+            effective_scope, acting = await self._household_context(
+                request.scope, agent, session_id=request.session_id
+            )
+            if effective_scope.member_id:
+                await self._member(agent, acting.household_id, effective_scope.member_id)
+            else:
+                effective_scope = effective_scope.model_copy(
+                    update={"member_id": acting.member_id}
+                )
         candidates: list[Preference] = []
         for grant in readable:
             # Per-member schemas are read lazily: only when the turn names a member. A top-level
@@ -358,20 +395,15 @@ class RuntimeMemoryService:
                         attribute=attribute,
                         level=level,
                         description=grant.attribute_descriptions.get(attribute),
+                        health=attribute in grant.health_attributes,
                     )
                 )
         household_members: tuple[HouseholdMemberModel, ...] = ()
-        if effective_scope.household_id:
+        if acting is not None:
             household_members = tuple(
-                HouseholdMemberModel(
-                    member_id=item.member_id,
-                    display_name=item.display_name,
-                    relationship=item.relationship,
-                    has_login=item.has_login,
-                    is_guardian=item.is_guardian,
-                )
+                self._member_model(item, acting)
                 for item in await self.repository.list_household_members(
-                    agent.organization_id, effective_scope.household_id
+                    agent.organization_id, acting.household_id, include_provisional=True
                 )
             )
         agent_dynamic_policy = dynamic_policies.get(agent.domain_id)
@@ -417,6 +449,8 @@ class RuntimeMemoryService:
             approved_topic_details=approved_topic_details,
             household_id=effective_scope.household_id,
             household_members=household_members,
+            acting_member_id=acting.member_id if acting else None,
+            resolved_member_id=effective_scope.member_id if acting else None,
             generated_at=generated_at,
         )
         _log_flow_step(
@@ -436,9 +470,7 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.INSPECT_PROVENANCE)
         self._require_consumer_scope(agent, request.scope)
-        grants = {
-            item.schema_id: item for item in await self.repository.list_schema_grants(agent.id)
-        }
+        grants = {item.schema_id: item for item in await self._grants(agent)}
         profiles: list[tuple[MemoryProfile, str]] = []
         for schema_id in request.schema_ids:
             grant = grants.get(schema_id)
@@ -473,7 +505,7 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        grants = await self.repository.list_schema_grants(agent.id)
+        grants = await self._grants(agent)
         writes = []
         for candidate in request.candidates:
             grant = self._resolve_write_grant(
@@ -566,7 +598,14 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        scope = self._user_scope(request.scope, agent)
+        target = request.scope
+        if request.scope.household_id or request.scope.member_id:
+            # A household/member forget is limited to the requesting customer's own household.
+            target, acting = await self._household_context(request.scope, agent)
+            if target.member_id:
+                member = await self._member(agent, acting.household_id, target.member_id)
+                self._require_writer(acting, member)
+        scope = self._user_scope(target, agent)
         deleted = await self.store.forget_user(scope)
         _log_memory_deletion(
             op="forget",
@@ -629,7 +668,7 @@ class RuntimeMemoryService:
         agent = await self._agent(principal)
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
-        grants = await self.repository.list_schema_grants(agent.id)
+        grants = await self._grants(agent)
         grant = self._resolve_write_grant(
             agent,
             grants,
@@ -638,16 +677,40 @@ class RuntimeMemoryService:
             request.schema_id,
         )
         profile_field = self._profile_field(grant, attribute)
+        canonical = grant.field_to_attribute.get(attribute, attribute)
+        health = canonical in grant.health_attributes
         sensitivity = _screen_memory_write(
             request.value,
-            declared=grant.attribute_sensitivity.get(attribute),
+            declared=grant.attribute_sensitivity.get(canonical),
             source=request.source,
             label=f"attribute {attribute!r}",
         )
         write_request_scope = request.scope
+        acting: HouseholdMember | None = None
+        subject: HouseholdMember | None = None
         if "household_id" in grant.scope_keys:
-            write_request_scope = await self._with_household(request.scope, agent)
-            await self._require_household_write(write_request_scope, agent, grant)
+            write_request_scope, acting = await self._household_context(request.scope, agent)
+            if "member_id" in grant.scope_keys:
+                target = await self._target_member(
+                    agent, acting, write_request_scope, request, canonical, health
+                )
+                if isinstance(target, RuntimeMutationResponse):
+                    return target
+                subject = target
+                write_request_scope = write_request_scope.model_copy(
+                    update={"member_id": subject.member_id}
+                )
+            elif request.member_name:
+                raise ValueError(
+                    f"attribute {attribute!r} is shared by the whole household; "
+                    "it does not take a member"
+                )
+        elif request.member_name:
+            raise ValueError(f"attribute {attribute!r} is not a per-member attribute")
+        if health:
+            gate = await self._health_gate(agent, acting, subject, canonical, request)
+            if gate is not None:
+                return gate
         await self._register_schema(grant)
         write_scope = self._build_scope(
             organization_id=agent.organization_id,
@@ -671,11 +734,313 @@ class RuntimeMemoryService:
             sensitivity=sensitivity.value,
             source=request.source,
             reference=f"{profile.schema_id}:{attribute}",
+            member_id=subject.member_id if subject else None,
+            health=health,
         )
         return RuntimeMutationResponse(
             status="updated",
             reference=f"{profile.schema_id}:{attribute}",
             profile_version=profile.version,
+            member_id=subject.member_id if subject else None,
+        )
+
+    async def forget_preference(
+        self, principal: AuthenticatedPrincipal, attribute: str, request: PreferenceForgetRequest
+    ) -> RuntimeMutationResponse:
+        """Delete one value. Deleting health data also withdraws its consent records."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        grant = self._resolve_write_grant(
+            agent, await self._grants(agent), attribute, agent.domain_id, None
+        )
+        profile_field = self._profile_field(grant, attribute)
+        canonical = grant.field_to_attribute.get(attribute, attribute)
+        scope_request = request.scope
+        household_id: str | None = None
+        subject_id: str | None = None
+        if "household_id" in grant.scope_keys:
+            scope_request, acting = await self._household_context(request.scope, agent)
+            household_id = acting.household_id
+            if "member_id" in grant.scope_keys:
+                member = (
+                    await self._member(agent, household_id, scope_request.member_id)
+                    if scope_request.member_id
+                    else acting
+                )
+                self._require_writer(acting, member)
+                subject_id = member.member_id
+                scope_request = scope_request.model_copy(update={"member_id": subject_id})
+        scope = self._build_scope(
+            organization_id=agent.organization_id,
+            scope_keys=grant.scope_keys,
+            values=_scope_values(scope_request),
+            strict=True,
+        )
+        await self._register_schema(grant)
+        deleted = await self.store.delete_preference(
+            scope, schema_id=grant.schema_id, attribute=profile_field
+        )
+        withdrawn = 0
+        if canonical in grant.health_attributes:
+            withdrawn = await self.repository.withdraw_consents(
+                organization_id=agent.organization_id,
+                household_id=household_id,
+                subject_member_id=subject_id,
+                attribute_id=canonical,
+            )
+        _log_memory_deletion(
+            op="forget_preference",
+            agent_id=agent.id,
+            attribute=canonical,
+            schema_id=grant.schema_id,
+            member_id=subject_id,
+            deleted=deleted,
+            consents_withdrawn=withdrawn,
+        )
+        return RuntimeMutationResponse(
+            status="forgotten",
+            reference=f"{grant.schema_id}:{canonical}",
+            member_id=subject_id,
+            message=f"{deleted} value(s) deleted; {withdrawn} consent record(s) withdrawn.",
+        )
+
+    async def add_household_member(
+        self, principal: AuthenticatedPrincipal, request: HouseholdMemberAddRequest
+    ) -> RuntimeMutationResponse:
+        """Add a person to the customer's household, matching first to avoid duplicates.
+
+        Without ``confirmed`` a new person is proposed (provisional) and the user is asked; with it
+        (the user explicitly asked, or answered yes) the member becomes active.
+        """
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        _, acting = await self._household_context(request.scope, agent)
+        if not acting.is_guardian:
+            raise PermissionError("only the household's account holder can add members")
+        household_id = acting.household_id
+        if request.member_id:
+            member = await self._member(agent, household_id, request.member_id)
+            if member.status == "provisional":
+                if not request.confirmed:
+                    return self._confirm_new_member(member)
+                member = await self._activate(agent, member)
+                return RuntimeMutationResponse(status="added", member_id=member.member_id)
+            return RuntimeMutationResponse(
+                status="exists", member_id=member.member_id, message="Already in the household."
+            )
+        resolution, members = await self._resolve_name(
+            agent, household_id, request.name, request.relationship, strict=False
+        )
+        if resolution.status == "matched" and resolution.candidate is not None:
+            return RuntimeMutationResponse(
+                status="exists",
+                member_id=resolution.candidate.member_id,
+                message=f"{resolution.candidate.display_name} is already in the household.",
+            )
+        if resolution.status == "ambiguous":
+            return self._ambiguous(request.name, resolution, members, acting)
+        member = await self._propose_member(
+            agent, household_id, request.name, request.relationship, active=request.confirmed
+        )
+        if not request.confirmed:
+            return self._confirm_new_member(member)
+        return RuntimeMutationResponse(status="added", member_id=member.member_id)
+
+    async def update_household_member(
+        self,
+        principal: AuthenticatedPrincipal,
+        member_id: str,
+        request: HouseholdMemberUpdateRequest,
+    ) -> RuntimeMutationResponse:
+        """Rename a member (the old name is kept as an alias) or correct the minor flag."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        _, acting = await self._household_context(request.scope, agent)
+        member = await self._member(agent, acting.household_id, member_id)
+        self._require_writer(acting, member)
+        changes: dict[str, object] = {}
+        if request.display_name and request.display_name != member.display_name:
+            changes["display_name"] = request.display_name
+            changes["normalized_name"] = normalize_name(request.display_name)
+            if member.display_name:
+                await self.repository.add_member_alias(
+                    agent.organization_id,
+                    acting.household_id,
+                    member.member_id,
+                    normalize_name(member.display_name),
+                    "rename",
+                )
+        if request.minor is not None:
+            if member.member_kind == "ROOT":
+                raise ValueError("the account holder cannot be marked as a minor")
+            changes["minor"] = request.minor
+        if changes:
+            member = await self.repository.update_household_member(
+                agent.organization_id, acting.household_id, member.member_id, **changes
+            )
+        return RuntimeMutationResponse(status="updated", member_id=member.member_id)
+
+    async def merge_household_members(
+        self, principal: AuthenticatedPrincipal, request: HouseholdMemberMergeRequest
+    ) -> RuntimeMutationResponse:
+        """Merge two records of the same person: the merged member's values fill gaps in the kept
+        member's profile, its names become aliases, and it is retired (``merged_into``)."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        _, acting = await self._household_context(request.scope, agent)
+        if not acting.is_guardian:
+            raise PermissionError("only the household's account holder can merge members")
+        household_id = acting.household_id
+        keep = await self._member(agent, household_id, request.keep_member_id)
+        merged = await self._member(agent, household_id, request.merge_member_id)
+        if keep.member_id == merged.member_id:
+            raise ValueError("choose two different members to merge")
+        if merged.has_login:
+            raise ValueError("a member with a login cannot be merged into another member")
+        if not request.confirmed:
+            return RuntimeMutationResponse(
+                status="needs_confirmation",
+                member_id=keep.member_id,
+                confirmation_prompt=merge_prompt(
+                    describe_member(keep.display_name, keep.relationship),
+                    describe_member(merged.display_name, merged.relationship),
+                ),
+                message=_CONFIRM_MESSAGE,
+            )
+        moved = 0
+        for grant in await self._member_grants(agent):
+            await self._register_schema(grant)
+            source = self._member_scope(agent, grant, household_id, merged.member_id)
+            destination = self._member_scope(agent, grant, household_id, keep.member_id)
+            source_values = self._values(await self.store.get_profiles(source, (grant.schema_id,)))
+            kept_values = self._values(
+                await self.store.get_profiles(destination, (grant.schema_id,))
+            )
+            for field, value in source_values.items():
+                if field not in kept_values:
+                    await self.store.write_preference(
+                        destination, schema_id=grant.schema_id, attribute=field, value=value
+                    )
+                    moved += 1
+                await self.store.delete_preference(
+                    source, schema_id=grant.schema_id, attribute=field
+                )
+        if merged.display_name:
+            await self.repository.add_member_alias(
+                agent.organization_id,
+                household_id,
+                keep.member_id,
+                normalize_name(merged.display_name),
+                "merge",
+            )
+        await self.repository.move_member_aliases(
+            agent.organization_id, household_id, merged.member_id, keep.member_id
+        )
+        await self.repository.update_household_member(
+            agent.organization_id,
+            household_id,
+            merged.member_id,
+            status="merged",
+            merged_into_member_id=keep.member_id,
+        )
+        _log_memory_deletion(
+            op="merge_members",
+            agent_id=agent.id,
+            household_id=household_id,
+            kept_member_id=keep.member_id,
+            merged_member_id=merged.member_id,
+            moved=moved,
+        )
+        return RuntimeMutationResponse(
+            status="merged",
+            member_id=keep.member_id,
+            message=f"{moved} value(s) moved; conflicting values kept from the kept member.",
+        )
+
+    async def move_preference(
+        self, principal: AuthenticatedPrincipal, attribute: str, request: PreferenceMoveRequest
+    ) -> RuntimeMutationResponse:
+        """Move one per-member value to another member (fixing a wrong match / a split)."""
+        agent = await self._agent(principal)
+        self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
+        self._require_consumer_scope(agent, request.scope)
+        grant = self._resolve_write_grant(
+            agent, await self._grants(agent), attribute, agent.domain_id, None
+        )
+        if "member_id" not in grant.scope_keys:
+            raise ValueError(f"attribute {attribute!r} is not a per-member attribute")
+        profile_field = self._profile_field(grant, attribute)
+        canonical = grant.field_to_attribute.get(attribute, attribute)
+        scope, acting = await self._household_context(request.scope, agent)
+        household_id = acting.household_id
+        source = (
+            await self._member(agent, household_id, scope.member_id) if scope.member_id else acting
+        )
+        target = await self._member(agent, household_id, request.to_member_id)
+        self._require_writer(acting, source)
+        self._require_writer(acting, target)
+        health = canonical in grant.health_attributes
+        if health and target.member_id != acting.member_id and not target.minor:
+            return self._adult_health_refusal(canonical, target)
+        await self._register_schema(grant)
+        source_scope = self._member_scope(agent, grant, household_id, source.member_id)
+        values = self._values(await self.store.get_profiles(source_scope, (grant.schema_id,)))
+        if profile_field not in values:
+            raise ValueError(f"{attribute_label(canonical)} is not saved for that member")
+        prompt = (
+            f"Move {attribute_label(canonical)} from "
+            f"{describe_member(source.display_name, source.relationship)} to "
+            f"{describe_member(target.display_name, target.relationship)}?"
+        )
+        if not request.confirmed:
+            return RuntimeMutationResponse(
+                status="needs_confirmation",
+                member_id=target.member_id,
+                confirmation_prompt=prompt,
+                message=_CONFIRM_MESSAGE,
+            )
+        await self.store.write_preference(
+            self._member_scope(agent, grant, household_id, target.member_id),
+            schema_id=grant.schema_id,
+            attribute=profile_field,
+            value=values[profile_field],
+        )
+        await self.store.delete_preference(
+            source_scope, schema_id=grant.schema_id, attribute=profile_field
+        )
+        if health:
+            await self.repository.withdraw_consents(
+                organization_id=agent.organization_id,
+                household_id=household_id,
+                subject_member_id=source.member_id,
+                attribute_id=canonical,
+            )
+            digest = value_digest(values[profile_field])
+            await self.repository.create_pending_consent(
+                organization_id=agent.organization_id,
+                household_id=household_id,
+                subject_member_id=target.member_id,
+                granted_by_member_id=acting.member_id,
+                attribute_id=canonical,
+                value_digest=digest,
+                prompt_text=prompt,
+                agent_id=agent.id,
+            )
+            await self.repository.grant_pending_consent(
+                organization_id=agent.organization_id,
+                household_id=household_id,
+                subject_member_id=target.member_id,
+                attribute_id=canonical,
+                value_digest=digest,
+            )
+        return RuntimeMutationResponse(
+            status="moved",
+            reference=f"{grant.schema_id}:{canonical}",
+            member_id=target.member_id,
         )
 
     async def upsert_household_member(
@@ -912,38 +1277,352 @@ class RuntimeMemoryService:
             strict=False,
         )
 
-    async def _resolve_household_id(self, scope: RuntimeScope, agent: RuntimeAgent) -> str:
-        """The acting member's household. Derived from the roster; defaults to the member id when a
-        household is not modeled (the 95% case where one household == one member)."""
-        if scope.household_id:
-            return scope.household_id
-        derived = await self.repository.get_household_for_member(
-            agent.organization_id, scope.user_id
+    async def _grants(self, agent: RuntimeAgent) -> tuple[RuntimeSchemaGrant, ...]:
+        """The agent's active grants, limited to those its declared purpose may use."""
+        return tuple(
+            grant
+            for grant in await self.repository.list_schema_grants(agent.id)
+            if self._purpose_allows(agent, grant)
         )
-        return derived or scope.user_id
 
-    async def _with_household(self, scope: RuntimeScope, agent: RuntimeAgent) -> RuntimeScope:
-        """Return the scope with household_id populated, deriving it if the request omitted it."""
-        household_id = await self._resolve_household_id(scope, agent)
-        return scope.model_copy(update={"household_id": household_id})
-
-    async def _require_household_write(
-        self, scope: RuntimeScope, agent: RuntimeAgent, grant: RuntimeSchemaGrant
-    ) -> None:
-        """Guardian check: writing another member's profile requires the caller to be a guardian."""
-        if "member_id" not in grant.scope_keys:
-            return
-        target = scope.member_id
-        if not target or target == scope.user_id:
-            return
-        member = await self.repository.get_household_member(
-            agent.organization_id, scope.household_id, scope.user_id
+    @staticmethod
+    def _purpose_allows(agent: RuntimeAgent, grant: RuntimeSchemaGrant) -> bool:
+        if agent.purpose not in grant.allowed_purposes:
+            return False
+        # Advertising never reaches per-member (possibly minor) or health data.
+        return not (
+            agent.purpose == RESTRICTED_PURPOSE
+            and ("member_id" in grant.scope_keys or grant.health_attributes)
         )
-        if member is None or not member.is_guardian:
-            raise PermissionError(
-                f"caller {scope.user_id!r} is not a guardian and cannot write for member "
-                f"{target!r}"
+
+    async def _household_context(
+        self, scope: RuntimeScope, agent: RuntimeAgent, *, session_id: str | None = None
+    ) -> tuple[RuntimeScope, HouseholdMember]:
+        """The logged-in customer's root member (created on first use) and the scope set to their
+        household. One login = one household root; a householdId naming another household is
+        refused."""
+        acting = await self.repository.get_member_by_login(agent.organization_id, scope.user_id)
+        if acting is None:
+            acting = await self.repository.create_household_root(
+                organization_id=agent.organization_id,
+                login_id=scope.user_id,
+                agent_id=agent.id,
+                session_id=session_id,
             )
+        if scope.household_id and scope.household_id != acting.household_id:
+            raise PermissionError("householdId does not belong to the requesting customer")
+        return scope.model_copy(update={"household_id": acting.household_id}), acting
+
+    async def _member(
+        self, agent: RuntimeAgent, household_id: str, member_id: str
+    ) -> HouseholdMember:
+        member = await self.repository.get_household_member(
+            agent.organization_id, household_id, member_id, include_provisional=True
+        )
+        if member is None:
+            raise PermissionError(f"member {member_id!r} is not in the customer's household")
+        return member
+
+    @staticmethod
+    def _require_writer(acting: HouseholdMember, member: HouseholdMember) -> None:
+        """Writing another member's data requires the caller to be a guardian (the root is)."""
+        if member.member_id != acting.member_id and not acting.is_guardian:
+            raise PermissionError(
+                f"caller is not a guardian and cannot change member {member.member_id!r}"
+            )
+
+    @staticmethod
+    def _member_model(member: HouseholdMember, acting: HouseholdMember) -> HouseholdMemberModel:
+        return HouseholdMemberModel(
+            member_id=member.member_id,
+            display_name=member.display_name,
+            relationship=member.relationship,
+            has_login=member.has_login,
+            is_guardian=member.is_guardian,
+            member_kind=member.member_kind,
+            minor=member.minor,
+            status=member.status,
+            aliases=member.aliases,
+            is_self=member.member_id == acting.member_id,
+        )
+
+    async def _resolve_name(
+        self,
+        agent: RuntimeAgent,
+        household_id: str,
+        name: str,
+        relationship: str | None,
+        *,
+        strict: bool,
+    ) -> tuple[Resolution, tuple[HouseholdMember, ...]]:
+        members = await self.repository.list_household_members(
+            agent.organization_id, household_id, include_provisional=True
+        )
+        candidates = tuple(
+            MemberCandidate(
+                member_id=member.member_id,
+                display_name=member.display_name,
+                relationship=member.relationship,
+                names=tuple(
+                    dict.fromkeys(
+                        ([normalize_name(member.display_name)] if member.display_name else [])
+                        + list(member.aliases)
+                    )
+                ),
+            )
+            for member in members
+        )
+        return resolve_reference(name, relationship, candidates, strict=strict), members
+
+    async def _propose_member(
+        self,
+        agent: RuntimeAgent,
+        household_id: str,
+        name: str,
+        relationship: str | None,
+        *,
+        active: bool = False,
+    ) -> HouseholdMember:
+        display = name.strip()
+        if display == display.lower():
+            display = display.title()
+        member_kind, minor = member_kind_for(relationship, has_login=False)
+        return await self.repository.create_household_member(
+            organization_id=agent.organization_id,
+            household_id=household_id,
+            display_name=display,
+            normalized_name=normalize_name(display),
+            relationship=relationship or "member",
+            member_kind=member_kind,
+            minor=minor,
+            status="active" if active else "provisional",
+            provenance="USER_CONFIRMED" if active else "INFERRED",
+            agent_id=agent.id,
+        )
+
+    async def _activate(self, agent: RuntimeAgent, member: HouseholdMember) -> HouseholdMember:
+        return await self.repository.update_household_member(
+            agent.organization_id,
+            member.household_id,
+            member.member_id,
+            status="active",
+            provenance="USER_CONFIRMED",
+            confirmed_at=datetime.now(UTC),
+        )
+
+    @staticmethod
+    def _confirm_new_member(
+        member: HouseholdMember, fact: tuple[str, object] | None = None
+    ) -> RuntimeMutationResponse:
+        return RuntimeMutationResponse(
+            status="needs_confirmation",
+            reference=fact[0] if fact else None,
+            member_id=member.member_id,
+            confirmation_prompt=new_member_prompt(
+                member.display_name or "this person", member.relationship, fact
+            ),
+            message=_CONFIRM_MESSAGE,
+        )
+
+    def _ambiguous(
+        self,
+        name: str,
+        resolution: Resolution,
+        members: tuple[HouseholdMember, ...],
+        acting: HouseholdMember,
+        attribute: str | None = None,
+    ) -> RuntimeMutationResponse:
+        ids = [candidate.member_id for candidate in resolution.candidates]
+        by_id = {member.member_id: member for member in members}
+        return RuntimeMutationResponse(
+            status="ambiguous",
+            reference=attribute,
+            candidates=tuple(self._member_model(by_id[item], acting) for item in ids),
+            confirmation_prompt=ambiguous_prompt(name, resolution.candidates),
+            message=(
+                "Nothing was saved. Ask the user which person they mean, then repeat the call "
+                "with that memberId — or, for someone new, add them with add_household_member."
+            ),
+        )
+
+    @staticmethod
+    def _adult_health_refusal(attribute: str, member: HouseholdMember) -> RuntimeMutationResponse:
+        who = describe_member(member.display_name, member.relationship)
+        return RuntimeMutationResponse(
+            status="not_allowed",
+            reference=attribute,
+            member_id=member.member_id,
+            message=(
+                f"Nothing was saved. Health information about another adult ({who}) is not "
+                "stored against them. Offer to save a household-level product filter instead "
+                "(for example products to exclude from household orders), or they can save it "
+                "themselves from their own account."
+            ),
+        )
+
+    async def _target_member(
+        self,
+        agent: RuntimeAgent,
+        acting: HouseholdMember,
+        scope: RuntimeScope,
+        request: ExplicitPreferenceUpdate,
+        attribute: str,
+        health: bool,
+    ) -> HouseholdMember | RuntimeMutationResponse:
+        """The member a per-member write is about: memberId, a name matched inside the household
+        (proposing a new member when nobody matches), or the customer themself."""
+        household_id = acting.household_id
+        if scope.member_id:
+            member = await self._member(agent, household_id, scope.member_id)
+        elif request.member_name and not is_self_reference(request.member_name):
+            resolution, members = await self._resolve_name(
+                agent, household_id, request.member_name, request.relationship, strict=health
+            )
+            if resolution.status == "ambiguous":
+                return self._ambiguous(
+                    request.member_name, resolution, members, acting, attribute
+                )
+            if resolution.status == "new":
+                _, minor = member_kind_for(request.relationship, has_login=False)
+                if health and not minor:
+                    # Don't propose a person we could not store this for anyway.
+                    return self._adult_health_refusal(
+                        attribute,
+                        HouseholdMember(
+                            member_id="",
+                            display_name=request.member_name,
+                            relationship=request.relationship or "member",
+                            has_login=False,
+                            is_guardian=False,
+                        ),
+                    )
+                member = await self._propose_member(
+                    agent, household_id, request.member_name, request.relationship
+                )
+                return await self._ask_to_confirm_member(
+                    agent, acting, member, request, attribute, health
+                )
+            assert resolution.candidate is not None
+            member = await self._member(agent, household_id, resolution.candidate.member_id)
+            if resolution.variant:
+                await self.repository.add_member_alias(
+                    agent.organization_id,
+                    household_id,
+                    member.member_id,
+                    normalize_name(request.member_name),
+                    "match",
+                )
+        else:
+            member = acting
+        self._require_writer(acting, member)
+        if member.status == "provisional":
+            if not request.confirmed:
+                return await self._ask_to_confirm_member(
+                    agent, acting, member, request, attribute, health
+                )
+            member = await self._activate(agent, member)
+        return member
+
+    async def _ask_to_confirm_member(
+        self,
+        agent: RuntimeAgent,
+        acting: HouseholdMember,
+        member: HouseholdMember,
+        request: ExplicitPreferenceUpdate,
+        attribute: str,
+        health: bool,
+    ) -> RuntimeMutationResponse:
+        """One question covers both the new person and (for health data) the fact."""
+        response = self._confirm_new_member(member, (attribute, request.value))
+        if health:
+            await self.repository.create_pending_consent(
+                organization_id=agent.organization_id,
+                household_id=acting.household_id,
+                subject_member_id=member.member_id,
+                granted_by_member_id=acting.member_id,
+                attribute_id=attribute,
+                value_digest=value_digest(request.value),
+                prompt_text=response.confirmation_prompt or "",
+                agent_id=agent.id,
+            )
+        return response
+
+    async def _health_gate(
+        self,
+        agent: RuntimeAgent,
+        acting: HouseholdMember | None,
+        subject: HouseholdMember | None,
+        attribute: str,
+        request: ExplicitPreferenceUpdate,
+    ) -> RuntimeMutationResponse | None:
+        """Health data needs a confirmation turn and a consent record. Returns None to proceed.
+
+        The write is allowed only when ``confirmed`` redeems a PENDING consent created by an
+        earlier call for the same person, attribute and value — so the user was asked first.
+        """
+        is_self = subject is None or (acting is not None and subject.member_id == acting.member_id)
+        if subject is not None and not is_self and not subject.minor:
+            return self._adult_health_refusal(attribute, subject)
+        household_id = acting.household_id if acting else None
+        subject_id = subject.member_id if subject else None
+        digest = value_digest(request.value)
+        if request.confirmed and await self.repository.grant_pending_consent(
+            organization_id=agent.organization_id,
+            household_id=household_id,
+            subject_member_id=subject_id,
+            attribute_id=attribute,
+            value_digest=digest,
+        ):
+            return None
+        if subject is not None and not is_self:
+            who = describe_member(subject.display_name, subject.relationship)
+        elif subject is None and acting is not None:
+            who = "your household"
+        else:
+            who = "you"
+        prompt = health_prompt(attribute, request.value, who)
+        await self.repository.create_pending_consent(
+            organization_id=agent.organization_id,
+            household_id=household_id,
+            subject_member_id=subject_id,
+            granted_by_member_id=acting.member_id if acting else request.scope.user_id,
+            attribute_id=attribute,
+            value_digest=digest,
+            prompt_text=prompt,
+            agent_id=agent.id,
+        )
+        return RuntimeMutationResponse(
+            status="needs_confirmation",
+            reference=attribute,
+            member_id=subject_id,
+            confirmation_prompt=prompt,
+            message=_CONFIRM_MESSAGE,
+        )
+
+    async def _member_grants(self, agent: RuntimeAgent) -> tuple[RuntimeSchemaGrant, ...]:
+        """Same-domain writable per-member grants (what a merge or move may touch)."""
+        return tuple(
+            grant
+            for grant in await self._grants(agent)
+            if "member_id" in grant.scope_keys
+            and grant.domain_id == agent.domain_id
+            and grant.owner_organization_id == agent.organization_id
+            and self._allows(grant.permission, write=True)
+        )
+
+    def _member_scope(
+        self, agent: RuntimeAgent, grant: RuntimeSchemaGrant, household_id: str, member_id: str
+    ) -> MemoryScope:
+        return self._build_scope(
+            organization_id=agent.organization_id,
+            scope_keys=grant.scope_keys,
+            values={"household_id": household_id, "member_id": member_id},
+            strict=True,
+        )
+
+    @staticmethod
+    def _values(profiles: tuple[MemoryProfile, ...]) -> dict[str, object]:
+        return dict(profiles[0].values) if profiles else {}
 
     @staticmethod
     def _resolution_components(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from control_plane_api.domain.control_plane import AccessPermission
 from control_plane_api.domain.memory import MemoryProfileSchema, MemoryScope
@@ -61,6 +63,34 @@ async def test_mock_store_isolates_household_members() -> None:
     assert (await store.get_profiles(shared, ("hh",)))[0].values["diet"] == "vegetarian"
     assert await store.forget_user(shared) >= 1
     assert await store.get_profiles(shared, ("hh",)) == ()
+
+
+@pytest.mark.asyncio
+async def test_mock_store_deletes_one_attribute_and_purges_by_age() -> None:
+    store = MockMemoryStore()
+    await store.register_schema(
+        MemoryProfileSchema(
+            id="hm", domain="ksa", version="v1", fields=frozenset({"allergies", "dislikes"})
+        )
+    )
+    kid = MemoryScope("org", household_id="h1", member_id="m1")
+    await store.write_preference(kid, schema_id="hm", attribute="allergies", value="peanut")
+    await store.write_preference(kid, schema_id="hm", attribute="dislikes", value="kale")
+
+    # Only the named attribute in exactly this scope goes.
+    assert await store.delete_preference(kid, schema_id="hm", attribute="allergies") == 1
+    assert (await store.get_profiles(kid, ("hm",)))[0].values == {"dislikes": "kale"}
+
+    past = datetime.now(UTC) - timedelta(days=1)
+    future = datetime.now(UTC) + timedelta(days=1)
+    assert await store.purge(organization_id="org", schema_id="hm", older_than=past) == ()
+    preview = await store.purge(
+        organization_id="org", schema_id="hm", older_than=future, dry_run=True
+    )
+    assert [entry["attribute"] for entry in preview] == ["dislikes"]
+    assert await store.get_profiles(kid, ("hm",)) != ()
+    await store.purge(organization_id="org", schema_id="hm", older_than=future)
+    assert await store.get_profiles(kid, ("hm",)) == ()
 
 
 def _service() -> RuntimeMemoryService:

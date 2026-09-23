@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -238,6 +239,42 @@ async def test_forget_deletes_and_purge_targets_by_topic(scope) -> None:
     deleted = await backend.forget_user(scope)
     assert deleted == 1
     assert await backend.get_profiles(scope, ("grocery-preferences-v1",)) == ()
+
+
+@pytest.mark.asyncio
+async def test_delete_one_attribute_and_purge_by_schema_and_age() -> None:
+    client = FakeMemoryBankClient()
+    backend = VertexMemoryBankStore(client)
+    await backend.register_schema(
+        MemoryProfileSchema(
+            id="hm", domain="grocery", version="1", fields=frozenset({"allergies", "dislikes"})
+        )
+    )
+    registry = ScopeRegistry()
+    kid = registry.resolve(
+        "organization-household-member-profile",
+        {"organization_id": "retail", "household_id": "h1", "member_id": "m1"},
+    )
+    sibling = registry.resolve(
+        "organization-household-member-profile",
+        {"organization_id": "retail", "household_id": "h1", "member_id": "m2"},
+    )
+    await backend.write_preference(kid, schema_id="hm", attribute="allergies", value="peanut")
+    await backend.write_preference(kid, schema_id="hm", attribute="allergies", value="sesame")
+    await backend.write_preference(kid, schema_id="hm", attribute="dislikes", value="kale")
+    await backend.write_preference(sibling, schema_id="hm", attribute="allergies", value="egg")
+
+    # Every stored version of one attribute goes, only in exactly that member's scope.
+    assert await backend.delete_preference(kid, schema_id="hm", attribute="allergies") == 1
+    assert (await backend.get_profiles(kid, ("hm",)))[0].values == {"dislikes": "kale"}
+    assert (await backend.get_profiles(sibling, ("hm",)))[0].values == {"allergies": "egg"}
+
+    past = datetime.now(UTC) - timedelta(days=1)
+    future = datetime.now(UTC) + timedelta(days=1)
+    assert await backend.purge(organization_id="retail", schema_id="hm", older_than=past) == ()
+    expired = await backend.purge(organization_id="retail", schema_id="hm", older_than=future)
+    assert {entry["attribute"] for entry in expired} == {"dislikes", "allergies"}
+    assert await backend.get_profiles(kid, ("hm",)) == ()
 
 
 @pytest.mark.asyncio

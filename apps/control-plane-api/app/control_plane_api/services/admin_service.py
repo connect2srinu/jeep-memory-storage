@@ -26,6 +26,12 @@ from control_plane_api.api.admin.models import (
     ScopeCreate,
 )
 from control_plane_api.domain import AccessPermission, AccessRequestStatus, LifecycleStatus
+from control_plane_api.domain.governance import (
+    RESTRICTED_PURPOSE,
+    check_retention,
+    retention_tier,
+)
+from control_plane_api.domain.household_identity import member_kind_for, normalize_name
 from control_plane_api.integrations.agent_health import AgentHealthProvider
 from control_plane_api.observability.runtime import correlation_id_context
 from control_plane_api.persistence.models import (
@@ -34,7 +40,9 @@ from control_plane_api.persistence.models import (
     AgentRuntimeBindingRecord,
     AgentSchemaGrantRecord,
     AuditEventRecord,
+    ConsentRecord,
     DynamicMemoryPolicyRecord,
+    HouseholdMemberAliasRecord,
     HouseholdMemberRecord,
     MemoryDomainRecord,
     OrganizationMembershipRecord,
@@ -262,6 +270,33 @@ class AdminControlPlaneService:
             )
             .order_by(HouseholdMemberRecord.member_id)
         )
+        aliases: dict[str, list[str]] = {}
+        for alias in await self.session.scalars(
+            select(HouseholdMemberAliasRecord)
+            .where(
+                HouseholdMemberAliasRecord.organization_id == organization_id,
+                HouseholdMemberAliasRecord.household_id == household_id,
+            )
+            .order_by(HouseholdMemberAliasRecord.alias)
+        ):
+            aliases.setdefault(alias.member_id, []).append(alias.alias)
+        return [
+            {**_record_data(record), "aliases": aliases.get(record.member_id, [])}
+            for record in records
+        ]
+
+    async def list_household_consents(
+        self, principal: AdminPrincipal, organization_id: str, household_id: str
+    ) -> list[dict[str, Any]]:
+        self.authorizer.require_read(principal)
+        records = await self.session.scalars(
+            select(ConsentRecord)
+            .where(
+                ConsentRecord.organization_id == organization_id,
+                ConsentRecord.household_id == household_id,
+            )
+            .order_by(ConsentRecord.requested_at.desc())
+        )
         return [_record_data(record) for record in records]
 
     async def upsert_household_member(
@@ -275,8 +310,22 @@ class AdminControlPlaneService:
         relationship: str,
         has_login: bool,
         is_guardian: bool,
+        minor: bool | None = None,
     ) -> dict[str, Any]:
         self.authorizer.require_platform(principal)
+        if has_login:
+            # One login = one household root: a member with a login signs in with its member id.
+            other = await self.session.scalar(
+                select(HouseholdMemberRecord).where(
+                    HouseholdMemberRecord.organization_id == organization_id,
+                    HouseholdMemberRecord.login_id == member_id,
+                    HouseholdMemberRecord.household_id != household_id,
+                )
+            )
+            if other is not None:
+                raise ResourceConflictError(
+                    f"login {member_id!r} already belongs to household {other.household_id!r}"
+                )
         record = await self.session.get(
             HouseholdMemberRecord, (organization_id, household_id, member_id)
         )
@@ -286,12 +335,19 @@ class AdminControlPlaneService:
                 organization_id=organization_id,
                 household_id=household_id,
                 member_id=member_id,
+                confirmed_at=datetime.now(UTC),
             )
             self.session.add(record)
+        member_kind, default_minor = member_kind_for(relationship, has_login=has_login)
         record.display_name = display_name
+        record.normalized_name = normalize_name(display_name) if display_name else None
         record.relationship = relationship
         record.has_login = has_login
         record.is_guardian = is_guardian
+        record.member_kind = member_kind
+        record.minor = default_minor if minor is None or has_login else minor
+        record.login_id = member_id if has_login else None
+        record.provenance = "ADMIN"
         record.status = "active"
         await self.session.flush()
         await self.session.refresh(record)
@@ -1270,6 +1326,8 @@ class AdminControlPlaneService:
                     "vertex_schema_definition",
                     "generation_config",
                     "mappings",
+                    "retention_days",
+                    "allowed_purposes",
                 )
             }
         elif resource == "resolution-policies":
@@ -1358,6 +1416,8 @@ class AdminControlPlaneService:
         fields = [item["profile_field"] for item in mappings]
         if len(attributes) != len(set(attributes)) or len(fields) != len(set(fields)):
             raise ResourceConflictError("schema mappings must have unique attributes and fields")
+        sensitivities: list[str] = []
+        has_health = False
         for attribute_id in attributes:
             preference = await self.session.get(PreferenceDefinitionRecord, attribute_id)
             if preference is None:
@@ -1366,6 +1426,12 @@ class AdminControlPlaneService:
                 raise ResourceConflictError(
                     f"preference {attribute_id} is not owned by domain {schema.domain_id}"
                 )
+            sensitivities.append(preference.sensitivity_classification)
+            has_health = has_health or bool((preference.validation_rules or {}).get("health"))
+        retention_days = details.get("retention_days")
+        check_retention(
+            retention_days, retention_tier(sensitivities, health=has_health), schema_id=schema.id
+        )
         version_id = f"{schema.id}:{details['version']}"
         self.session.add(
             ProfileSchemaVersionRecord(
@@ -1376,6 +1442,8 @@ class AdminControlPlaneService:
                 scope_definition_id=details["scope_definition_id"],
                 vertex_schema_definition=details["vertex_schema_definition"],
                 generation_config=details["generation_config"],
+                retention_days=retention_days,
+                allowed_purposes=list(details.get("allowed_purposes") or ["personalization"]),
             )
         )
         for mapping in mappings:
@@ -1677,6 +1745,8 @@ class AdminControlPlaneService:
             "vertex_schema_definition": safe_definition,
             "generation_config": active.generation_config,
             "mappings": values["mappings"],
+            "retention_days": active.retention_days,
+            "allowed_purposes": active.allowed_purposes,
         }
         if await self.session.get(ProfileSchemaVersionRecord, f"{schema.id}:{details['version']}"):
             raise ResourceConflictError(
@@ -1948,6 +2018,7 @@ class AdminControlPlaneService:
             if expiration is not None:
                 record.expiration = expiration
             if decision == AccessRequestStatus.APPROVED:
+                await self._require_purpose(record)
                 await self._activate_grant(record, principal, now)
         elif decision in {AccessRequestStatus.REVOKED, AccessRequestStatus.EXPIRED}:
             if record.status != AccessRequestStatus.APPROVED.value:
@@ -1977,6 +2048,48 @@ class AdminControlPlaneService:
             after,
         )
         return after
+
+    async def _require_purpose(self, request: AccessRequestRecord) -> None:
+        """Purpose limitation: the agent's declared purpose must be one the schema allows, and
+        advertising is never allowed for per-member (possibly minor) or health data."""
+        agent = await self.session.get(RegisteredAgentRecord, request.requesting_agent_id)
+        if agent is None:
+            return
+        version = await self.session.scalar(
+            select(ProfileSchemaVersionRecord)
+            .where(ProfileSchemaVersionRecord.schema_id == request.target_schema_id)
+            .order_by(
+                (ProfileSchemaVersionRecord.status == LifecycleStatus.ACTIVE.value).desc(),
+                ProfileSchemaVersionRecord.version.desc(),
+            )
+            .limit(1)
+        )
+        if version is None:
+            return
+        purpose = agent.purpose or "personalization"
+        allowed = list(version.allowed_purposes or ["personalization"])
+        if purpose not in allowed:
+            raise PermissionError(
+                f"agent {agent.id!r} declares purpose {purpose!r}, which schema "
+                f"{request.target_schema_id!r} does not allow (allowed: {', '.join(allowed)})"
+            )
+        if purpose != RESTRICTED_PURPOSE:
+            return
+        scope = await self.session.get(ScopeDefinitionRecord, version.scope_definition_id)
+        mappings = await self.session.scalars(
+            select(SchemaPreferenceMappingRecord).where(
+                SchemaPreferenceMappingRecord.schema_version_id == version.id
+            )
+        )
+        health = False
+        for mapping in mappings:
+            preference = await self.session.get(PreferenceDefinitionRecord, mapping.attribute_id)
+            health = health or bool(preference and (preference.validation_rules or {}).get("health"))
+        if health or (scope is not None and "member_id" in scope.scope_keys):
+            raise PermissionError(
+                f"{purpose} use is never allowed for per-member or health data "
+                f"(schema {request.target_schema_id!r})"
+            )
 
     async def _activate_grant(
         self, request: AccessRequestRecord, principal: AdminPrincipal, now: datetime

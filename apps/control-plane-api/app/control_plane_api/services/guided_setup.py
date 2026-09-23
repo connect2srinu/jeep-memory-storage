@@ -12,6 +12,7 @@ from control_plane_api.api.admin.models import (
     AgentCreate,
     DomainCreate,
     DynamicMemoryPolicyCreate,
+    GuidedCustomPreference,
     GuidedMemorySetupActivation,
     GuidedMemorySetupPreview,
     GuidedMemorySetupRequest,
@@ -24,6 +25,7 @@ from control_plane_api.api.admin.models import (
     ScopeCreate,
 )
 from control_plane_api.domain.control_plane import AccessRequestStatus
+from control_plane_api.domain.governance import check_retention, retention_tier
 from control_plane_api.domain.memory import MemoryProfileSchema
 from control_plane_api.persistence.models import (
     MemoryDomainRecord,
@@ -149,13 +151,14 @@ class GuidedMemorySetupService:
                         description=item.description,
                         dataType=item.data_type,
                         allowedValues=item.allowed_values,
-                        sensitivityClassification=item.sensitivity,
+                        sensitivityClassification=self._custom_sensitivity(item),
                         canonicalOwnerId=domain,
                         validationRules={
                             "recommended_domains": [domain],
                             "confirmation_required_for_long_term": (
                                 request.memory.confirmation_required
                             ),
+                            **({"health": True} if item.health else {}),
                         },
                         defaultResolutionBehavior={"policy": policy_id},
                     ),
@@ -369,6 +372,15 @@ class GuidedMemorySetupService:
                 "select or create at least one preference owned by the use-case domain"
             )
         tiers = self._tiers(request, owned)
+        for tier in tiers:
+            check_retention(
+                request.memory.profile_retention_days,
+                retention_tier(
+                    (item["sensitivity"] for item in tier["specs"]),
+                    health=any(item["health"] for item in tier["specs"]),
+                ),
+                schema_id=tier["schema_id"],
+            )
         owned_schema_ids = [tier["schema_id"] for tier in tiers]
         available_schemas = [
             *owned_schema_ids,
@@ -483,6 +495,11 @@ class GuidedMemorySetupService:
                     keys.append(required)
             return keys
         return list(SCOPE_KEYS[request.scope.type])
+
+    @staticmethod
+    def _custom_sensitivity(item: GuidedCustomPreference) -> str:
+        """Health data is at least sensitive."""
+        return "sensitive" if item.health and item.sensitivity == "normal" else item.sensitivity
 
     def _level_map(self, request: GuidedMemorySetupRequest) -> dict[str, str]:
         levels: dict[str, str] = {
@@ -620,6 +637,7 @@ class GuidedMemorySetupService:
                         }
                         for item in owned_preferences
                     ],
+                    retentionDays=request.memory.profile_retention_days,
                 ),
             )
             await self._activate_resource(principal, "schemas", schema_id)
@@ -683,6 +701,8 @@ class GuidedMemorySetupService:
                 "dataType": item.data_type,
                 "allowedValues": list(item.allowed_values),
                 "owner": item.canonical_owner_id,
+                "sensitivity": item.sensitivity_classification,
+                "health": bool((item.validation_rules or {}).get("health")),
             }
             for item in rows
         }
@@ -695,6 +715,8 @@ class GuidedMemorySetupService:
                     "dataType": item.data_type,
                     "allowedValues": list(item.allowed_values),
                     "owner": request.use_case.domain,
+                    "sensitivity": self._custom_sensitivity(item),
+                    "health": item.health,
                 }
                 for item in request.custom_preferences
             }

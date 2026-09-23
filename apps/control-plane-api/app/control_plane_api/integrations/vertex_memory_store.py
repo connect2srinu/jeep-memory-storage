@@ -322,6 +322,30 @@ class VertexMemoryBankStore:
             await asyncio.to_thread(self._client.delete, name=name)
         return len(names)
 
+    async def delete_preference(
+        self, scope: MemoryScope, *, schema_id: str, attribute: str
+    ) -> int:
+        """Delete every version of one canonical attribute in exactly this scope (no cascade)."""
+        target = scope.as_dict()
+        items = await asyncio.to_thread(self._client.list_memories)
+        names = []
+        for item in items:
+            memory = getattr(item, "memory", item)
+            if dict(getattr(memory, "scope", None) or {}) != target:
+                continue
+            payload = self._json_object(getattr(memory, "fact", None))
+            if (
+                payload
+                and payload.get("schema") == self._EXPLICIT_SCHEMA
+                and payload.get("schema_id") == schema_id
+                and payload.get("attribute") == attribute
+                and getattr(memory, "name", None)
+            ):
+                names.append(memory.name)
+        for name in names:
+            await asyncio.to_thread(self._client.delete, name=name)
+        return 1 if names else 0
+
     async def purge(
         self,
         *,
@@ -329,14 +353,33 @@ class VertexMemoryBankStore:
         tier: str | None = None,
         attribute: str | None = None,
         topic: str | None = None,
+        schema_id: str | None = None,
+        older_than: datetime | None = None,
         dry_run: bool = False,
     ) -> tuple[dict[str, Any], ...]:
         """Delete memories across the organization matching a filter (operator on-demand).
 
         ``dry_run`` returns the matches without deleting. Org isolation is enforced via each
-        memory's immutable scope.
+        memory's immutable scope. ``schema_id`` / ``older_than`` restrict to canonical values of
+        one schema last written before a time (retention).
         """
         items = await asyncio.to_thread(self._client.list_memories)
+        # An attribute's value is its newest version; retention judges that version's time, and
+        # deletes every stored version of an expired attribute.
+        latest: dict[tuple[tuple[tuple[str, str], ...], str, str], datetime] = {}
+        if older_than is not None:
+            for item in items:
+                memory = getattr(item, "memory", item)
+                payload = self._json_object(getattr(memory, "fact", None))
+                if not payload or payload.get("schema") != self._EXPLICIT_SCHEMA:
+                    continue
+                key = (
+                    tuple(sorted((getattr(memory, "scope", None) or {}).items())),
+                    str(payload.get("schema_id", "")),
+                    str(payload.get("attribute", "")),
+                )
+                written = self._timestamp(memory, payload.get("updated_at"))
+                latest[key] = max(latest.get(key, written), written)
         matches: list[dict[str, Any]] = []
         for item in items:
             memory = getattr(item, "memory", item)
@@ -346,6 +389,18 @@ class VertexMemoryBankStore:
             payload = self._json_object(getattr(memory, "fact", None))
             if not payload:
                 continue
+            if (schema_id or older_than) and payload.get("schema") != self._EXPLICIT_SCHEMA:
+                continue
+            if schema_id and payload.get("schema_id") != schema_id:
+                continue
+            if older_than is not None:
+                key = (
+                    tuple(sorted(scope.items())),
+                    str(payload.get("schema_id", "")),
+                    str(payload.get("attribute", "")),
+                )
+                if latest.get(key, older_than) >= older_than:
+                    continue
             entry = self._match_purge(payload, tier, attribute, topic)
             if entry is None:
                 continue
@@ -354,6 +409,8 @@ class VertexMemoryBankStore:
                     **entry,
                     "organizationId": organization_id,
                     "userId": scope.get("user_id"),
+                    "scope": [scope[key] for key in sorted(scope)],
+                    "schemaId": payload.get("schema_id"),
                     "name": getattr(memory, "name", None),
                 }
             )

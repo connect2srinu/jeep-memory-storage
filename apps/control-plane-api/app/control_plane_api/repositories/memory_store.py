@@ -54,6 +54,11 @@ class MemoryStore(Protocol):
 
     async def forget_user(self, scope: MemoryScope) -> int: ...
 
+    async def delete_preference(
+        self, scope: MemoryScope, *, schema_id: str, attribute: str
+    ) -> int:
+        """Delete one canonical attribute in exactly this scope (no cascade). Returns count."""
+
     async def purge(
         self,
         *,
@@ -61,5 +66,11 @@ class MemoryStore(Protocol):
         tier: str | None = None,
         attribute: str | None = None,
         topic: str | None = None,
+        schema_id: str | None = None,
+        older_than: datetime | None = None,
         dry_run: bool = False,
-    ) -> tuple[dict[str, object], ...]: ...
+    ) -> tuple[dict[str, object], ...]:
+        """Delete memories across the organization matching every given filter.
+
+        ``older_than`` matches canonical values last written before that time (retention).
+        """

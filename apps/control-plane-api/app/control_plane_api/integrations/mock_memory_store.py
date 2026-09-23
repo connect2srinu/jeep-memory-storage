@@ -22,6 +22,8 @@ class MockMemoryStore:
     def __init__(self) -> None:
         self._schemas: dict[str, MemoryProfileSchema] = {}
         self._profiles: dict[tuple[tuple[str, str], str], MemoryProfile] = {}
+        # (identity, schema_id) -> field -> last write time (drives per-attribute retention).
+        self._field_times: dict[tuple[tuple[str, str], str], dict[str, datetime]] = {}
         self._natural_memories: dict[tuple[str, str], list[NaturalMemory]] = {}
         self._dynamic: dict[tuple[str, str], dict[str, DynamicMemory]] = {}
         self._lock = asyncio.Lock()
@@ -141,9 +143,29 @@ class MockMemoryStore:
             for key in [key for key in self._profiles if key[0][: len(identity)] == identity]:
                 removed += len(self._profiles[key].values)
                 del self._profiles[key]
+                self._field_times.pop(key, None)
             removed += len(self._dynamic.pop(identity, {}))
             removed += len(self._natural_memories.pop(identity, []))
             return removed
+
+    async def delete_preference(
+        self, scope: MemoryScope, *, schema_id: str, attribute: str
+    ) -> int:
+        async with self._lock:
+            key = scope.identity, schema_id
+            return self._drop_field(key, attribute)
+
+    def _drop_field(self, key: tuple[tuple[str, str], str], field: str) -> int:
+        profile = self._profiles.get(key)
+        if profile is None or field not in profile.values:
+            return 0
+        remaining = {name: value for name, value in profile.values.items() if name != field}
+        if remaining:
+            self._profiles[key] = replace(profile, values=remaining)
+        else:
+            del self._profiles[key]
+        self._field_times.get(key, {}).pop(field, None)
+        return 1
 
     async def purge(
         self,
@@ -152,9 +174,11 @@ class MockMemoryStore:
         tier: str | None = None,
         attribute: str | None = None,
         topic: str | None = None,
+        schema_id: str | None = None,
+        older_than: datetime | None = None,
         dry_run: bool = False,
     ) -> tuple[dict[str, object], ...]:
-        if attribute:
+        if attribute or schema_id or older_than:
             tiers = {"canonical"}
         elif topic:
             tiers = {"dynamic"}
@@ -165,25 +189,29 @@ class MockMemoryStore:
         async with self._lock:
             matches: list[dict[str, object]] = []
             if "canonical" in tiers:
-                for (identity, schema_id), profile in list(self._profiles.items()):
+                for (identity, stored_schema), profile in list(self._profiles.items()):
                     if identity[0] != organization_id:
                         continue
+                    if schema_id and stored_schema != schema_id:
+                        continue
+                    written = self._field_times.get((identity, stored_schema), {})
                     for field in list(profile.values):
                         if attribute and not (attribute == field or attribute.endswith(f".{field}")):
+                            continue
+                        if older_than and written.get(field, profile.updated_at) >= older_than:
                             continue
                         matches.append(
                             {
                                 "organizationId": identity[0],
                                 "userId": identity[1],
+                                "scope": list(identity),
+                                "schemaId": stored_schema,
                                 "tier": "canonical",
                                 "attribute": field,
                             }
                         )
                         if not dry_run:
-                            remaining = {k: v for k, v in profile.values.items() if k != field}
-                            self._profiles[(identity, schema_id)] = replace(
-                                profile, values=remaining
-                            )
+                            self._drop_field((identity, stored_schema), field)
             if "dynamic" in tiers:
                 for identity, topics in list(self._dynamic.items()):
                     if identity[0] != organization_id:
@@ -227,6 +255,7 @@ class MockMemoryStore:
                 updated_at=datetime.now(UTC),
             )
         self._profiles[key] = profile
+        self._field_times.setdefault(key, {})[attribute] = profile.updated_at
         return profile
 
     def _require_schema_for_scope(self, schema_id: str, scope: MemoryScope) -> MemoryProfileSchema:

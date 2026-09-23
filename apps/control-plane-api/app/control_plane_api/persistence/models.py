@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -216,6 +217,13 @@ class ProfileSchemaVersionRecord(TimestampMixin, Base):
     )
     vertex_schema_definition: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     generation_config: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    # Schema-owner retention for canonical preferences, bounded by the platform limits per
+    # sensitivity tier. None keeps values until deleted.
+    retention_days: Mapped[int | None] = mapped_column(Integer)
+    # Purposes an agent may declare to be granted this schema (deny-by-default purpose limitation).
+    allowed_purposes: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=lambda: ["personalization"]
+    )
 
 
 class PreferenceDefinitionRecord(TimestampMixin, Base):
@@ -280,6 +288,8 @@ class RegisteredAgentRecord(TimestampMixin, Base):
     identity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     principal: Mapped[str | None] = mapped_column(String(512), unique=True)
     capabilities: Mapped[dict[str, bool]] = mapped_column(JSON, nullable=False, default=dict)
+    # Declared use of the memory it reads; must be in each granted schema's allowed_purposes.
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False, default="personalization")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
 
 
@@ -311,7 +321,19 @@ class HouseholdMemberRecord(TimestampMixin, Base):
     """
 
     __tablename__ = "household_members"
-    __table_args__ = (Index("ix_household_members_member", "organization_id", "member_id"),)
+    __table_args__ = (
+        Index("ix_household_members_member", "organization_id", "member_id"),
+        # One household root per login (one login = one household root).
+        Index(
+            "uq_household_members_login",
+            "organization_id",
+            "login_id",
+            unique=True,
+            postgresql_where=text("login_id IS NOT NULL"),
+            sqlite_where=text("login_id IS NOT NULL"),
+        ),
+        Index("ix_household_members_name", "organization_id", "household_id", "normalized_name"),
+    )
 
     organization_id: Mapped[str] = mapped_column(String(127), primary_key=True)
     household_id: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -320,7 +342,71 @@ class HouseholdMemberRecord(TimestampMixin, Base):
     relationship: Mapped[str] = mapped_column(String(64), nullable=False, default="member")
     has_login: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_guardian: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # provisional (proposed, awaiting confirmation) | active | merged | inactive | expired
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    # ROOT (the logged-in customer) | DEPENDENT (a child) | PROXY_ADULT (another adult, no login)
+    member_kind: Mapped[str] = mapped_column(String(32), nullable=False, default="PROXY_ADULT")
+    minor: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    login_id: Mapped[str | None] = mapped_column(String(255))
+    normalized_name: Mapped[str | None] = mapped_column(String(255))
+    # AUTHENTICATED | INFERRED | USER_CONFIRMED | ADMIN | AUTHORITATIVE
+    provenance: Mapped[str] = mapped_column(String(32), nullable=False, default="ADMIN")
+    match_confidence: Mapped[float | None] = mapped_column(Float)
+    # Link to a future authoritative household/member source; linking never re-keys memory.
+    authoritative_id: Mapped[str | None] = mapped_column(String(255))
+    merged_into_member_id: Mapped[str | None] = mapped_column(String(255))
+    created_by_agent_id: Mapped[str | None] = mapped_column(String(127))
+    source_session_id: Mapped[str | None] = mapped_column(String(255))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class HouseholdMemberAliasRecord(Base):
+    """A name variant observed for a member, so later mentions match directly."""
+
+    __tablename__ = "household_member_aliases"
+    __table_args__ = (
+        Index("ix_household_member_aliases_alias", "organization_id", "household_id", "alias"),
+    )
+
+    organization_id: Mapped[str] = mapped_column(String(127), primary_key=True)
+    household_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    member_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    # Normalized form of the variant.
+    alias: Mapped[str] = mapped_column(String(255), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="match")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ConsentRecord(Base):
+    """Consent ledger for health data: the prompt shown, who confirmed it, and for whom.
+
+    A PENDING row is created when the platform asks for confirmation; the confirmed write turns it
+    GRANTED. Withdrawal (WITHDRAWN) deletes the data. Unanswered prompts become EXPIRED.
+    """
+
+    __tablename__ = "consent_records"
+    __table_args__ = (Index("ix_consent_records_household", "organization_id", "household_id"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(String(127), nullable=False)
+    household_id: Mapped[str | None] = mapped_column(String(255))
+    # None for a household-level attribute (not attributed to one person).
+    subject_member_id: Mapped[str | None] = mapped_column(String(255))
+    granted_by_member_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, default="health")
+    attribute_id: Mapped[str] = mapped_column(String(191), nullable=False)
+    # sha256 of the value, binding the consent to exactly what was shown.
+    value_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING")
+    agent_id: Mapped[str | None] = mapped_column(String(127))
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AccessRequestRecord(TimestampMixin, Base):

@@ -9,8 +9,13 @@ from control_plane_api.api.runtime.models import (
     EffectivePreferenceSnapshotResponse,
     ExplicitPreferenceUpdate,
     ForgetMemoryRequest,
+    HouseholdMemberAddRequest,
+    HouseholdMemberMergeRequest,
+    HouseholdMemberUpdateRequest,
     HouseholdMemberWriteRequest,
     MemoryEventRequest,
+    PreferenceForgetRequest,
+    PreferenceMoveRequest,
     PurgeMemoryRequest,
     RawProfilesRequest,
     ResolvePreferencesRequest,
@@ -88,6 +93,49 @@ def create_runtime_router(
         service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
     ) -> RuntimeMutationResponse:
         return await service.update_preference(identity, attribute, payload)
+
+    @router.post("/preferences/{attribute}/forget", response_model=RuntimeMutationResponse)
+    async def forget_preference(
+        attribute: str,
+        payload: PreferenceForgetRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.forget_preference(identity, attribute, payload)
+
+    @router.post("/preferences/{attribute}/move", response_model=RuntimeMutationResponse)
+    async def move_preference(
+        attribute: str,
+        payload: PreferenceMoveRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.move_preference(identity, attribute, payload)
+
+    @router.post("/household/members", response_model=RuntimeMutationResponse)
+    async def add_household_member(
+        payload: HouseholdMemberAddRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.add_household_member(identity, payload)
+
+    @router.post("/household/members/merge", response_model=RuntimeMutationResponse)
+    async def merge_household_members(
+        payload: HouseholdMemberMergeRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.merge_household_members(identity, payload)
+
+    @router.patch("/household/members/{member_id}", response_model=RuntimeMutationResponse)
+    async def update_household_member(
+        member_id: str,
+        payload: HouseholdMemberUpdateRequest,
+        identity: AuthenticatedPrincipal = Depends(principal),  # noqa: B008
+        service: RuntimeMemoryService = Depends(service_dependency),  # noqa: B008
+    ) -> RuntimeMutationResponse:
+        return await service.update_household_member(identity, member_id, payload)
 
     @router.put("/households/{household_id}/members/{member_id}")
     async def upsert_household_member(

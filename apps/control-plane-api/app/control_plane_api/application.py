@@ -25,6 +25,7 @@ from control_plane_api.services.admin_service import (
     ResourceNotFoundError,
 )
 from control_plane_api.services.guided_setup import GuidedMemorySetupService
+from control_plane_api.services.retention_service import RetentionService
 from control_plane_api.services.runtime_service import RuntimeMemoryService
 from control_plane_api.services.scope_registry import ScopeRegistry
 from control_plane_api.services.vertex_provisioning import VertexContextProvisioner
@@ -139,6 +140,10 @@ def create_app(
         async with runtime_database.session() as session:
             yield GuidedMemorySetupService(session, runtime_store, vertex_provisioner)
 
+    async def retention_service() -> AsyncIterator[RetentionService]:
+        async with runtime_database.session() as session:
+            yield RetentionService(session, runtime_store)
+
     api.include_router(
         create_runtime_router(
             authenticator=configured.authenticator(),
@@ -150,6 +155,7 @@ def create_app(
             authenticator=configured.admin_authenticator(),
             service_dependency=admin_service,
             guided_service_dependency=guided_setup_service,
+            retention_service_dependency=retention_service,
         )
     )
 

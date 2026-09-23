@@ -10,6 +10,10 @@ class AdminModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True, extra="forbid")
 
 
+# Declared use of memory (see domain.governance.PURPOSES).
+Purpose = Literal["personalization", "analytics", "advertising"]
+
+
 class OrganizationCreate(AdminModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9-]*$", max_length=63)
     name: str = Field(min_length=1)
@@ -105,6 +109,11 @@ class SchemaCreate(AdminModel):
     vertex_schema_definition: dict[str, Any] = Field(alias="vertexSchemaDefinition")
     generation_config: dict[str, Any] = Field(default_factory=dict, alias="generationConfig")
     mappings: list[SchemaMapping] = Field(min_length=1)
+    # Schema-owner retention within the platform limit for the schema's sensitivity tier.
+    retention_days: int | None = Field(default=None, alias="retentionDays", ge=1, le=3650)
+    allowed_purposes: list[Purpose] = Field(
+        default_factory=lambda: ["personalization"], alias="allowedPurposes", min_length=1
+    )
 
 
 class SchemaVersionChange(AdminModel):
@@ -142,6 +151,14 @@ class AgentCreate(AdminModel):
     identity_type: str = Field(alias="identityType", min_length=1)
     principal: str | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
+    # Declared use of the memory it reads; checked against each schema's allowed purposes.
+    purpose: Purpose = "personalization"
+
+
+class RetentionSweepRequest(AdminModel):
+    dry_run: bool = Field(default=True, alias="dryRun")
+    # Preview what would expire as of a future date (dry run only).
+    as_of: datetime | None = Field(default=None, alias="asOf")
 
 
 class ResolutionSchemaPriority(AdminModel):
@@ -218,6 +235,8 @@ class HouseholdMemberAdminWrite(AdminModel):
     relationship: str = Field(default="member", min_length=1)
     has_login: bool = Field(default=False, alias="hasLogin")
     is_guardian: bool = Field(default=False, alias="isGuardian")
+    # Defaults from the relationship (a child is a minor); set it to correct, e.g. an adult son.
+    minor: bool | None = None
 
 
 class GuidedUseCase(AdminModel):
@@ -240,6 +259,9 @@ class GuidedCustomPreference(AdminModel):
     # For the HOUSEHOLD_MEMBERS scope, which tier this preference belongs to: shared by the whole
     # household ("household") or specific to one member such as a child ("member").
     level: Literal["household", "member"] = "household"
+    # Health data (e.g. allergies): stricter matching, a confirmation turn and a consent record.
+    # Implies at least "sensitive".
+    health: bool = Field(default=False, alias="isHealth")
 
 
 class GuidedScope(AdminModel):
@@ -253,6 +275,11 @@ class GuidedMemoryBehavior(AdminModel):
     confidence_threshold: float = Field(default=0.85, alias="confidenceThreshold", ge=0, le=1)
     confirmation_required: bool = Field(default=True, alias="confirmationRequired")
     retention_days: int = Field(default=365, alias="retentionDays", ge=1, le=3650)
+    # Retention for canonical preference values (the generated schemas); None keeps them until
+    # deleted. Must be within the platform limit for each schema's sensitivity tier.
+    profile_retention_days: int | None = Field(
+        default=None, alias="profileRetentionDays", ge=1, le=3650
+    )
     memory_topics: list[str] = Field(default_factory=list, alias="memoryTopics")
     topic_definitions: dict[str, str] = Field(default_factory=dict, alias="topicDefinitions")
 
