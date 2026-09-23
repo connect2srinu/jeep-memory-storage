@@ -385,27 +385,40 @@ On **Households → Retention** (left column):
 Use this if a preference was missed, e.g. `dislikes`. It creates a new schema version, which takes
 effect as soon as it's approved.
 
-1. **Select the organization first:** click **Organizations** at the top of the left panel and
-   choose **Retail**. The **Create new version** button only appears when an organization is selected.
-2. **Govern & manage → Schemas** → click the schema to change:
+> **Where the button is:** only in **Govern & manage → Schemas**, and only while an organization is
+> selected. The Organization → Project → Domain view has a Schemas tab too, but it is read-only and
+> has no **Create new version** button.
+
+1. **Select the organization.** Click the button at the very top of the left panel (building icon,
+   labeled **Organizations**). The organization directory opens. Click the **Retail** card. ✔ The top
+   button now shows the organization name, and an **ORGANIZATION** group (Overview / Projects /
+   Members & Roles) appears in the left panel.
+   Don't click that top button again: it clears the selection and returns to the directory.
+2. **Open Schemas.** In the left panel, expand **Govern & manage** and click **Schemas**. The table
+   lists both familygrocery schemas.
+3. **Open the schema.** Click its row. Both have the display name "Family Grocery Preferences", so go
+   by the **Id** column:
    - per-person preferences → `familygrocery-member-preferences-v1`
    - household-wide preferences → `familygrocery-household-preferences-v1`
-3. Click **Create new version**. Existing preferences show as *Existing mapping · protected*.
-4. Click **+ Create preference** and fill in, for example:
+   
+   A details panel slides in from the right. It should show **Visibility OWNED** and **Editable true**.
+4. **Scroll to the bottom of that panel** and click **Create new version**. Existing preferences show
+   as *Existing mapping · protected*.
+5. Click **+ Create preference** and fill in, for example:
    - Attribute name: `dislikes` (the `familygrocery.` prefix is added for you)
    - Display name: `Dislikes`
    - Description: `Foods this person does not like (a preference, not an allergy)`
    - Data type: `string`; Sensitivity: `normal`
    
    Click **Create and select**.
-5. Click **Review version** → New version: `2` → **Submit version for approval**. The current version
+6. Click **Review version** → New version: `2` → **Submit version for approval**. The current version
    stays active until approval.
-6. **Govern & manage → Approvals** → **Approve** the schema change.
-7. In the dev UI, start a **new session**. The new preference is now writable; no restart is needed.
+7. **Govern & manage → Approvals** → **Approve** the schema change.
+8. In the dev UI, start a **new session**. The new preference is now writable; no restart is needed.
 
 **Adding a health preference this way.** The version form has no Health data checkbox. Create the
 preference first under **Govern & manage → Preference Catalog** (JSON form → **Create governed
-record**), then select it in step 4 instead of creating it there:
+record**), then select it in step 5 instead of creating it there:
 
 ```json
 {
@@ -430,7 +443,7 @@ record**), then select it in step 4 instead of creating it there:
 | *authenticated principal is not mapped to an active agent* | The wizard isn't activated yet, the database was reset, or the Agent ID isn't `familygrocery-assistant`. | Finish section 2.3; keep the agent id exactly. |
 | *schema … is already registered differently* | An API image from before a fix on this branch. | Rebuild the API: `docker compose -f docker-compose.yml -f docker-compose.devui.yml up -d --build --wait control-plane-api` |
 | Wizard preview: *exceeds the platform limit of 730 days* | Retention is above the limit for sensitive/health data. | Use 730 or less (365 in this guide). |
-| No **Create new version** button on a schema | No organization is selected. | Select Retail via **Organizations** at the top of the left panel. |
+| No **Create new version** button on a schema | No organization is selected, or you are in the read-only Domain → Schemas tab. | Use **Govern & manage → Schemas** after selecting Retail from the directory (section 6, steps 1–4). |
 | A preference unexpectedly shows `health data` | The wizard form kept the previous entry's Health tick. | Before activation: go back and recreate it. After: fix it through a new schema version. |
 | *member … is not in the customer's household* | The dev UI User ID changed, so you're a different customer. | Switch back to the original User ID. |
 | Saved preferences vanished but members are still listed | The API container restarted; values live in the in-memory store. | Re-enter them. (Rosters and consents are in Postgres.) |
