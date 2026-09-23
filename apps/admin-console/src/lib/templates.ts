@@ -51,6 +51,8 @@ export const templates: Record<string, AdminRecord> = {
     mappings: [
       { attributeId: "rewards.preferred_reward", profileField: "preferred_reward" },
     ],
+    retentionDays: 365,
+    allowedPurposes: ["personalization"],
   },
   agents: {
     id: "rewards-agent",
@@ -61,6 +63,7 @@ export const templates: Record<string, AdminRecord> = {
     runtimeType: "ADK_CLOUD_RUN",
     identityType: "GOOGLE_SERVICE_ACCOUNT",
     capabilities: { resolve_context: true, submit_candidates: true },
+    purpose: "personalization",
   },
   "access-requests": {
     requestingAgentId: "rewards-agent",

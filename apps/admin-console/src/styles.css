@@ -276,3 +276,24 @@ table { width: 100%; border-collapse: collapse; font-size: .84rem; }th { positio
 .tier-row span { color: #274a63; font-size: .82rem; }
 .tier-row select { padding: 7px 10px; border: 1px solid #bdcad8; border-radius: 8px; background: #fff; }
 @media (max-width: 900px) { .households-grid { grid-template-columns: 1fr; } }
+/* Dynamic household members */
+.member-row.provisional { border-style: dashed; background: #fffbf0; }
+.member-row .aliases { color: #8a6d1f; }
+.pill.minor { color: #7a2e8a; background: #f5e6fa; }
+.pill.provenance { color: #4e5d70; background: #eef2f6; font-weight: 700; }
+.pill.granted { color: #0e6846; background: #dff5e9; }
+.pill.withdrawn, .pill.expired { color: #a82d2d; background: #fbe4e4; }
+.consent-ledger { display: grid; gap: 10px; }
+.consent-ledger h4 { margin: 0; color: #234b6c; }
+.consent-ledger table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.consent-ledger th, .consent-ledger td { padding: 7px 8px; border-bottom: 1px solid #e2ebf1; text-align: left; vertical-align: top; }
+.consent-ledger th { color: #607287; font-weight: 750; }
+.retention-panel { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border: 1px solid #d8e0ea; border-radius: 12px; background: #fff; }
+.retention-panel h3 { margin: 0; }
+.retention-panel p { margin: 0; color: #66758a; font-size: .8rem; }
+.retention-panel label { display: grid; gap: 5px; color: #44546a; font-size: .78rem; font-weight: 750; }
+.retention-panel input { padding: 7px 9px; border: 1px solid #bdcad8; border-radius: 8px; }
+.retention-actions { display: flex; gap: 8px; }
+.retention-actions .primary { border: 0; color: #fff; background: #006ec8; border-radius: 8px; padding: 7px 12px; }
+.retention-result { display: grid; gap: 3px; padding: 10px; border-radius: 8px; background: #f3f6fa; }
+.retention-result small { color: #44546a; }

@@ -196,6 +196,31 @@ export class AdminApiClient {
     ).data;
   }
 
+  async listHouseholdConsents(
+    organizationId: string,
+    householdId: string,
+  ): Promise<AdminRecord[]> {
+    return (
+      await this.request<AdminRecordList>(
+        `/organizations/${encodeURIComponent(organizationId)}/households/${encodeURIComponent(
+          householdId,
+        )}/consents`,
+      )
+    ).items;
+  }
+
+  async retentionSweep(
+    organizationId: string,
+    payload: { dryRun: boolean; asOf?: string },
+  ): Promise<AdminRecord> {
+    return (
+      await this.request<AdminRecordEnvelope>(
+        `/organizations/${encodeURIComponent(organizationId)}/retention/sweep`,
+        { method: "POST", body: JSON.stringify(payload) },
+      )
+    ).data;
+  }
+
   async deactivateHouseholdMember(
     organizationId: string,
     householdId: string,
