@@ -420,6 +420,86 @@ def adoption():
     save(img, "07_adoption.png")
 
 
+# ---------------------------------------------------------------- 8. extraction flow
+def extraction_flow():
+    img, d = canvas()
+    title(d, "Where Memory Extraction Happens — Today",
+          "The agent's own LLM detects & extracts · the Control Plane validates & governs · Memory Bank stores")
+    cols = [(60, 270), (330, 760), (840, 1240), (1300, 1545)]
+    heads = [("1  CUSTOMER", INK), ("2  AGENT LAYER (ADK)", BLUE[2]),
+             ("3  CONTROL PLANE API", PURPLE[2]), ("4  MEMORY BANK", TEAL[2])]
+    for (x0, _), (lab, col) in zip(cols, heads):
+        d.text((x0, 158), lab, font=font(17, True), fill=col)
+
+    # 1. customer
+    rrect(d, [60, 200, 270, 420], radius=16, fill=BAND, outline=MUTED, width=2)
+    centered(d, [60, 200, 270, 420],
+             "“We only buy organic. Timmy is allergic to peanuts.”", font(19, True), INK, gap=5)
+    arrow(d, (275, 300), (325, 300), color=INK, width=6, head=15)
+
+    # 2. agent — extraction happens here
+    rrect(d, [330, 200, 760, 560], radius=18, fill=BLUE[0], outline=BLUE[1], width=4)
+    d.text((352, 216), "Detects & extracts", font=font(22, True), fill=BLUE[2])
+    rrect(d, [352, 254, 640, 288], radius=10, fill=AMBER[1])
+    centered(d, [352, 254, 640, 288], "EXTRACTION HAPPENS HERE", font(15, True), "#FFFFFF", pad=6)
+    bullets(d, 356, 306, [
+        "Session snapshot injected each turn: writable preferences, topics, household roster",
+        "The same LLM call that picks shopping tools decides: is this a preference?",
+        "Extracts attribute + value + person → save_preference(…)",
+    ], font(18), BLUE[2], dot=BLUE[1], gap=12, max_w=370)
+
+    # agent branch: normal shopping never touches memory
+    arrow(d, (545, 562), (545, 604), color=MUTED, width=5, head=13)
+    rrect(d, [330, 608, 760, 690], radius=14, fill=BAND, outline=MUTED, width=2)
+    centered(d, [330, 608, 760, 690],
+             "~90% of turns: normal shopping\nNo Control Plane / Memory Bank call", font(18, True), MUTED, gap=4)
+
+    # agent -> control plane, and the confirmation turn back
+    arrow(d, (765, 300), (835, 300), color=INK, width=6, head=15)
+    d.text((770, 312), "save", font=font(14, True), fill=INK)
+    arrow(d, (835, 470), (765, 470), color=AMBER[1], width=5, head=14)
+    d.text((770, 480), "confirm", font=font(14, True), fill=AMBER[2])
+
+    # 3. control plane — validation & governance
+    rrect(d, [840, 200, 1240, 560], radius=18, fill=PURPLE[0], outline=PURPLE[1], width=4)
+    d.text((862, 216), "Validates & governs", font=font(22, True), fill=PURPLE[2])
+    y = bullets(d, 866, 262, [
+        "Attribute in the preference catalog and the agent's grant",
+        "Scope: household / member resolution",
+        "Never-store + sensitivity screen",
+        "Purpose check · audit event",
+    ], font(17), PURPLE[2], dot=PURPLE[1], gap=10, max_w=345)
+    bullets(d, 866, y, [
+        "New member or health data → needs_confirmation; agent asks the customer",
+    ], font(17), AMBER[2], dot=AMBER[1], gap=10, max_w=345)
+    arrow(d, (1245, 300), (1295, 300), color=INK, width=6, head=15)
+
+    # 4. memory bank — storage only
+    rrect(d, [1300, 200, 1545, 420], radius=16, fill=TEAL[0], outline=TEAL[1], width=3)
+    d.text((1320, 216), "Stores only", font=font(22, True), fill=TEAL[2])
+    bullets(d, 1318, 262, [
+        "CreateMemory: typed fact, exact scope",
+        "Read back by scope on resolve",
+    ], font(16), TEAL[2], dot=TEAL[1], gap=10, max_w=195)
+    rrect(d, [1300, 440, 1545, 560], radius=14, fill=BAND, outline=MUTED, width=2)
+    centered(d, [1300, 440, 1545, 560],
+             "Managed extraction (GenerateMemories) is OFF — no ungoverned memories",
+             font(16, True), MUTED, gap=4, pad=12)
+
+    # read path
+    rrect(d, [840, 608, 1545, 690], radius=14, fill=BAND, outline=PURPLE[1], width=2)
+    centered(d, [840, 608, 1545, 690],
+             "Read path: resolve once per session → snapshot cached in the agent → injected every turn (no per-turn API call)",
+             font(17, True), PURPLE[2], gap=4, pad=18)
+
+    rrect(d, [60, 730, 1545, 830], radius=16, fill=INK)
+    centered(d, [60, 730, 1545, 830],
+             "Extraction rides on the agent's existing LLM call — 0 extra model calls. Control Plane + Memory Bank "
+             "are called only on memory turns, and every write is validated centrally.",
+             font(21, True), "#FFFFFF", gap=6, pad=30)
+    save(img, "08_extraction_flow.png")
+
+
 if __name__ == "__main__":
     three_options()
     gate_matrix()
@@ -428,4 +508,5 @@ if __name__ == "__main__":
     scalability()
     roadmap()
     adoption()
+    extraction_flow()
     print("done")

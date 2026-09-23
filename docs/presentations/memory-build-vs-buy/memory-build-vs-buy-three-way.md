@@ -71,6 +71,22 @@ The Control Plane sits in the write and read paths, enforces governance, then ha
 - Agents see a **simple `save()` / `resolve()`** interface; all enterprise rules live in the platform, not agent code.
 - **Best of both:** managed storage, SLA, low cost from Memory Bank; never-store, deterministic recall, RBAC, audit, clean exit from the Control Plane.
 
+### Where memory extraction happens (today)
+
+Extraction happens at the **agent layer**; the Control Plane **validates and governs**; Memory Bank **only stores**.
+
+![Where memory extraction happens: customer, agent (detects and extracts), Control Plane (validates and governs), Memory Bank (stores only)](img/08_extraction_flow.png)
+
+**Key message:** extraction reuses the agent's existing LLM call — **no extra model call**, and the Control Plane and Memory Bank are called **only on turns that change memory**.
+
+**Talking points**
+- **Agent (detects & extracts):** the session snapshot tells the model which preferences, topics and household members it may write. The same LLM decision that picks shopping tools decides whether a message holds a preference, and if so calls `save_preference(attribute, value, person)`.
+- **Most turns never touch memory:** roughly 90% of grocery turns are normal shopping, so they make no Control Plane or Memory Bank call. Reads are resolved **once per session** and cached.
+- **Control Plane (validates & governs):** catalog and grant check, household/member resolution, never-store and sensitivity screen, purpose check, audit. A new household member or health data returns **`needs_confirmation`**, and the agent asks the customer in the same conversation.
+- **Memory Bank (stores only):** a typed fact is written to the exact scope with `CreateMemory`. Memory Bank's own managed extraction is **deliberately off**, so no ungoverned memories are created.
+- **Why not extract in the memory layer?** It would add an LLM pass over every conversation, including the ~90% with nothing to save. It can't ask the customer to confirm. And because everything it extracts is inferred, policy would reject sensitive values like allergies.
+- **Keeping agents consistent:** every agent reuses the same shared memory tools and callbacks, and the Control Plane serves the preference list, so memory behavior is defined centrally even though detection runs in each agent.
+
 ---
 
 ## 5. Finalized criteria to propose to the client
@@ -182,7 +198,7 @@ delineated**, and a **timeline**.
 > storage; the Control Plane adds the enterprise governance; the app is coupled to a **thin standard
 > API**, not locked in.
 
-![Three layers — Memory Bank storage vs. Control Plane governance](img/02_three_layer.png)
+![Three layers — Memory Bank storage vs. Control Plane governance](../control-plane-platform-value/img/02_three_layer.png)
 
 **Talking points**
 - **What the Control Plane provides** (and Memory Bank alone cannot): never-store enforcement, RBAC,
