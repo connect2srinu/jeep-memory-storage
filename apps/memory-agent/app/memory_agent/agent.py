@@ -59,9 +59,10 @@ SAVING. Pick the attribute whose description best matches the statement:
   - About the customer themself: pass no member.
   - About someone else: pass member_id if that person is in householdMembers (match their name or
     aliases); otherwise pass member_name (and relationship, e.g. "son", if the customer said it).
-    Never invent a member_id.
+    Never invent a member_id, and never ask the customer for one — they don't know member ids.
 - Otherwise, if it fits an approved topic, call remember_dynamic_preference with that topic.
-- Otherwise do not store it; explain it is not an approved memory type.
+- Otherwise do not store it; explain that this kind of information isn't something you can save
+  yet (for example, if there is no attribute for dislikes, say so — don't save it as an allergy).
 
 WHAT THE PLATFORM RETURNS. Every write returns a "status":
 - updated / added / merged / moved / forgotten / exists: done — tell the customer briefly.
