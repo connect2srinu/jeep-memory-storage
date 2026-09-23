@@ -3,6 +3,11 @@
 **Status: implemented** on `feature/household-scope` (control plane, DB, and memory-agent). This is
 the design of record for household memory.
 
+> **Extended by [dynamic-household-members-design.md](dynamic-household-members-design.md):** the
+> household root is now created automatically from the login with surrogate ids, members are
+> resolved or proposed from names at runtime, and health data needs confirmation and consent. That
+> settles this doc's open decision on `household_id` (a generated id).
+
 **Context:** the Memory Bank scope key was `organization_id + user_id`, where `user_id` **is** the
 member id (1 household = 1 member for ~95% of users). A minority (~5%, growing) are households with
 **multiple member ids**. This documents how we model households.

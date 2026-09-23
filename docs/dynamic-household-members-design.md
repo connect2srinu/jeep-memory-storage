@@ -1,6 +1,7 @@
 # Dynamic Household Members — Design
 
-**Status:** Proposed. Design of record, pending Kroger Privacy/Legal review. No code changes yet.
+**Status:** Implemented on `feature/dynamic-household-members` (see "Implementation notes" at the
+end). Design of record, pending Kroger Privacy/Legal review.
 **Date:** 2026-09-22
 **Builds on:** [household-scope-design.md](household-scope-design.md) (implemented: household-shared and
 per-member scopes, the `household_members` roster, the guardian check).
@@ -274,3 +275,34 @@ flowed somewhere is much harder.
 | 4 | Purpose flags, schema-owner retention within limits, provisional-member expiry |
 | 5 | Merge, split, rename (including moving memories on merge) |
 | Later | Authoritative-source reconciliation job; household-link consent |
+
+---
+
+## Implementation notes
+
+Built on `feature/dynamic-household-members`. End-to-end UI test steps:
+[dynamic-household-test-guide.md](dynamic-household-test-guide.md).
+
+Where the build refines the design:
+
+- **Confirmation is enforced by the platform.** The first write for a new person or for health data
+  never saves; it returns `needs_confirmation` with a platform-worded question. A health write only
+  succeeds when `confirmed=true` redeems a **pending consent** created by that earlier call for the
+  same person, attribute and value (pending prompts expire after 24 hours). A new person and a health
+  fact about them share one question.
+- **Phonetic matching uses Soundex**, not Double Metaphone, to avoid a new dependency. It only nudges
+  scores that are already close (0.80 or more).
+- **Provenance values:** `AUTHENTICATED` (root created from a login), `INFERRED` (proposed, not yet
+  confirmed), `USER_CONFIRMED`, `ADMIN` (enrolled on the Households screen), `AUTHORITATIVE` (reserved).
+- **Health rules key off `minor`:** health data is allowed for yourself, or for a minor you guard.
+  Any other adult (a proxy adult, or a dependent marked not a minor) is refused.
+- **Health is an attribute flag** (`validationRules.health`, set by the "Health data" checkbox in the
+  setup wizard). It implies at least `sensitive`.
+- **Merge** fills gaps in the kept member's profile (the kept member's values win on conflict) and
+  only moves values in the agent's own per-member schemas. Values in other domains stay under the
+  retired id, which records `merged_into_member_id`.
+- **Retention limits** are placeholders pending Legal: 1095 days for normal data, 730 for sensitive
+  or health data. Unconfirmed members expire after 60 days. A retention preview can use a future
+  `asOf` date; an actual sweep always uses the current time.
+- **Operator enrolment** on the Households screen still works: a member with a login signs in with
+  its member id. A login that already roots another household is refused.

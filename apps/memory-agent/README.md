@@ -34,18 +34,17 @@ persists non-canonical facts that fall inside the domain's **approved topics**.
   3. Else it is declined — the agent never invents an attribute or a topic.
 - The **platform**, not the agent, enforces the boundaries: writes to an unregistered attribute or
   an unapproved topic are rejected, and sensitive content (phone/SSN/card/email/secret) is blocked.
-- **Per-dependent preferences (Option C):** the snapshot lists the member's `dependents`
-  (`{dependentId, displayName}`) and annotates each writable attribute with a `level`
-  (`member` or `dependent`) in `writablePreferenceDetails`. For a dependent-level attribute (e.g. a
-  child's allergies), the agent passes the `dependentId` to `save_preference` / `get_preferences`;
-  the platform routes the write/read to that dependent's scope and requires the id. The agent holds
-  no scope logic — it only maps a named dependent to its id from the snapshot.
-- **Household preferences:** the snapshot also carries `householdId` and `householdMembers`
-  (`{memberId, displayName, relationship, hasLogin, isGuardian}`), and the attribute `level` can be
-  `household` (shared) or `household_member` (per person). The platform **derives** the household
-  from the acting member, so the agent passes nothing for `household` attributes; for
-  `household_member` attributes it passes the `memberId` of the named person (writing another member
-  requires the caller to be their guardian — enforced by the platform).
+- **Household members (dynamic):** the logged-in user (the ADK User ID) is the household root; the
+  platform creates their household on first use. The snapshot carries `householdMembers`
+  (`memberId`, `displayName`, `relationship`, `memberKind`, `minor`, `status`, `aliases`, `isSelf`)
+  and each writable attribute's `level` (`household` or `household_member`) and `health` flag.
+  For a per-person attribute about someone else, the agent passes their `member_id`, or just a
+  `member_name` (+ `relationship`) — the platform matches the name inside the household or proposes
+  a new member. New people and health data return `needs_confirmation` with a platform-worded
+  question; the agent asks it and repeats with `confirmed=true` only after the user says yes.
+  Health data about another adult is refused (`not_allowed`). Extra tools: `forget_preference`,
+  `add_household_member`, `update_household_member`, `merge_household_members`, `move_preference`.
+  Design: [`docs/dynamic-household-members-design.md`](../../docs/dynamic-household-members-design.md).
 
 ## Configuration
 
