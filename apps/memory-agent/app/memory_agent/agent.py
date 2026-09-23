@@ -32,46 +32,55 @@ SNAPSHOT_STATE_KEY = "shared_memory:effective_snapshot"
 INSTRUCTION = f"""
 You are a helpful assistant for the {settings.consumer_domain} domain with two kinds of memory.
 
-Short-term memory is the current conversation (this Session). Long-term memory is the user's
+Short-term memory is the current conversation (this Session). Long-term memory is the customer's
 governed preference profile, resolved from the Control Plane and injected into your context before
-you run as an "Effective user preference snapshot" JSON. That snapshot holds the current values
-(its "preferences" object), the canonical attributes you may update ("writablePreferences", each
-annotated in "writablePreferenceDetails" with a "level"), the approved non-canonical topics
-("approvedTopics"), and the household roster ("householdId" and "householdMembers", a list of
-{{memberId, displayName, relationship, hasLogin, isGuardian}} — the people in the household,
-including children).
+you run as an "Effective user preference snapshot" JSON. It holds:
+- "preferences": current values — household-wide ones plus the customer's own per-person ones.
+- "writablePreferenceDetails": the attributes you may save, each with a "level", a "description"
+  (its meaning) and "health" (true for health data such as allergies).
+- "approvedTopics" / "approvedTopicDetails": non-canonical categories you may retain.
+- "householdMembers": the people in the customer's household — memberId, displayName,
+  relationship, memberKind (ROOT = the customer, DEPENDENT = a child, PROXY_ADULT = another adult),
+  minor, status ("provisional" = proposed, not yet confirmed), aliases (other names for them), and
+  isSelf (true for the customer you are talking to).
 
-Each writable attribute has a "level" in writablePreferenceDetails:
-- "member": the acting user's own attribute — pass no id.
-- "household": shared by the whole household — pass no id.
-- "household_member": a specific household member's attribute (e.g. a child's allergies) — look the
-  named person up in "householdMembers" to get its memberId and pass memberId. Writing another
-  member requires the caller to be their guardian; the platform enforces this.
-Only use a memberId that appears in "householdMembers" — never invent one. If a per-member attribute
-is requested but you cannot tell which member is meant, ask which one before saving.
+Talk about the customer in the second person ("You prefer...") and never adopt their preferences.
 
-To ANSWER any question about the user's current preferences or memory (for example "what are my
-preferences?" or "show active preferences"), call get_preferences. It returns the same snapshot —
-the current values ("preferences"), the canonical attributes you may update ("writablePreferences"),
-and the approved topics ("approvedTopics"). The snapshot is also already in your context, so you may
-read it directly too. If a value is not present, say so plainly — do not guess or refuse.
+READING. To answer questions about preferences, read the snapshot or call get_preferences. For
+another household member, call get_preferences with that person's member_id. If a value is not
+present, say so plainly — do not guess.
 
-Long-term preferences describe the USER, not you. Speak about the user in the second person (for
-example, "You prefer a window seat") and never adopt their preferences as your own.
+SAVING. Pick the attribute whose description best matches the statement:
+- A dislike or preference ("doesn't like peanuts", "prefers oat milk") is NOT health data — use a
+  non-health attribute. Only an allergy, intolerance or medical need is health data (health=true).
+  Never turn a dislike into an allergy.
+- level "household": shared by everyone — call save_preference with no member.
+- level "household_member" (about one person):
+  - About the customer themself: pass no member.
+  - About someone else: pass member_id if that person is in householdMembers (match their name or
+    aliases); otherwise pass member_name (and relationship, e.g. "son", if the customer said it).
+    Never invent a member_id.
+- Otherwise, if it fits an approved topic, call remember_dynamic_preference with that topic.
+- Otherwise do not store it; explain it is not an approved memory type.
 
-When the user asks you to remember, save, or update something, decide in this order:
-1. If it maps to an entry in writablePreferences, call save_preference with that attribute
-   (canonical, governed). Use writablePreferenceDetails — each has the attribute, its level, and its
-   meaning (description) — to choose the attribute whose description best matches the statement. The
-   platform resolves the owning schema. If that attribute's level is "household_member", also pass
-   the memberId of the household member the statement is about.
-2. Otherwise, if it clearly belongs to one of the snapshot's approvedTopics, call
-   remember_dynamic_preference with that exact topic. These are the only non-canonical categories
-   you may retain. Use approvedTopicDetails — each has the topic, its meaning (description), and its
-   sensitivity — to pick the topic whose description best matches the user's statement.
-3. Otherwise, do not store it. Explain that it is not an approved memory type. Never ask for schema
-   IDs, never invent an attribute or a topic outside these lists, and never store facts the user
-   did not state.
+WHAT THE PLATFORM RETURNS. Every write returns a "status":
+- updated / added / merged / moved / forgotten / exists: done — tell the customer briefly.
+- needs_confirmation: NOTHING was saved. Ask the customer exactly the "confirmationPrompt" and stop.
+  Only if they clearly say yes, call the same tool again with the same values, plus the returned
+  member_id, and confirmed=true. If they say no, tell them nothing was saved.
+- ambiguous: NOTHING was saved. Ask the "confirmationPrompt" (which person they mean). Then repeat
+  with the chosen person's member_id, or add a new person with add_household_member.
+- not_allowed: NOTHING was saved. Explain the "message". For another adult's allergy, offer to save
+  it as a household-level product exclusion instead (a household attribute), and mention they can
+  save their own allergy from their own account.
+Never pass confirmed=true unless the customer has just answered yes to that exact question.
+
+MANAGING PEOPLE (only when the customer asks):
+- Add someone: add_household_member (confirmed=true only if they explicitly asked to add them).
+- Rename someone, or correct whether they are a minor: update_household_member.
+- Two entries are the same person: merge_household_members (keep the right one).
+- A value was saved for the wrong person: move_preference.
+- Delete a saved value (this also withdraws consent for health data): forget_preference.
 """
 
 
@@ -154,7 +163,7 @@ async def get_preferences(
     "householdMembers").
 
     Pass ``member_id`` (from "householdMembers") to read a specific household member's preferences,
-    e.g. a child's allergies; omit it for the acting member's own top-level preferences.
+    e.g. a child's allergies; omit it for the customer's own preferences.
     """
     snapshot = tool_context.state.get(_snapshot_key(member_id))
     if isinstance(snapshot, dict):
@@ -162,20 +171,32 @@ async def get_preferences(
     return await _resolve_snapshot(tool_context, member_id)
 
 
+async def _result(
+    tool_context: ToolContext, mutation: Any, member_id: str | None = None
+) -> dict[str, Any]:
+    """Refresh the cached snapshots after a change so the next model turn sees it."""
+    snapshot = await _resolve_snapshot(tool_context)
+    if member_id and member_id != snapshot.get("actingMemberId"):
+        await _resolve_snapshot(tool_context, member_id)
+    return {"result": mutation.model_dump(by_alias=True, mode="json")}
+
+
 async def save_preference(
     attribute: str,
     value: str,
     tool_context: ToolContext,
     member_id: str | None = None,
+    member_name: str | None = None,
+    relationship: str | None = None,
+    confirmed: bool = False,
 ) -> dict[str, Any]:
-    """Persist a canonical long-term preference; the platform resolves its writable schema.
+    """Save a canonical preference; the platform resolves its schema and scope level.
 
-    Use the attribute's "level" in the snapshot's "writablePreferenceDetails":
-    - "member" / "household": pass no id.
-    - "household_member": pass ``member_id`` from the "householdMembers" list (the person the
-      statement is about, e.g. a child's allergies). Writing another member requires the caller to be
-      their guardian.
-    The platform enforces the scope level and the guardian check.
+    For a "household_member"-level attribute about someone other than the customer, pass member_id
+    (from householdMembers) or, if they are not listed, member_name plus relationship (e.g. "son").
+    Pass neither for the customer themself or for "household"-level attributes.
+    Check the returned status: "needs_confirmation" and "ambiguous" mean nothing was saved — ask
+    the customer the confirmationPrompt first. Set confirmed=true only after they said yes to it.
     """
     user_id, _ = _identity(tool_context)
     mutation = await build_control_plane_api_client().update_preference(
@@ -186,12 +207,125 @@ async def save_preference(
         attribute=attribute,
         value=value,
         member_id=member_id,
+        member_name=member_name,
+        relationship=relationship,
+        confirmed=confirmed,
     )
-    snapshot = await _resolve_snapshot(tool_context, member_id)
-    return {
-        "mutation": mutation.model_dump(by_alias=True, mode="json"),
-        "snapshot": snapshot,
-    }
+    return await _result(tool_context, mutation, mutation.member_id)
+
+
+async def forget_preference(
+    attribute: str,
+    tool_context: ToolContext,
+    member_id: str | None = None,
+) -> dict[str, Any]:
+    """Delete one saved value (member_id for another household member; omit for the customer).
+
+    Deleting health data also withdraws the consent recorded for it.
+    """
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().forget_preference(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        attribute=attribute,
+        member_id=member_id,
+    )
+    return await _result(tool_context, mutation, member_id)
+
+
+async def add_household_member(
+    name: str,
+    tool_context: ToolContext,
+    relationship: str | None = None,
+    member_id: str | None = None,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    """Add a person to the customer's household (the platform checks for an existing match).
+
+    Use confirmed=true only when the customer explicitly asked to add them, or answered yes to the
+    returned confirmationPrompt (then also pass the returned member_id).
+    """
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().add_household_member(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        name=name,
+        relationship=relationship,
+        member_id=member_id,
+        confirmed=confirmed,
+    )
+    return await _result(tool_context, mutation)
+
+
+async def update_household_member(
+    member_id: str,
+    tool_context: ToolContext,
+    display_name: str | None = None,
+    is_minor: bool | None = None,
+) -> dict[str, Any]:
+    """Rename a household member (the old name is kept as an alias) or correct whether they are a
+    minor (e.g. an adult son)."""
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().update_household_member(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        member_id=member_id,
+        display_name=display_name,
+        minor=is_minor,
+    )
+    return await _result(tool_context, mutation)
+
+
+async def merge_household_members(
+    keep_member_id: str,
+    merge_member_id: str,
+    tool_context: ToolContext,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    """Merge two entries that are the same person: keep_member_id stays, merge_member_id's values
+    move to it and its name becomes an alias. Ask the confirmationPrompt first."""
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().merge_household_members(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        keep_member_id=keep_member_id,
+        merge_member_id=merge_member_id,
+        confirmed=confirmed,
+    )
+    return await _result(tool_context, mutation, keep_member_id)
+
+
+async def move_preference(
+    attribute: str,
+    to_member_id: str,
+    tool_context: ToolContext,
+    from_member_id: str | None = None,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    """Move one per-person value saved for the wrong person (from_member_id; omit for the
+    customer) to to_member_id. Ask the confirmationPrompt first."""
+    user_id, _ = _identity(tool_context)
+    mutation = await build_control_plane_api_client().move_preference(
+        user_id=user_id,
+        app_name=settings.app_name,
+        consumer_domain=settings.consumer_domain,
+        agent_id=settings.agent_id,
+        attribute=attribute,
+        from_member_id=from_member_id,
+        to_member_id=to_member_id,
+        confirmed=confirmed,
+    )
+    if from_member_id:
+        await _resolve_snapshot(tool_context, from_member_id)
+    return await _result(tool_context, mutation, to_member_id)
 
 
 async def remember_dynamic_preference(
@@ -213,18 +347,23 @@ async def remember_dynamic_preference(
         topic=topic,
         value=value,
     )
-    snapshot = await _resolve_snapshot(tool_context)
-    return {
-        "mutation": mutation.model_dump(by_alias=True, mode="json"),
-        "snapshot": snapshot,
-    }
+    return await _result(tool_context, mutation)
 
 
 root_agent = Agent(
     name="dual_memory_agent",
     model=Gemini(model=settings.model),
     instruction=INSTRUCTION,
-    tools=[get_preferences, save_preference, remember_dynamic_preference],
+    tools=[
+        get_preferences,
+        save_preference,
+        remember_dynamic_preference,
+        forget_preference,
+        add_household_member,
+        update_household_member,
+        merge_household_members,
+        move_preference,
+    ],
     before_agent_callback=initialize_preference_snapshot,
     before_model_callback=inject_preference_snapshot,
 )

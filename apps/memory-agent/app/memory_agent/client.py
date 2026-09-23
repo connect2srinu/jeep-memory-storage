@@ -2,8 +2,8 @@
 
 Self-contained on purpose: the memory-agent image only copies ``apps/memory-agent``, so it cannot
 import the reference-agent package. This reuses the same runtime-API contract (``X-Agent-ID`` /
-Bearer auth, ``{userId, appName, domain}`` scope) but keeps only the two calls this agent needs:
-resolve the effective preference snapshot, and update a writable preference.
+Bearer auth, ``{userId, appName, domain}`` scope) and keeps only the calls this agent needs:
+resolve the snapshot, write/forget/move preferences, and manage household members.
 """
 
 from __future__ import annotations
@@ -55,13 +55,21 @@ class EffectivePreferenceSnapshot(ApiModel):
     )
     household_id: str | None = Field(default=None, alias="householdId")
     household_members: tuple[dict[str, Any], ...] = Field(default=(), alias="householdMembers")
+    acting_member_id: str | None = Field(default=None, alias="actingMemberId")
+    resolved_member_id: str | None = Field(default=None, alias="resolvedMemberId")
     generated_at: str = Field(alias="generatedAt")
 
 
 class RuntimeMutation(ApiModel):
+    # Written: updated / accepted / added / merged / moved / forgotten / exists. Not written:
+    # needs_confirmation (ask confirmationPrompt), ambiguous (ask which candidate), not_allowed.
     status: str
-    reference: str
+    reference: str | None = None
     profile_version: int | None = Field(default=None, alias="profileVersion")
+    member_id: str | None = Field(default=None, alias="memberId")
+    confirmation_prompt: str | None = Field(default=None, alias="confirmationPrompt")
+    candidates: tuple[dict[str, Any], ...] = ()
+    message: str | None = None
 
 
 class ControlPlaneApiError(RuntimeError):
@@ -221,6 +229,9 @@ class ControlPlaneApiClient:
         value: Any,
         schema_id: str | None = None,
         member_id: str | None = None,
+        member_name: str | None = None,
+        relationship: str | None = None,
+        confirmed: bool = False,
     ) -> RuntimeMutation:
         body: dict[str, Any] = {
             "scope": self._scope(user_id, app_name, consumer_domain, member_id),
@@ -228,10 +239,132 @@ class ControlPlaneApiClient:
         }
         if schema_id is not None:
             body["schemaId"] = schema_id
+        if member_name:
+            body["memberName"] = member_name
+        if relationship:
+            body["relationship"] = relationship
+        if confirmed:
+            body["confirmed"] = True
         payload = await self._request(
             "PUT",
             f"/api/v1/runtime/preferences/{quote(attribute, safe='.')}",
             agent_id=agent_id,
             payload=body,
+        )
+        return RuntimeMutation.model_validate(payload)
+
+    async def forget_preference(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        attribute: str,
+        member_id: str | None = None,
+    ) -> RuntimeMutation:
+        payload = await self._request(
+            "POST",
+            f"/api/v1/runtime/preferences/{quote(attribute, safe='.')}/forget",
+            agent_id=agent_id,
+            payload={"scope": self._scope(user_id, app_name, consumer_domain, member_id)},
+        )
+        return RuntimeMutation.model_validate(payload)
+
+    async def move_preference(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        attribute: str,
+        from_member_id: str | None,
+        to_member_id: str,
+        confirmed: bool = False,
+    ) -> RuntimeMutation:
+        payload = await self._request(
+            "POST",
+            f"/api/v1/runtime/preferences/{quote(attribute, safe='.')}/move",
+            agent_id=agent_id,
+            payload={
+                "scope": self._scope(user_id, app_name, consumer_domain, from_member_id),
+                "toMemberId": to_member_id,
+                "confirmed": confirmed,
+            },
+        )
+        return RuntimeMutation.model_validate(payload)
+
+    async def add_household_member(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        name: str,
+        relationship: str | None = None,
+        member_id: str | None = None,
+        confirmed: bool = False,
+    ) -> RuntimeMutation:
+        body: dict[str, Any] = {
+            "scope": self._scope(user_id, app_name, consumer_domain),
+            "name": name,
+            "confirmed": confirmed,
+        }
+        if relationship:
+            body["relationship"] = relationship
+        if member_id:
+            body["memberId"] = member_id
+        payload = await self._request(
+            "POST", "/api/v1/runtime/household/members", agent_id=agent_id, payload=body
+        )
+        return RuntimeMutation.model_validate(payload)
+
+    async def update_household_member(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        member_id: str,
+        display_name: str | None = None,
+        minor: bool | None = None,
+    ) -> RuntimeMutation:
+        body: dict[str, Any] = {"scope": self._scope(user_id, app_name, consumer_domain)}
+        if display_name:
+            body["displayName"] = display_name
+        if minor is not None:
+            body["minor"] = minor
+        payload = await self._request(
+            "PATCH",
+            f"/api/v1/runtime/household/members/{quote(member_id, safe='')}",
+            agent_id=agent_id,
+            payload=body,
+        )
+        return RuntimeMutation.model_validate(payload)
+
+    async def merge_household_members(
+        self,
+        *,
+        user_id: str,
+        app_name: str,
+        consumer_domain: str,
+        agent_id: str,
+        keep_member_id: str,
+        merge_member_id: str,
+        confirmed: bool = False,
+    ) -> RuntimeMutation:
+        payload = await self._request(
+            "POST",
+            "/api/v1/runtime/household/members/merge",
+            agent_id=agent_id,
+            payload={
+                "scope": self._scope(user_id, app_name, consumer_domain),
+                "keepMemberId": keep_member_id,
+                "mergeMemberId": merge_member_id,
+                "confirmed": confirmed,
+            },
         )
         return RuntimeMutation.model_validate(payload)

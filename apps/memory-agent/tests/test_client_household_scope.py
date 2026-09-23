@@ -70,3 +70,66 @@ async def test_resolve_and_update_forward_member_id(monkeypatch) -> None:
         value="mango chips",
     )
     assert "memberId" not in captured["payload"]["scope"]
+    assert "confirmed" not in captured["payload"]
+
+
+@pytest.mark.asyncio
+async def test_reference_writes_and_confirmation_round_trip(monkeypatch) -> None:
+    client = ControlPlaneApiClient(base_url="http://control-plane")
+    calls: list[tuple[str, str, dict]] = []
+    proposal = {
+        "status": "needs_confirmation",
+        "memberId": "mbr_1",
+        "confirmationPrompt": "Should I add Ryan (your son) to your household?",
+    }
+
+    async def fake_request(method, path, *, agent_id, payload):
+        calls.append((method, path, payload))
+        return proposal
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    common = {
+        "user_id": "u1",
+        "app_name": "app",
+        "consumer_domain": "familygrocery",
+        "agent_id": "a",
+    }
+
+    result = await client.update_preference(
+        **common,
+        attribute="familygrocery.dislikes",
+        value="peanuts",
+        member_name="Ryan",
+        relationship="son",
+    )
+    assert result.status == "needs_confirmation" and result.member_id == "mbr_1"
+    assert result.confirmation_prompt.startswith("Should I add Ryan")
+    body = calls[-1][2]
+    assert (body["memberName"], body["relationship"]) == ("Ryan", "son")
+
+    await client.update_preference(
+        **common,
+        attribute="familygrocery.dislikes",
+        value="peanuts",
+        member_id="mbr_1",
+        confirmed=True,
+    )
+    assert calls[-1][2]["confirmed"] is True and calls[-1][2]["scope"]["memberId"] == "mbr_1"
+
+    await client.add_household_member(**common, name="Maya", relationship="daughter")
+    assert calls[-1][:2] == ("POST", "/api/v1/runtime/household/members")
+    await client.merge_household_members(
+        **common, keep_member_id="m1", merge_member_id="m2", confirmed=True
+    )
+    assert calls[-1][2]["keepMemberId"] == "m1" and calls[-1][2]["confirmed"] is True
+    await client.move_preference(
+        **common,
+        attribute="familygrocery.dislikes",
+        from_member_id="m2",
+        to_member_id="m1",
+    )
+    assert calls[-1][1].endswith("/familygrocery.dislikes/move")
+    await client.forget_preference(**common, attribute="familygrocery.allergies", member_id="m1")
+    assert calls[-1][1].endswith("/familygrocery.allergies/forget")
+    await client.update_household_member(**common, member_id="m1", minor=False)
+    assert calls[-1][0] == "PATCH" and calls[-1][2]["minor"] is False
