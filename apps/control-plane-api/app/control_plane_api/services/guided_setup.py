@@ -96,7 +96,8 @@ class GuidedMemorySetupService:
                     description=f"Organization for {request.use_case.name}",
                 ),
             )
-            await self._activate_resource(principal, "organizations", organization_id)
+            # Organizations are created ACTIVE (create_resource), so they need no lifecycle
+            # transition — activating an already-active org is an invalid transition.
 
         project = await self.session.get(ProjectRecord, project_id)
         if project is None:

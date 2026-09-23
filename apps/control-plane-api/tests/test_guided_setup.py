@@ -11,7 +11,9 @@ from control_plane_api.persistence import Database
 from control_plane_api.persistence.models import (
     AccessRequestRecord,
     AgentSchemaGrantRecord,
+    OrganizationRecord,
     ProfileSchemaRecord,
+    ProjectRecord,
     RegisteredAgentRecord,
     ScopeDefinitionRecord,
 )
@@ -188,6 +190,61 @@ async def test_guided_setup_previews_activates_and_is_immediately_usable(tmp_pat
         assert agent is not None and agent.status == "ACTIVE"
         assert grant is not None and grant.permission == "READ_WRITE" and grant.status == "ACTIVE"
         assert len(pending) == 1
+    await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_guided_setup_auto_creates_missing_organization(tmp_path: Path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'neworg.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused",
+            auth_enabled=False,
+            google_id_token_audience=None,
+        ),
+        database=database,
+        store=MockMemoryStore(),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        payload = setup_payload()
+        payload["useCase"] = {
+            "name": "Loyalty Personalization",
+            "description": "Bootstraps a brand-new organization",
+            "owningTeam": "loyalty-platform",
+            "organizationId": "newco",
+            "projectId": "loyalty",
+            "domain": "loyalty",
+            "environment": "development",
+        }
+        payload["selectedPreferences"] = ["loyalty.tier"]
+        payload["customPreferences"] = [
+            {
+                "attributeId": "loyalty.tier",
+                "displayName": "Tier",
+                "description": "Confirmed loyalty tier",
+                "dataType": "string",
+                "allowedValues": ["silver", "gold"],
+                "sensitivity": "normal",
+            }
+        ]
+        payload["agent"]["id"] = "loyalty-assistant"
+        payload["sharedSchemas"] = []
+        payload["resolution"] = None
+
+        activated = await client.post(
+            "/api/v1/admin/memory-setups/activate", headers=PLATFORM, json=payload
+        )
+        assert activated.status_code == 201, activated.text
+
+    async with database.session() as session:
+        org = await session.get(OrganizationRecord, "newco")
+        project = await session.get(ProjectRecord, "loyalty")
+        assert org is not None and org.status == "ACTIVE"
+        assert project is not None and project.organization_id == "newco"
     await database.dispose()
 
 
