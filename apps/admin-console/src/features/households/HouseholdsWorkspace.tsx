@@ -49,10 +49,17 @@ export function HouseholdsWorkspace({
       .list("organizations")
       .then((rows) => {
         setOrganizations(rows);
-        setOrg((current) => current || value(rows[0] ?? {}, "id"));
+        setOrg((current) => {
+          if (current) return current;
+          if (organizationId) return organizationId;
+          // Prefer a real line-of-business org over the platform "default-org", so a roster is not
+          // silently enrolled under an organization the agent/domain does not belong to.
+          const real = rows.find((row) => value(row, "id") !== "default-org");
+          return value(real ?? rows[0] ?? {}, "id");
+        });
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Unable to load"));
-  }, [api]);
+  }, [api, organizationId]);
 
   const loadHouseholds = useCallback(async () => {
     if (!org) return;
