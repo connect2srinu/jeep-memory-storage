@@ -375,8 +375,10 @@ On **Households → Retention** (left column):
    }
    ```
 3. **Govern & manage → Approvals** → click **Approve** on that request.
-   ✔ It fails: *agent 'ads-agent' declares purpose 'advertising', which schema … does not allow
-   (allowed: personalization)*.
+   ✔ It is refused: the request stays **PENDING** and no grant is created. The console doesn't show
+   the reason yet (approve/reject errors aren't displayed); it appears in the browser's developer
+   console, or run `python3 scripts/privacy_controls_demo.py --with-purpose-check` to see *agent …
+   declares purpose 'advertising', which schema … does not allow (allowed: personalization)*.
 
 ---
 
