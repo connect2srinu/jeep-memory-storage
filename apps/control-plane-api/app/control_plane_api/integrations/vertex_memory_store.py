@@ -109,7 +109,8 @@ class VertexMemoryBankStore:
         if not schema.id.strip() or not schema.domain.strip() or not schema.fields:
             raise ValueError("schema id, domain, and fields are required")
         current = self._schemas.get(schema.id)
-        if current is not None and current != schema:
+        # A new schema version replaces the old one; the same version defined twice is an error.
+        if current is not None and current != schema and current.version == schema.version:
             raise ValueError(f"schema {schema.id!r} is already registered differently")
         self._schemas[schema.id] = schema
 

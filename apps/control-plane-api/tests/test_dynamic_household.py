@@ -353,6 +353,85 @@ async def test_merge_rename_move_and_forget(client) -> None:
 
 
 @pytest.mark.asyncio
+async def test_preference_added_by_schema_version_works_without_restart(tmp_path: Path) -> None:
+    """A preference added later through a new schema version (Schemas -> Create new version ->
+    approve) is usable immediately, although the running store registered version 1."""
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'evolve.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused", auth_enabled=False, google_id_token_audience=None
+        ),
+        database=database,
+        store=MockMemoryStore(),
+    )
+    payload = setup_payload()
+    payload["customPreferences"] = [
+        item
+        for item in payload["customPreferences"]  # type: ignore[union-attr]
+        if not item["attributeId"].endswith((".dislikes", ".excluded_products"))
+    ]
+    member_schema = f"{DOMAIN}-member-preferences-v1"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as http:
+        assert (
+            await http.post("/api/v1/admin/memory-setups/activate", headers=PLATFORM, json=payload)
+        ).status_code == 201
+        assert (await resolve(http))["householdId"]  # registers schema version 1 in the store
+
+        created = await http.post(
+            "/api/v1/admin/preference-catalog",
+            headers=PLATFORM,
+            json={
+                "attributeId": f"{DOMAIN}.dislikes",
+                "displayName": "Dislikes",
+                "description": "Foods this person does not like",
+                "dataType": "string",
+                "sensitivityClassification": "normal",
+                "canonicalOwnerId": DOMAIN,
+            },
+        )
+        assert created.status_code == 201, created.text
+        change = await http.post(
+            f"/api/v1/admin/schemas/{member_schema}/versions",
+            headers=PLATFORM,
+            json={
+                "version": "2",
+                "vertexSchemaDefinition": {
+                    "type": "object",
+                    "properties": {
+                        "allergies": {"type": "string"},
+                        "dislikes": {"type": "string"},
+                    },
+                },
+                "mappings": [
+                    {"attributeId": f"{DOMAIN}.allergies", "profileField": "allergies"},
+                    {"attributeId": f"{DOMAIN}.dislikes", "profileField": "dislikes"},
+                ],
+            },
+        )
+        assert change.status_code == 202, change.text  # pending approval
+        approved = await http.post(
+            f"/api/v1/admin/resource-change-requests/{change.json()['data']['id']}/approve",
+            headers=PLATFORM,
+            json={},
+        )
+        assert approved.status_code == 200, approved.text
+
+        snapshot = await resolve(http)
+        assert f"{DOMAIN}.dislikes" in snapshot["writablePreferences"]
+        proposed = await save(http, "dislikes", "peanuts", memberName="Ryan", relationship="son")
+        assert proposed["status"] == "needs_confirmation"
+        saved = await save(
+            http, "dislikes", "peanuts", memberId=proposed["memberId"], confirmed=True
+        )
+        assert saved["status"] == "updated"
+    await database.dispose()
+
+
+@pytest.mark.asyncio
 async def test_advertising_purpose_is_denied(client) -> None:
     created = await client.post(
         "/api/v1/admin/agents",

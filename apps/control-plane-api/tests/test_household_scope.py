@@ -93,6 +93,23 @@ async def test_mock_store_deletes_one_attribute_and_purges_by_age() -> None:
     assert await store.get_profiles(kid, ("hm",)) == ()
 
 
+@pytest.mark.asyncio
+async def test_mock_store_accepts_a_new_schema_version() -> None:
+    store = MockMemoryStore()
+    v1 = MemoryProfileSchema(id="hm", domain="ksa", version="1", fields=frozenset({"allergies"}))
+    v2 = MemoryProfileSchema(
+        id="hm", domain="ksa", version="2", fields=frozenset({"allergies", "dislikes"})
+    )
+    await store.register_schema(v1)
+    await store.register_schema(v2)  # a newer version replaces the old one
+    scope = MemoryScope("org", household_id="h1", member_id="m1")
+    await store.write_preference(scope, schema_id="hm", attribute="dislikes", value="kale")
+    with pytest.raises(ValueError, match="registered differently"):
+        await store.register_schema(
+            MemoryProfileSchema(id="hm", domain="ksa", version="2", fields=frozenset({"x"}))
+        )
+
+
 def _service() -> RuntimeMemoryService:
     return RuntimeMemoryService(
         repository=None,  # type: ignore[arg-type]  # scope helpers don't touch the repository
