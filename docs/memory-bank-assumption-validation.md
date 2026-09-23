@@ -2,82 +2,98 @@
 
 ## Purpose
 
-This document separates verified behavior, repository-specific assumptions, and unresolved questions for the managed Memory Bank option. It is supporting evidence for [ADR-0001](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md).
+This document separates verified behavior, repository-specific assumptions, and unresolved questions for
+the managed Memory Bank option. It is supporting evidence for
+[ADR-0001](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md). Statuses were re-checked
+against `feature/dynamic-household-members` on 2026-09-23.
 
 Status labels:
 
-- **VALIDATED** — supported by current repository behavior or current official Google documentation.
-- **PARTIAL** — some layers implement the behavior, but the end-to-end path is incomplete.
-- **NOT VALIDATED** — present as configuration or intent without a successful provider-backed proof.
+- **VALIDATED** — supported by current repository behavior or official Google documentation.
+- **PARTIAL** — some layers implement it, but the end-to-end path is incomplete.
+- **NOT VALIDATED** — intended, but without a provider-backed proof.
 - **CONFLICT** — the implementation contradicts the assumption.
+- **BY DESIGN** — the capability exists but the platform deliberately doesn't use it.
 - **OPEN QUESTION** — a product or governance decision is still required.
 
 ## Assumptions and findings
 
 | ID | Assumption | Status | Finding / required action |
 |---|---|---|---|
-| MB-01 | Business agents do not need direct Google Memory Bank access. | VALIDATED | The reference agent calls the Control Plane API only. Keep the provider SDK and credentials inside the platform boundary. |
-| MB-02 | The Control Plane API validates agent identity, capability, scope, and grants before memory access. | PARTIAL | Runtime endpoints validate the registered agent, capabilities, active grants, writable mappings, and exact scope. Administrative read APIs still require consistent organization-membership enforcement. |
-| MB-03 | Resolved preferences are loaded once at the session boundary and cached in ADK session state. | VALIDATED | The reference agent stores the result under `shared_memory:effective_snapshot` and supports explicit refresh after a write. |
-| MB-04 | One profile can be maintained per schema and scope. | VALIDATED | This is the documented Memory Bank profile model. The repository registers schemas and leaves user profile instances lazy. |
-| MB-05 | Memory Bank performs extraction and consolidation from ingested events. | VALIDATED / NOT LIVE-TESTED | Google documents extraction, consolidation, profile generation, and asynchronous event ingestion. The repository intends to call those capabilities, but its current SDK integration must be fixed before the live path is proven. |
-| MB-06 | Memory Bank provides revision history and rollback. | VALIDATED / NOT LIVE-TESTED | Google documents immutable memory revisions and rollback. The repository does not yet expose a complete operator workflow for provider revisions. |
-| MB-07 | `organization_id + user_id` can isolate profiles across organizations in one Memory Bank. | PARTIAL | The application builds that exact scope and Google supports arbitrary scope dictionaries with IAM Conditions. Isolation still depends on correct API enforcement and least-privilege IAM; current admin reads and broad runtime IAM are gaps. |
-| MB-08 | All configured scope types are usable at runtime. | CONFLICT | The runtime accepts only exact organization/user scope. Household, user-store, and custom scope options are not end-to-end implementations. |
-| MB-09 | Cross-organization schema reads work after approval and writes remain owner-only. | PARTIAL | The runtime reads an approved schema using its owner organization's scope and blocks cross-owner writes. The hierarchy/listing APIs must be hardened so discovery and approval data are also isolated. |
-| MB-10 | Configured schema precedence controls resolution. | PARTIAL | Attribute overrides are loaded, but global schema-priority rows created by guided setup are not loaded by the runtime repository. |
-| MB-11 | Dynamic-memory preprocessing/policy takes effect in a subsequent session. | NOT VALIDATED | Policy metadata is persisted and intended to update provider context configuration. Live provider behavior and propagation timing have not been demonstrated with the current adapter. A session refresh/new session is still required to observe a changed snapshot. |
-| MB-12 | Explicit writes are idempotent and concurrency-safe. | CONFLICT | The adapter uses a process-local lock and creates overlay facts. It lacks durable idempotency, distributed locking/OCC, retry state, and reconciliation. |
-| MB-13 | Event ingestion is durably decoupled from the agent request. | PARTIAL | Memory Bank `IngestEvents` is designed for asynchronous generation, but the application calls the provider in the request path and has no platform outbox or Pub/Sub retry layer. |
-| MB-14 | Event overlap is deduplicated. | PARTIAL | Google documents event-ID-based deduplication for overlapping streams. The application must supply stable event identifiers and verify behavior; current production integration is unproven. |
-| MB-15 | Provider quotas and operational costs are observable. | NOT VALIDATED | Infrastructure includes basic monitoring, but the repository does not yet provide provider-operation, token, quota, or per-organization cost attribution sufficient for production budgets. |
-| MB-16 | Current Terraform deploys the complete managed memory resource. | CONFLICT | Terraform deploys the application stack and accepts an existing Agent Engine/Memory Bank resource identifier. It does not create the managed memory resource itself. |
-| MB-17 | The current Vertex adapter uses the supported public SDK surface. | CONFLICT | It targets `memory_banks` and `runtimes`; current official examples use `agent_engines.memories` and `agent_engines.update`. Correct and live-test before production. |
-| MB-18 | Existing tests prove production Memory Bank compatibility. | CONFLICT | Tests and builds pass against local/mocked components. They do not exercise a real Memory Bank, IAM Conditions, quotas, revisions, or failure recovery. |
-| MB-19 | Control-plane audit records are equivalent to complete memory lineage. | PARTIAL | Control-plane mutations capture correlation and before/after state. Provider memory revisions and field-level provenance must be correlated to deliver end-to-end lineage. |
-| MB-20 | A single Memory Bank is always the correct topology for every organization. | OPEN QUESTION | A shared bank can be logically isolated by scope and IAM Conditions. Regulatory residency, encryption keys, blast radius, quotas, or hard tenant boundaries may justify separate banks/projects for selected organizations. |
+| MB-01 | Business agents don't need direct Memory Bank access. | VALIDATED | The memory agent and reference agent call only the Control Plane API. A repository test forbids provider SDK imports in the reference agent; the memory agent is not yet covered by that test. |
+| MB-02 | The Control Plane API validates identity, capability, scope, and grants before memory access. | PARTIAL | Runtime endpoints validate agent, capability, grants, purpose, writable mappings, exact scope, and household membership. Admin list and hierarchy reads are not yet filtered by organization membership. |
+| MB-03 | Preferences are loaded once per session and cached in ADK session state. | VALIDATED | The agents resolve in `before_agent_callback`, cache the snapshot, inject it every turn, and refresh it after a write. |
+| MB-04 | One profile per schema and scope. | VALIDATED | The Memory Bank profile model; schemas are registered and customer profiles stay lazy. |
+| MB-05 | Memory Bank extracts and consolidates memories from ingested events. | BY DESIGN | Validated live during the spike, then turned off: provider extraction stores ungoverned memories. The platform stores only explicit, governed values. |
+| MB-06 | Memory Bank provides revision history and rollback. | PARTIAL | The provider and SDK expose `revisions()` and `rollback()`; the platform exposes no operator workflow for them. |
+| MB-07 | Scopes isolate customers across organizations in one bank. | PARTIAL | The runtime builds exact scopes (member, household, household-member) and derives the household from the login. Admin read isolation and least-privilege IAM Conditions are still gaps. |
+| MB-08 | Every scope type the wizard offers works at runtime. | PARTIAL | Per User, Per Household, and Household + members work. Per User + Store and Custom are still offered and rejected at runtime. |
+| MB-09 | Cross-organization reads work after approval; writes stay owner-only. | PARTIAL | Runtime behavior is correct. An approval covers the whole logical schema across versions, including preferences added later. Listing APIs are not yet isolated. |
+| MB-10 | Configured schema precedence controls resolution. | PARTIAL | Attribute overrides apply; global schema priorities from the wizard are stored but not loaded at runtime. |
+| MB-11 | A dynamic-memory policy change takes effect in the next session. | VALIDATED | The platform enforces topics, sensitivity, confidence, and retention itself on every write and resolve; no provider propagation is involved. A new session shows the updated `approvedTopics`. |
+| MB-12 | Explicit writes are idempotent and concurrency-safe. | CONFLICT | Process-local lock plus append-only facts; no idempotency keys, distributed locking, retry state, or reconciliation. |
+| MB-13 | Event ingestion is durably decoupled from the agent request. | BY DESIGN / PARTIAL | Provider `IngestEvents` isn't used. Events and values are written synchronously in the request; there is no outbox or retry layer. |
+| MB-14 | Overlapping events are deduplicated. | BY DESIGN | Not applicable while managed generation is off; duplicate explicit writes simply become the newest value. |
+| MB-15 | Provider quotas and costs are observable. | NOT VALIDATED | `scripts/memory_load_test.py` measures throughput, latency, and a price model; production telemetry for provider operations, quota, and per-organization cost does not exist. Provider `429` surfaces as HTTP 500. |
+| MB-16 | Terraform deploys the complete managed memory resource. | CONFLICT | Terraform deploys the application stack and takes an existing Agent Engine / Memory Bank identifier. |
+| MB-17 | The Vertex adapter uses the supported SDK surface. | VALIDATED | `agentplatform` 2.x (`memory_banks.memories`, `runtimes.update`), exercised live in the spike. Pin the SDK range more tightly. |
+| MB-18 | Existing tests prove production Memory Bank compatibility. | PARTIAL | Automated tests use the mock store and a fake client; an opt-in contract test runs against a real bank; the live spike was manual. No automated live test for IAM Conditions, quotas, or failure recovery. |
+| MB-19 | Control-plane audit equals complete memory lineage. | PARTIAL | Admin audit, `memory_write` / `memory_deletion` logs with correlation IDs, and the consent ledger exist. Provider revisions are not correlated. |
+| MB-20 | One Memory Bank is right for every organization. | OPEN QUESTION | Logical isolation by scope and IAM Conditions is possible; residency, keys, blast radius, or quotas may justify separate banks or projects per line of business. |
+| MB-21 | Household memory fits the scope model without provider changes. | VALIDATED | Household-shared (2 keys) and per-member (3 keys) scopes are within the 5-key limit; the roster lives in PostgreSQL. |
+| MB-22 | A new schema version is usable without a restart and keeps existing values. | VALIDATED | An approved version replaces the registered one on the next request; values are keyed by the logical schema ID, so earlier values stay readable. |
 
-## Provider semantics that should shape the design
+## Provider semantics that shaped the design
 
 ### Profiles and generation
 
-Google describes memory profiles as structured, schema-driven memory associated with a scope. Generation extracts and consolidates information into the profile. This is materially more than a key/value store and overlaps the proposed UML extraction, consolidation, provenance, and revision responsibilities.
+Memory profiles are structured, schema-driven memory for a scope, and generation extracts and
+consolidates information into them. The platform uses the schema and scope model but not generation,
+because generated memories can't be governed before they are stored.
 
 ### Streaming ingestion
 
-`IngestEvents` decouples event submission from generation. Google documents generation triggers based on event count, idle time, or explicit controls, with automatic flushing. A platform Pub/Sub pipeline should therefore be justified by application-level durability, backpressure, replay, or audit needs—not by assuming Memory Bank lacks asynchronous ingestion.
+`IngestEvents` decouples event submission from generation. Because generation is off, the platform
+doesn't need it; a platform outbox would be justified only by durability, backpressure, or replay needs.
 
 ### Revisions
 
-Memory Bank maintains immutable revision history. The platform should expose revision IDs and rollback through its governance API instead of building a second competing revision mechanism for managed profiles.
+Memory Bank keeps immutable revisions. The platform should expose revision IDs and rollback through its
+governance API rather than build a second revision mechanism.
 
 ### IAM and scope
 
-Google supports Memory Bank-specific roles and IAM Conditions over scope values. The application should combine those provider controls with its database grants. The database authorization decision is the business-policy layer; provider IAM is defense in depth.
+Memory Bank-specific roles and IAM Conditions over scope values can back up the database grants as
+defense in depth. They are not configured yet.
 
-## Decisions still required before production
+## Decisions
 
-1. **Tenant topology:** one shared bank, one bank per regulatory boundary, or a tiered model.
-2. **Scope contract:** keep only organization/user initially, or implement household/store/custom shapes before exposing them.
-3. **Write durability:** synchronous provider request plus idempotency, transactional outbox plus worker, or another reliable delivery pattern.
-4. **Conflict semantics:** which source wins, when confirmation is required, and whether domain owners can override another domain's value.
-5. **Deletion and privacy:** user erasure, retention, legal hold, consent, sensitive-field masking, and audit retention.
-6. **Cost attribution:** allocation by organization, project, agent, schema, read/write operations, generation tokens, and storage.
-7. **Provider failure policy:** fail closed, return a last-known snapshot, or degrade to defaults for each use case.
-8. **Migration:** how profile schema versions and provider revisions are reconciled during additive schema changes.
+| Decision | Status |
+|---|---|
+| Scope contract | **Decided:** member, household-shared, and household-member shapes. Store and custom scopes to be hidden or built. |
+| Conflict semantics | **Decided for households:** confidence tiers, confirmation for new people and health data, no automatic merges. Cross-schema source/domain rules are policy data. |
+| Deletion and privacy | **Mostly implemented:** user/member/household forget, single-value forget, purge, retention sweep, consent ledger with withdrawal. Legal hold and backup deletion are open. |
+| Retention limits | **Placeholders** (1095 / 730 days) pending Legal. |
+| Tenant topology | Open (MB-20). |
+| Write durability | Open (MB-12). |
+| Cost attribution | Open (MB-15). |
+| Provider failure policy | Open: today requests fail; agents keep the cached session snapshot. |
 
 ## Recommended validation tests
 
-- Create two organizations with the same `user_id`; prove that neither can enumerate or resolve the other's profiles without an approved grant.
-- Approve a cross-organization read grant; prove the consumer resolves the shared field but cannot write it.
-- Revoke and expire the grant; prove access disappears without restarting the API.
-- Configure conflicting values in multiple schemas; prove global precedence and attribute overrides independently.
-- Submit duplicate event IDs and repeated explicit write idempotency keys; prove a single effective mutation.
-- Run concurrent writes from multiple Cloud Run instances; prove deterministic conflict behavior.
-- Update a dynamic policy; measure propagation and prove the next session's generated snapshot reflects it.
-- Inspect provider revision history, roll back, refresh, and prove the snapshot version and provenance change.
-- Exercise IAM Conditions directly with allowed and denied scopes.
-- Inject provider timeouts, throttling, partial failure, and retry exhaustion; prove the user-visible and operational outcomes.
+Done in the automated suite: grant revoke/expire without restart; cross-organization read-only sharing;
+schema versions without restart; household isolation; consent and confirmation; purpose denial;
+retention sweep.
+
+Still to do:
+
+- Two organizations with the same user ID, proving neither can list the other's records through the admin
+  API (fails today; see MB-02).
+- Conflicting values across schemas, proving global precedence (fails today; see MB-10).
+- Duplicate explicit writes with idempotency keys, and concurrent writes from several instances.
+- Revision history and rollback, with the snapshot version and provenance changing.
+- IAM Conditions with allowed and denied scopes.
+- Provider timeouts, throttling, partial failure, and retry exhaustion.
 
 ## Official references
 

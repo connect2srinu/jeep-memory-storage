@@ -1,26 +1,42 @@
 # Memory Admin Console
 
-The React Admin Console is the human control-plane client for `/api/v1/admin/*`. It never calls
-Vertex Memory Bank directly.
+The React Admin Console is the human client for `/api/v1/admin/*`. It never calls Vertex Memory Bank or
+other Google Cloud APIs directly.
 
-## Primary workflow
+## Navigation
 
-Use **Create Memory Setup** for new domains:
+- **Organizations** (the button at the top of the left panel): the organization directory. Selecting an
+  organization card sets it as the context and adds **Organization → Overview / Projects / Members &
+  Roles**; opening a project adds **Project → Overview / Domains / Agents / Members & Roles**. A
+  project's domain opens a detail view with Overview, Schemas, Preference Catalog, Agent Access,
+  Resolution, Sharing, and Audit tabs (read-only).
+- **Create Memory Setup**: the guided wizard.
+- **Govern & manage**: Organizations & Projects, Households, Domains, Scopes, Schemas, Preference
+  Catalog, Agents, Access Requests, Approvals, Resolution Policies, Dynamic Memory Policies, Audit.
+
+Schema edits (**Create new version**) happen in **Govern & manage → Schemas** with an organization
+selected; approvals (schema versions, domain changes, access requests) happen in **Govern & manage →
+Approvals**. **Households** shows each household's members, kinds, aliases, the consent ledger, and the
+retention sweep.
+
+## Create Memory Setup
 
 ```text
-Use Case -> Preferences -> Scope -> Memory -> Agent -> Sharing -> Resolution -> Review -> Activate
+Use Case -> Preferences -> Scope -> Memory -> Agents -> [Sharing] -> [Resolution] -> Review -> Activate
 ```
 
-The wizard validates domain-prefixed custom attributes, previews the generated contract, and sends
-one activation request. Activation creates or reuses the domain and scope, creates the owned schema,
-registers the agent, grants owned access, creates shared-access requests, and provisions the
-configured runtime backend.
+The wizard validates domain-prefixed custom attributes (including a *Health data* flag), assigns
+preferences to household or member tiers for the **Household + members** scope, checks retention limits,
+previews the plan, and sends one activation request. Activation creates or reuses the domain and
+scope(s), creates the owned schema(s), registers the agent, grants owned access, creates shared-access
+requests, and registers the schemas with the runtime backend.
 
-Choose `READ_WRITE` for an owned schema when the agent must save preferences. Shared schemas should
-normally be `READ`; they remain pending until the owning domain approves them.
+Choose `READ_WRITE` for an owned schema when the agent must save preferences. Shared schemas are `READ`
+and stay pending until the owning team approves them. Vertex activation reports `PROVISIONED`;
+`REGISTERED_LOCAL` indicates the mock backend. No customer profiles are created at activation.
 
-Successful Vertex activation reports `PROVISIONED`. `REGISTERED_LOCAL` indicates the mock backend.
-No user profiles are created at activation time; they remain lazy.
+See [docs/guided-memory-setup.md](../../docs/guided-memory-setup.md) and the
+[end-to-end UI guide](../../docs/dynamic-household-test-guide.md).
 
 ## Run locally
 
@@ -44,14 +60,13 @@ Open `http://localhost:5173`. Override the API proxy when necessary:
 CONTROL_PLANE_API_PROXY_TARGET=http://127.0.0.1:8081 npm run dev -- --port 3002
 ```
 
-The local persona bar supplies development-only `X-Admin-*` headers. Authenticated deployments
-ignore those headers and use verified Google principals with server-controlled role bindings.
+## Identity
 
-## Advanced administration
-
-**Manage / Advanced** exposes domains, scopes, schemas, catalog entries, agents, access requests,
-approvals, resolution policies, dynamic-memory policies, and audit events. Existing active schemas
-are immutable through the wizard; adding fields requires a reviewed new schema version.
+With Entra disabled, the console sends development-only `X-Admin-*` headers built from
+`VITE_LOCAL_ADMIN_USER`, `VITE_LOCAL_ADMIN_ROLE`, and `VITE_LOCAL_ADMIN_DOMAINS` (rebuild after changing
+them). With `VITE_ENTRA_AUTH_ENABLED=true` users sign in with Microsoft Entra ID and the console sends
+the access token. See [docs/entra-authentication.md](../../docs/entra-authentication.md). The API is the
+security boundary; the console only hides actions a role can't perform.
 
 ## Validation
 
@@ -61,5 +76,3 @@ npm test
 npm run build
 npm audit --audit-level=moderate
 ```
-
-See `docs/guided-memory-setup.md` for the complete onboarding and validation flow.

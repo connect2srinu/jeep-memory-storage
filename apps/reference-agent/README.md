@@ -52,8 +52,11 @@ Credentials mint the Google ID token; the API maps its verified principal to the
 ## Validation
 
 ```bash
-PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
+PYTHONPATH=apps/reference-agent/app .venv/bin/python -m pytest -q apps/reference-agent/tests
 .venv/bin/ruff check apps/reference-agent/app apps/reference-agent/tests
 ```
 
-See `docs/adk-web-demo.md` for the complete multi-session demonstration.
+This agent has no household tools and doesn't handle the `needs_confirmation` flow, so it is suited
+to Per User setups; it cannot save per-member values. For household memory, dynamic members, and the complete
+multi-session walkthrough, use the [memory agent](../memory-agent/README.md) and the
+[end-to-end UI guide](../../docs/dynamic-household-test-guide.md).

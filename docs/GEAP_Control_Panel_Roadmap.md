@@ -1,6 +1,6 @@
 # GEAP Control Panel — Product Vision, Architecture, and Roadmap
 
-**Document status:** Draft for review  
+**Document status:** Draft for review; implementation status updated 2026-09-23 (see §1a)  
 **Target audience:** Product owners, platform engineering, architecture, security, FinOps, and agent development teams  
 **Platform:** Google Cloud / Gemini Enterprise Agent Platform (GEAP)
 
@@ -15,6 +15,23 @@ The GEAP Control Panel will provide a single pane of glass for discovering, gove
 - Foundational platform services, initially Memory Bank and later evaluation, feedback, and related agent quality services.
 
 The Control Panel is not intended to replace native Google Cloud operational services. It will aggregate their metadata and expose curated workflows through a consistent enterprise experience. Google Cloud remains the system of record for runtime telemetry and billing exports, while the Control Panel PostgreSQL database stores governance configuration, application metadata, mappings, workflow state, and audit records.
+
+## 1a. Implementation status (2026-09-23)
+
+Measured against the code on `feature/dynamic-household-members`:
+
+| Phase | Status | What exists / what's missing |
+|---|---|---|
+| 0 — Foundation | 🟡 Partial | Product naming ("Control Plane API") is done; API-layer authorization, error envelope, audit, and correlation IDs exist. Not done: capability modules, runtime-neutral agent/version/deployment identities, pagination and idempotency standards, labeling standard. |
+| 1 — Memory Bank Control Panel MVP | ✅ Largely done | Console shell with Entra sign-in and role-aware views; organization/project context and memberships; guided setup for domains, scopes, schemas, catalog; schema versioning with approval; resolver configuration; access requests, approvals, and audit; households, consent ledger, purpose limitation, retention sweep. Gaps: field-level grants (grants are whole-schema), membership filtering on admin list reads, operational metrics dashboard. |
+| 2 — Cloud Run inventory and traceability | 🟡 Started | Agents are registered with a runtime binding (Google Agent Runtime, Cloud Run, local ADK) and project health snapshots (Cloud Monitoring for Agent Runtime). No discovery, version/revision model, trace linking, or `run_id` propagation. |
+| 3 — Evaluation | ❌ Not started | |
+| 4 — FinOps | 🟡 Started | Organization budget settings persisted as `PENDING_SYNC`; no reconciler, billing export, or allocation. |
+| 5 — Agent Runtime integration | 🟡 Started | Runtime bindings and health for Agent Runtime; no lifecycle operations. |
+| 6 — Enterprise governance | ❌ Not started | Cross-project sharing with explicit approval exists as part of Phase 1. |
+
+The architecture baseline behind this table is in
+[Platform Reference Architecture](GEAP_Platform_Reference_Architecture.md).
 
 ## 2. Vision
 
@@ -371,6 +388,8 @@ The first increment should combine **Phase 0** with a narrow **Phase 1 MVP**:
 5. Define the correlation and labeling standard before building cost and trace dashboards.
 
 This sequence creates visible value from the existing memory implementation while avoiding a memory-specific data model that would later block inventory, traceability, evaluation, and FinOps capabilities.
+
+**Status (2026-09-23):** item 3 is done and item 2 is partly done (organization/project model and agent registration with runtime bindings). Items 1 (module refactor), 4 (version/deployment model), and 5 (correlation and labeling standard) are not started.
 
 ## 14. Reference alignment
 

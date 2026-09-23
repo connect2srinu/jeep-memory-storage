@@ -1,10 +1,37 @@
 # Dynamic Household Members — Design
 
 **Status:** Implemented on `feature/dynamic-household-members` (see "Implementation notes" at the
-end). Design of record, pending Kroger Privacy/Legal review.
-**Date:** 2026-09-22
-**Builds on:** [household-scope-design.md](household-scope-design.md) (implemented: household-shared and
-per-member scopes, the `household_members` roster, the guardian check).
+end). Design of record for household memory, pending Kroger Privacy/Legal review.
+**Date:** 2026-09-22 (updated 2026-09-23 to absorb the earlier household-scope design)
+
+---
+
+## Foundation: household scopes
+
+The first household iteration (now folded into this document) introduced the scope model everything
+below relies on. It is unchanged:
+
+- **Every person is a member of a household.** The account holder and people without a login (such as
+  children) are all members with a stable `member_id`. An even earlier model with a separate
+  `dependent_id` under a user was dropped because it could not represent multi-adult households.
+- **Three scope shapes**, each a scope contract in the control plane, all within Memory Bank's 5-key
+  scope limit:
+
+  | Level | `scope_keys` | Holds |
+  |---|---|---|
+  | Member (classic) | `[organization_id, user_id]` | the customer's own base preferences (non-household setups) |
+  | Household-shared | `[organization_id, household_id]` | preferences shared by the whole household |
+  | Household-member | `[organization_id, household_id, member_id]` | one person's preferences |
+
+- **One schema per scope level.** A schema version is bound to exactly one scope shape, so a schema is
+  either household-shared or per-member, never both. The wizard's **Household + members** option
+  generates one of each.
+- **Reads stay lazy.** Household-shared data is read on every resolve; per-member data only when a turn
+  names a member. A whole-household view fans out one read per member, so it is never done by default.
+- **Deletion is scope-precise.** Forget with `householdId` + `memberId` removes one member; with
+  `householdId` alone it cascades to the household-shared data and every member.
+- **No new Memory Bank mechanism.** Households are a scope-key shape plus a PostgreSQL roster; Memory Bank
+  stores profiles, PostgreSQL stores the relationships.
 
 ---
 
@@ -53,7 +80,7 @@ Today that sentence fails. The agent may only use a `memberId` that is already i
 
 ## Layer-by-layer analysis
 
-| Layer | Current (today) | Proposed | Memory Bank change |
+| Layer | Before this design (first household iteration) | Now (implemented) | Memory Bank change |
 |---|---|---|---|
 | **Organization / Project / Domain** | Owner → business unit → business area | Unchanged | None |
 | **Customer (login)** | `userId` is the acting identity. It may not be on any roster. | One login = one household root. The household and root member are created on first authenticated use. | None |
@@ -64,7 +91,7 @@ Today that sentence fails. The agent may only use a `memberId` that is already i
 | **Write authorization** | Writing another member's data requires `is_guardian`. | Authority depends on member kind (see the matrix below). | None. Checked before the write. |
 | **Consent** *(new)* | Not modeled. | A consent ledger records every confirmed health write: who, about whom, category, prompt wording, time. Withdrawing consent triggers deletion. | None. Deletion uses the existing forget and purge. |
 | **Purpose limitation** *(new)* | Not modeled. Only registered agents read, through resolve. | Agents declare a purpose. Schemas declare allowed purposes (default: personalization). Access approval rejects a mismatch. Minors' and health data are never allowed for advertising. | None |
-| **Retention** | Dynamic memory only (the domain's `retention_days` sets an expiry on each write). Canonical schemas have none. | Three layers: Platform/Legal limits per sensitivity tier, then schema-owner retention within those limits, then overrides. | Expiry set at write time if the profile store supports expiry per field. Otherwise a control-plane sweep using purge-by-attribute. **To confirm.** |
+| **Retention** | Dynamic memory only (the domain's `retention_days` sets an expiry on each write). Canonical schemas have none. | Three layers: Platform/Legal limits per sensitivity tier, then schema-owner retention within those limits, then overrides. | None. A control-plane retention sweep deletes values whose last write is older than the schema's retention. |
 | **Duplicates / merge** | Not supported. | User-driven merge, split and rename inside a household. Two existing members are never merged automatically. | **A merge moves memories:** the retired member's memories are rewritten under the survivor's scope, then deleted. This is the only operation that changes Memory Bank keys. |
 | **Authoritative source** | None. | Link fields from day one. Batch reconciliation deferred until a source exists; authoritative data then wins. | None for linking. Merges as above. |
 | **Resolve / read** | Household-shared data always; per-member data only when a member is named. The snapshot lists `householdMembers`. | Same. The roster in the snapshot adds `memberKind`, `minor`, aliases and provisional status. | Unchanged |
@@ -72,8 +99,8 @@ Today that sentence fails. The agent may only use a `memberId` that is already i
 | **Agent** | Tools take an optional `member_id`. | Tools take a member reference. On `AMBIGUOUS` or `NEEDS_CONFIRMATION` the agent asks the user. The agent tells dislikes from allergies. | None |
 
 The pattern from the first household design still holds. Almost everything happens in the control plane,
-before Memory Bank is called. Memory Bank is affected in only two places: expiry at write time, and
-moving memories during a merge.
+before Memory Bank is called. Memory Bank data changes shape in only two places: the retention sweep
+deletes expired values, and a merge moves values under the kept member's scope.
 
 ---
 
@@ -140,7 +167,7 @@ A health write is confirmed **even after a match**. That confirmation is what th
 
 ---
 
-## Proposed data model
+## Data model
 
 | Table | New fields | Why |
 |---|---|---|
@@ -255,8 +282,9 @@ flowed somewhere is much harder.
 3. Wording of the health-data confirmation prompt (it becomes the consent record).
 
 **Engineering**
-4. Whether the Vertex profile store can expire a single profile field. If not, enforce retention with a
-   scheduled purge-by-attribute.
+4. ~~Whether the Vertex profile store can expire a single profile field.~~ Resolved: retention is
+   enforced by the control-plane retention sweep (purge by schema and last-write time). The sweep is
+   triggered from the Households screen or the Admin API; nothing schedules it yet.
 5. Tune the match thresholds on a labeled set of name variants, including nicknames and cultural name
    forms.
 6. How much of the roster (aliases in particular) to include in the snapshot sent to the model.
@@ -265,7 +293,9 @@ flowed somewhere is much harder.
 
 ---
 
-## Suggested delivery order
+## Delivery order
+
+Slices 1–5 are delivered. The "Later" items are not started.
 
 | Slice | Content |
 |---|---|

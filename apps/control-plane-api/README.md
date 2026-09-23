@@ -1,72 +1,81 @@
 # Control Plane API
 
-The FastAPI service is the only memory boundary used by agents and the Admin Console. It owns
-identity mapping, capabilities, schema grants, deterministic preference resolution, write routing,
-PostgreSQL control-plane state, audit, and the provider-neutral `MemoryStore` adapter.
+The FastAPI service is the only memory boundary used by agents and the Admin Console. It owns identity
+mapping, capabilities, schema grants, household context, consent, deterministic preference resolution,
+write routing, PostgreSQL control-plane state, audit, and the provider-neutral `MemoryStore` adapter.
 
 ## Runtime API
 
 Routes under `/api/v1/runtime`:
 
-- `POST /preferences/resolve`
-- `POST /preferences/refresh`
-- `POST /profiles`
-- `POST /memory/events`
-- `PUT /preferences/{canonical_attribute}`
+| Method | Path | Purpose | Capability |
+|---|---|---|---|
+| POST | `/preferences/resolve` | Effective snapshot (also `/preferences/refresh`) | `resolve_context` |
+| POST | `/profiles` | Raw provider profiles for readable schemas | `inspect_provenance` |
+| PUT | `/preferences/{attribute}` | Save a canonical value (member, household, or per-member) | `submit_candidates` |
+| POST | `/preferences/{attribute}/forget` | Delete one value | `submit_candidates` |
+| POST | `/preferences/{attribute}/move` | Move a per-member value to another member | `submit_candidates` |
+| POST | `/memory/dynamic` | Save a fact within an approved topic | `submit_candidates` |
+| POST | `/memory/events` | Store an event with candidate values | `submit_candidates` |
+| POST | `/memory/forget` | Forget a user, a member, or a household (cascades) | `submit_candidates` |
+| POST | `/memory/purge` | Organization-wide delete by tier/attribute/topic (`dryRun` default) | `administer_memory` |
+| POST | `/household/members` | Propose or add a member by name | `submit_candidates` |
+| PATCH | `/household/members/{member_id}` | Rename, or correct the `minor` flag | `submit_candidates` |
+| POST | `/household/members/merge` | Merge two entries for the same person | `submit_candidates` |
+| PUT / DELETE | `/households/{household_id}/members/{member_id}` | Administrative roster upsert / deactivate | `administer_memory` |
 
-Resolve responses contain `writablePreferences`. An agent maps natural language to one attribute
-from that allowlist. Write requests normally omit `schemaId`; the API resolves the schema by
-matching the attribute against active same-domain `WRITE` or `READ_WRITE` grants.
+The request `scope` is `{userId, appName?, domain?, householdId?, memberId?}`. `userId` is the logged-in
+customer; for household schemas the platform finds or creates their household and refuses any other
+`householdId`.
 
-Routing outcomes:
+Write requests normally omit `schemaId`; the API matches the attribute against active same-domain
+`WRITE` / `READ_WRITE` grants:
 
 - one writable match: use it;
 - matching shared/read-only schema: `403 PERMISSION_DENIED`;
-- no match: `400 INVALID_ARGUMENT`;
-- multiple writable matches: `400 INVALID_ARGUMENT`;
-- explicit legacy `schemaId`: retain exact authorization checks.
+- no match or several writable matches: `400 INVALID_ARGUMENT`;
+- explicit legacy `schemaId`: same authorization checks.
+
+A per-member write may pass `scope.memberId` or `memberName` + `relationship`. When the customer has to
+answer first, nothing is written and the response is `200` with `status` `needs_confirmation` (plus
+`confirmationPrompt` and `memberId`), `ambiguous` (plus `candidates`), or `not_allowed` (plus `message`);
+the agent repeats the call with `confirmed: true` after a yes.
 
 Example local update:
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/runtime/preferences/grocery.preferred_snack \
+curl -X PUT http://localhost:8080/api/v1/runtime/preferences/travel.seat_preference \
   -H 'Content-Type: application/json' \
-  -H 'X-Agent-ID: grocery-agent' \
-  -d '{
-    "scope": {"userId": "demo-user", "appName": "grocery-app", "domain": "grocery"},
-    "value": "mango chips"
-  }'
+  -H 'X-Agent-ID: travel-assistant' \
+  -d '{"scope": {"userId": "demo-user", "domain": "travel"}, "value": "window"}'
 ```
 
 ## Guided setup API
 
-- `POST /api/v1/admin/memory-setups/preview` performs validation and returns generated YAML without
-  changing state.
-- `POST /api/v1/admin/memory-setups/activate` transactionally creates the control-plane resources
-  and provisions the configured backend.
+- `POST /api/v1/admin/memory-setups/preview` validates and returns a review summary without changing
+  state.
+- `POST /api/v1/admin/memory-setups/activate` creates the control-plane resources in one transaction and
+  registers the schemas with the configured backend.
 
-Activation never creates user profile instances. With `MEMORY_BACKEND=mock`, it returns
-`REGISTERED_LOCAL`. With `MEMORY_BACKEND=vertex`, it applies every active schema version to the
-configured Agent Engine `context_spec` and returns `PROVISIONED`.
+Activation never creates customer profiles. With `MEMORY_BACKEND=mock` it returns `REGISTERED_LOCAL`;
+with `MEMORY_BACKEND=vertex` it applies every active schema version to the Agent Engine `context_spec`
+and returns `PROVISIONED`.
 
 ## Admin API
 
-Governed resources under `/api/v1/admin` include domains, scopes, schemas, preference catalog,
-agents, resolution policies, dynamic-memory policies, access requests, approvals, and audit.
-Records use lifecycle transitions instead of physical deletion.
-
-Supported roles are `PLATFORM_ADMIN`, `DOMAIN_ADMIN`, `SCHEMA_OWNER`, `AGENT_OWNER`, and `VIEWER`.
-Domain-scoped roles also require an assigned domain.
+Governed resources under `/api/v1/admin` include organizations, projects, memberships, domains, scopes,
+schemas and versions, preference catalog, agents, resolution and dynamic-memory policies, access
+requests, resource-change requests, households and consents, the retention sweep, and audit. Records use
+lifecycle transitions instead of physical deletion. See [docs/admin-api.md](../../docs/admin-api.md).
 
 ## Backends
 
-- `MockMemoryStore`: deterministic, process-local testing.
-- `VertexMemoryBankStore`: retrieves structured profiles and dynamic memories from Agent Platform
-  Memory Bank. Explicit preference writes are stored as typed exact-scope memory facts and overlaid
-  on provider profiles; natural-language events are also ingested for lazy provider generation.
+- `MockMemoryStore`: deterministic, process-local; used by tests and the default Compose stack.
+- `VertexMemoryBankStore`: reads structured profiles and memories from Agent Platform Memory Bank.
+  Explicit writes are stored as typed exact-scope memory facts and overlaid on provider profiles.
+  Managed generation is never triggered.
 
-The provider currently has no direct field-level structured-profile update method, so the explicit
-overlay is the authoritative immediate-write mechanism used by this platform.
+A new schema version replaces the registered one in either store without a restart.
 
 ## Run directly
 
@@ -75,20 +84,25 @@ PYTHONPATH=apps/control-plane-api/app uvicorn control_plane_api.main:app --reloa
 curl http://localhost:8080/healthz
 ```
 
-Compose runs Alembic before Uvicorn. A new database contains no business-domain configuration;
-create it through the Admin Console or Admin API.
+Compose waits for the database, runs Alembic (`upgrade head`, currently `0009_dynamic_household_members`),
+then starts Uvicorn. A new database
+contains no business configuration; create it through the Admin Console or Admin API.
 
 ## Authentication
 
-`AUTH_ENABLED=false` accepts `X-Agent-ID` for local development only. With authentication enabled,
-the API verifies a Google ID token audience and maps the verified principal to one active agent.
-Request-body agent IDs cannot establish identity.
+`AUTH_ENABLED=false` accepts `X-Agent-ID` and `X-Admin-*` headers for local development only. With
+authentication enabled, agents present a Google ID token mapped to one active registered agent, and
+admins authenticate with Google (IAP or ID token) or Microsoft Entra ID. Request-body agent IDs cannot
+establish identity.
 
 ## Validation
+
+From the repository root:
 
 ```bash
 PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests .venv/bin/python -m pytest -q apps/control-plane-api/tests
 .venv/bin/ruff check apps/control-plane-api/app apps/control-plane-api/tests
 ```
 
-See `docs/admin-api.md`, `docs/vertex-memory-bank.md`, and `docs/agent-memory-setup.md`.
+See [docs/agent-memory-setup.md](../../docs/agent-memory-setup.md) and
+[docs/vertex-memory-bank.md](../../docs/vertex-memory-bank.md).

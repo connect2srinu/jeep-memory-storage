@@ -1,94 +1,113 @@
 # ADR-0001: Managed Memory Bank vs. Custom Unified Memory Layer
 
-- **Status:** Proposed — production gates must pass before acceptance
-- **Date:** 2026-08-28
+- **Status:** Proposed — the managed-first path is implemented; acceptance waits on the open gates below
+- **Date:** 2026-08-28 (gate status updated 2026-09-23)
 - **Decision owners:** Agent Platform Architecture and Engineering
 - **Scope:** Canonical shared-memory engine and its enterprise governance boundary
 
 ## 1. Decision and context
 
-We must decide whether to continue with the repository's managed Google Memory Bank architecture or replace it with the proposed Unified Memory Layer (UML): a custom Memory Gateway, Pub/Sub writer, LLM extraction/consolidation pipeline, and PostgreSQL memory engine.
+We must decide whether to continue with the managed Google Memory Bank architecture or replace it with
+the proposed Unified Memory Layer (UML): a custom Memory Gateway, Pub/Sub writer, LLM
+extraction/consolidation pipeline, and PostgreSQL memory engine.
 
-This is not simply “Memory Bank vs. PostgreSQL.” Both options require the existing enterprise control plane for organizations, projects, agents, schemas, grants, approvals, resolution policies, audit, budgets, and observability. The real choice is:
+This is not simply "Memory Bank vs. PostgreSQL." Both options need the enterprise control plane for
+organizations, projects, agents, schemas, grants, approvals, resolution, households, consent, purpose,
+retention, audit, and observability. The real choice is:
 
-1. **Managed engine:** keep Google Memory Bank as the canonical profile/generation engine behind the existing Control Plane API.
-2. **Custom engine:** own extraction, consolidation, conflict handling, revisions, storage, scaling, privacy processing, and recovery in the UML.
-3. **Tiered hybrid:** use the managed engine by default and permit a custom or separately isolated tier only for requirements the managed topology cannot meet.
+1. **Managed engine:** Google Memory Bank as the storage engine behind the Control Plane API.
+2. **Custom engine:** own extraction, consolidation, conflict handling, revisions, storage, scaling,
+   privacy processing, and recovery in the UML.
+3. **Tiered hybrid:** the managed engine by default, with a custom or separately isolated tier only for
+   requirements the managed topology can't meet.
 
-Repository validation shows that the current control-plane and ADK patterns are substantial and reusable. It also identified production blockers: the Vertex SDK adapter targets the wrong public surface, organization read isolation is incomplete, global schema precedence is not executed, unsupported scope types are exposed, and write idempotency/recovery is incomplete. Those findings are detailed in [Current Memory Bank Architecture Validation](../current-memory-bank-architecture-validation.md) and [Memory Bank Assumption Validation](../memory-bank-assumption-validation.md).
+Since this ADR was drafted, the managed path has been built out on `feature/dynamic-household-members`:
+the Vertex adapter uses the supported `agentplatform` 2.x surface and was exercised live; household
+scopes, runtime member resolution, confirmation turns, a consent ledger, purpose limitation, retention,
+and governed deletion are implemented; and Memory Bank's managed generation is deliberately off, so
+extraction happens in the agent's own LLM call and every value is validated by the control plane before
+it is stored. Details are in
+[Current Memory Bank Architecture Validation](../current-memory-bank-architecture-validation.md) and
+[Memory Bank Assumption Validation](../memory-bank-assumption-validation.md).
 
 ## 2. One-page architecture comparison
 
 ```text
-MANAGED MEMORY BANK                              CUSTOM UML
+MANAGED MEMORY BANK (built)                      CUSTOM UML (proposal)
 
-Business Agent                                  Business Agent
-      |                                               |
-      v                                               v
-Control Plane API                               Memory Gateway
-  identity/capabilities                           identity/access matrix
-  org/project/schema grants                      trusted domain mapping
-  scope + policy resolver                        read resolver
-  approvals + audit                              audit
-      |                                               |
-      v                                               v
-Google Memory Bank                              PostgreSQL per-LOB tables
-  profiles + scope                                user/domain JSONB ontology
-  extraction + consolidation                     audit/version tables
-  async event ingestion                          custom OCC/merge logic
-  revisions + rollback                                ^
-  managed retrieval                                   |
-                                                   Pub/Sub
-                                                      ^
-                                                      |
-                                              Platform Memory Writer
-                                                privacy/PII processing
-                                                LLM extraction/classification
-                                                dedupe/conflict/consolidation
+Business Agent                                   Business Agent
+  extracts in its own LLM call                         |
+      |                                                v
+      v                                          Memory Gateway
+Control Plane API                                  identity/access matrix
+  identity/capabilities/purpose                    trusted domain mapping
+  org/project/schema grants                        read resolver
+  scopes + households + consent                    audit
+  sensitivity gate + resolver                          |
+  approvals + audit + retention                        v
+      |                                          PostgreSQL per-LOB tables
+      v                                            user/domain JSONB ontology
+Google Memory Bank                                 audit/version tables
+  typed facts per exact scope                      custom OCC/merge logic
+  profiles + retrieval                                 ^
+  revisions + rollback                                 |
+  (managed generation off)                          Pub/Sub
+                                                       ^
+                                                Platform Memory Writer
+                                                  privacy/PII processing
+                                                  LLM extraction/classification
+                                                  dedupe/conflict/consolidation
 ```
 
 | Dimension | Managed Memory Bank + control plane | Custom UML |
 |---|---|---|
-| Differentiator | Managed profiles, generation, revisions, retrieval, and scaling | Full platform ownership, physical per-LOB SQL isolation, custom algorithms, direct SQL portability |
-| Reuse | Preserves the current API, governance model, resolver, UI, and ADK integration | Can reuse governance concepts, but replaces/rebuilds the memory engine and integration paths |
-| Primary risk | Provider/SDK dependency, logical-isolation correctness, quotas, and product constraints | Distributed-system correctness, extraction quality, SQL scaling, privacy, migrations, recovery, and staffing |
-| Best fit | Default enterprise preference/profile memory | A regulated or specialized domain with proven requirements unmet by managed topology |
+| Differentiator | Managed storage, retrieval, revisions, scaling; governance already built | Full ownership, physical per-LOB SQL isolation, custom algorithms, direct SQL |
+| Reuse | Keeps the API, governance model, resolver, console, and ADK agents | Rebuilds the memory engine and its integration paths |
+| Primary risk | Provider/SDK dependency, quotas, logical-isolation correctness | Distributed-system correctness, extraction quality, SQL scaling, privacy, migrations, staffing |
+| Best fit | Default enterprise preference/profile memory | A regulated or specialized domain with proven requirements the managed topology can't meet |
 
-The UML proposal does not yet define complete cross-domain conflict semantics, owner override rules, or transactional delivery from the producer to Pub/Sub. These remain `UML_PROPOSAL_ASSUMPTION / OPEN QUESTION` rather than benefits credited to the option.
+The UML proposal still doesn't define cross-domain conflict semantics, owner override rules, or
+transactional delivery from producer to Pub/Sub; these remain open questions, not credited benefits.
 
-## 3. Capability matrix
+## 3. Capability summary
 
-| Capability | Managed option | Custom UML | Decision significance |
+| Capability | Managed option | Custom UML | Significance |
 |---|---|---|---|
-| Platform gateway, agent capabilities, org/project grants | Implemented, with isolation gaps to fix | Must build or reuse | Keep the current control plane in either option. |
-| Structured profiles and lazy creation | Managed | Must build | Managed option is ahead. |
-| Extraction, consolidation, event ingestion | Managed | Must build and evaluate | Avoid duplicate engineering without a proven gap. |
-| Deterministic enterprise resolution | Implemented, with schema-priority defect | Must build | Fix the existing resolver. |
-| Revisions and rollback | Managed; operator workflow incomplete | Must build | Material managed advantage. |
-| Physical per-LOB storage isolation | Separate managed resources or logical scope/IAM; not per-table | Native proposal characteristic | UML advantage only when physical SQL ownership is mandatory. |
-| Durable idempotency, retry, reconciliation | Incomplete | Proposed but not specified end to end | Required in both designs. |
-| Custom privacy/preprocessing pipeline | Limited by provider integration points | Full control | Potential UML/hybrid justification. |
-| Direct SQL analytics and portability | Export/integration required | Native, subject to governance | Potential UML justification. |
-| Semantic/episodic/vector/graph roadmap | Managed capabilities vary | Future proposal | Not part of the initial decision. |
-| Production implementation evidence | Control plane is implemented; live provider path is blocked | Proposal only | Favors repairing and validating managed first. |
+| Gateway, capabilities, grants, purpose | Implemented; admin read isolation open | Build or reuse | Keep the control plane either way. |
+| Structured profiles, scopes, lazy creation | Implemented (member, household, household-member) | Build | Managed is ahead. |
+| Household model and health consent | Implemented in the control plane | Build | Independent of the store. |
+| Extraction | Agent-side, validated centrally; provider generation off | Build and evaluate | No duplicate engineering needed. |
+| Deterministic resolution | Implemented; global schema precedence open | Build | Fix the existing resolver. |
+| Deletion and retention | Implemented | Build | Managed is ahead. |
+| Revisions and rollback | Provider capability; no operator workflow | Build | Material managed advantage. |
+| Physical per-LOB isolation | Separate banks/projects, or logical scope/IAM | Native | UML advantage only if physical SQL ownership is mandatory. |
+| Durable idempotency / retry / reconciliation | Missing | Proposed, unspecified end to end | Needed either way. |
+| Direct SQL analytics and portability | Export needed; governance metadata already in PostgreSQL | Native | Possible UML justification. |
+| Implementation evidence | Built and live-validated in a local harness | Proposal only | Favors managed. |
 
-The complete comparison is in [Memory Bank vs. UML Capability Matrix](../memory-bank-vs-uml-capability-matrix.md).
+Full comparison: [Capability Matrix](../memory-bank-vs-uml-capability-matrix.md).
 
-## 4. Cost, operations, and development comparison
+## 4. Cost, operations, and development
 
-Current published pricing makes Memory Bank API-operation charges small in the illustrative repository access pattern: at three readable schemas, approximately 13 reads and 3 writes per unit produce about **$0.62 per 1 million units** or **$18.70 per 30 million units**, excluding storage, generation/embedding tokens, and shared application infrastructure. Google states that billing under this Memory Bank structure begins September 1, 2026.
+With managed generation off, the repository's access pattern is about 13 reads and 1 write per session
+that saves a preference (three readable schemas): roughly **$0.45 per 1 million sessions** or **$13.60
+per 30 million** in Memory Bank operation charges at published rates, excluding storage and shared
+infrastructure. The binding constraint is the per-minute quota, not cost.
 
-A custom UML adds Pub/Sub, writer compute, a larger production PostgreSQL footprint, backup/replay tooling, and direct model calls. Pub/Sub throughput is inexpensive at the modeled payload, but illustrative custom extraction using 1,000 input and 200 output Gemini 2.5 Flash Lite tokens costs about **$180 per 1 million events** or **$5,400 per 30 million events** before retries, classification, embeddings, and conflict calls. Memory Bank generation tokens must also be measured; this comparison does not assume its token envelope.
+A custom UML adds Pub/Sub, writer compute, a larger production PostgreSQL footprint, replay tooling, and
+direct model calls: illustrative extraction at 1,000 input / 200 output Gemini 2.5 Flash Lite tokens
+costs about **$180 per 1 million events** or **$5,400 per 30 million**, before retries, classification,
+and embeddings — and ten times that if every message rather than every preference is sent to it.
 
 | Dimension | Managed option | Custom UML |
 |---|---|---|
-| Fixed infrastructure | Existing control plane/governance database | Existing stack plus gateway/writer capacity and production memory database growth |
-| Variable cost | Managed operations, storage/revisions, generation and embeddings | Pub/Sub, model calls, SQL/worker compute, storage/audit/backups, replay |
-| Operations | Provider engine plus application runbooks | Own combined SLO for gateway, queue, workers, SQL, models, migrations, and recovery |
-| Development | Repair adapter and production gaps; add live tests | Build and validate an entire memory engine plus the same governance work |
-| Three-year TCO driver | Token use, provider usage, and a smaller platform team | Engineering, evaluation, on-call, migrations, and incident recovery dominate service prices |
+| Fixed infrastructure | Existing control plane and governance database | Same plus gateway/writer capacity and memory database growth |
+| Variable cost | Memory Bank operations and storage | Pub/Sub, model calls, SQL/worker compute, storage, replay |
+| Operations | Provider engine plus application runbooks | Own the combined SLO of gateway, queue, workers, SQL, models |
+| Development | Close the remaining gates | Build and validate an entire engine plus the same governance work |
+| Three-year TCO driver | Provider usage and a smaller platform team | Engineering, evaluation, on-call, migrations, incident recovery |
 
-Dollar values are illustrative, undiscounted, and require validation with billing telemetry. Assumptions, formulas, exclusions, and official pricing links are in [Cost, Operations, and Development Analysis](../memory-bank-vs-uml-cost-analysis.md).
+Assumptions and formulas: [Cost, Operations, and Development Analysis](../memory-bank-vs-uml-cost-analysis.md).
 
 ## 5. Recommendation and consequences
 
@@ -96,37 +115,39 @@ Dollar values are illustrative, undiscounted, and require validation with billin
 
 Adopt a **tiered managed-first architecture**:
 
-1. Keep the existing Control Plane API as the only business-agent memory boundary.
-2. Keep Google Memory Bank as the default canonical profile and generation engine.
-3. Adopt selected UML patterns inside the control plane: stable event IDs, durable idempotency/outbox where justified, stronger preprocessing/privacy checks, explicit conflict contracts, richer lineage, and reconciliation.
-4. Prefer separate GCP projects/Memory Banks, scope-aware IAM Conditions, CMEK, and residency controls when stronger managed isolation is required.
-5. Allow a custom PostgreSQL UML tier only for a domain with an approved regulatory, direct-query, portability, latency, or custom-processing requirement that a measured managed design cannot satisfy.
-
-Do not begin a wholesale UML replacement until the managed production gates are repaired and both options are evaluated on the same representative dataset and SLOs.
+1. The Control Plane API is the only business-agent memory boundary.
+2. Google Memory Bank is the default storage engine; its managed generation stays off.
+3. Adopt the useful UML patterns inside the control plane: explicit governed writes, sensitivity
+   screening, consent, lineage logging (done); durable idempotency/outbox, stable request identity, and
+   reconciliation (open).
+4. Use separate GCP projects / Memory Banks, IAM Conditions, CMEK, and residency controls where stronger
+   managed isolation is required.
+5. Allow a custom PostgreSQL tier only for a domain with an approved regulatory, direct-query,
+   portability, latency, or custom-processing requirement that a measured managed design can't meet.
 
 ### Positive consequences
 
-- Preserves the implemented governance, approval, resolver, UI, and ADK investment.
-- Reuses managed extraction, consolidation, revision, retrieval, and scaling capabilities.
-- Shortens the path to production evidence and reduces the platform's operational surface.
-- Retains a governed escape hatch for hard-isolation or specialized domains.
-- Focuses engineering on enterprise differentiation: authorization, policy, audit, privacy, observability, and developer experience.
+- Preserves the implemented governance, household, resolver, console, and ADK investment.
+- Reuses managed storage, retrieval, revision, and scaling.
+- Shortens the path to production and keeps the operational surface small.
+- Keeps a governed escape hatch for hard-isolation or specialized domains.
 
 ### Negative consequences
 
-- Creates dependency on Google APIs, SDK compatibility, pricing, quotas, and supported regions.
-- Requires disciplined provider abstraction and live integration tests.
-- Logical multi-tenant isolation must be proven at both application and IAM layers; some organizations may require separate resources.
-- A tiered model adds governance and migration complexity if a custom tier is later introduced.
-- Direct SQL access to canonical managed memories is unavailable without an export or curated analytics path.
+- Dependency on Google APIs, SDK compatibility, pricing, quotas, and regions.
+- Logical multi-tenant isolation must be proven at the application and IAM layers.
+- A tiered model adds complexity if a custom tier is ever introduced.
+- Direct SQL over stored memory values needs an export or analytics path.
 
-### Mandatory acceptance gates
+### Acceptance gates
 
-- Correct and pin the supported Vertex Agent Platform/Memory Bank SDK integration.
-- Prove organization/project isolation and approved cross-organization read-only sharing with live tests.
-- Execute global schema precedence and restrict the UI to runtime-supported scopes.
-- Add durable idempotency, retry/reconciliation, and stable event identity.
-- Apply least-privilege Memory Bank roles and scope IAM Conditions.
-- Validate live profiles, ingestion, revisions, rollback, deletion, retention, quotas, latency, and failure behavior.
-- Establish tenant-level usage, token, storage, latency, and cost telemetry.
-- Revisit this ADR if a bounded UML prototype demonstrates a material requirement the managed topology cannot meet.
+| Gate | Status 2026-09-23 |
+|---|---|
+| Correct and pin the Vertex SDK integration | ✅ Correct and live-validated; 🟡 version range still broad |
+| Prove organization/project isolation and read-only cross-organization sharing | 🟡 Runtime isolation and sharing proven in tests; admin list/hierarchy reads not yet membership-filtered |
+| Execute global schema precedence; restrict the UI to supported scopes | ❌ Precedence not executed; store/custom scopes still offered |
+| Durable idempotency, retry/reconciliation, stable request identity | ❌ Open |
+| Least-privilege Memory Bank roles and scope IAM Conditions | ❌ Open |
+| Live validation of profiles, deletion, retention, quotas, latency, failure behavior | 🟡 Profiles, writes, and deletion validated live in a local harness; landing-zone deploy, quota, and failure tests open |
+| Tenant-level usage, storage, latency, and cost telemetry | ❌ Open |
+| Revisit if a bounded UML prototype shows a requirement managed can't meet | Not triggered; no UML prototype has been built |

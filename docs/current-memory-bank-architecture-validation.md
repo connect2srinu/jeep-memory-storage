@@ -2,218 +2,203 @@
 
 ## Purpose
 
-This document records the repository-backed validation of the current shared-memory implementation. It supports [ADR-0001](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md) and intentionally contains implementation detail that is omitted from the ADR.
+This document records the repository-backed validation of the shared-memory implementation. It supports
+[ADR-0001](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md) and holds the
+implementation detail the ADR omits.
 
 Validation baseline:
 
-- Repository: `jeep-memory-storage`
-- Branch reviewed: `codex/org-project-governance`
-- Baseline commit: `249dbc5`
-- Review date: 2026-08-28
-- Validation method: source inspection plus the repository's Python, frontend, and build checks
+- Branch reviewed: `feature/dynamic-household-members`
+- Review date: 2026-09-23 (first review 2026-08-28 at `249dbc5` on `codex/org-project-governance`)
+- Method: source inspection plus the repository's Python, frontend, and build checks
 
 ## Executive finding
 
-The repository implements a credible enterprise control plane around Google Memory Bank: agents use a platform API rather than the Google SDK directly; agent capabilities and schema grants gate runtime operations; preferences are resolved deterministically; snapshots are cached in ADK session state; and administrative configuration is persisted in PostgreSQL with approval and audit records.
+The repository implements a credible enterprise control plane around Google Memory Bank: agents use a
+platform API rather than the Google SDK; capabilities, schema grants, and purpose limitation gate
+runtime operations; preferences are resolved deterministically; snapshots are cached in ADK session
+state; household memory, confirmation turns, and a consent ledger are built in; and administrative
+configuration is persisted in PostgreSQL with approval and audit records.
 
-The architecture is not yet production-ready. The live Vertex adapter targets obsolete or unsupported SDK surfaces, organization membership is not consistently enforced by read APIs, configured global schema precedence is not loaded by the runtime resolver, and the UI advertises scopes that the runtime rejects. These are production gates, not reasons to replace the managed memory engine.
+Since the first review, three of its production gates are closed: the Vertex adapter targets the
+`agentplatform` 2.x surface and was exercised live, household scopes are supported end to end, and
+dynamic-memory policy is enforced by the platform. The remaining production gates are organization read
+isolation, global schema precedence, unsupported scope options in the wizard, write durability, two UI
+defects, and IAM least privilege.
 
 ## Implemented architecture
 
 ```text
 Admin user
   -> React Admin Console
-  -> Control Plane API
-  -> PostgreSQL control-plane database
-       organizations, projects, domains, schemas, agents,
-       grants, policies, approvals, settings, and audit events
+  -> Control Plane API (admin plane)
+  -> PostgreSQL: organizations, projects, memberships, domains, schemas and versions, agents, grants,
+     policies, approvals, settings, household roster and aliases, consent ledger, audit
 
-Business user
-  -> ADK Reference Agent
+Customer
+  -> ADK agent (memory-agent / reference-agent)
   -> Control Plane runtime API
-       authenticate agent
-       validate capability and active grants
-       derive authorized owner scopes
-       read/write memory through provider adapter
+       authenticate agent; check capability, grants, purpose
+       find or create the customer's household (household setups)
+       resolve the target member; screen sensitivity; confirm and record consent for health data
+       read/write memory through the provider adapter
        resolve effective preferences
   -> Google Memory Bank or MockMemoryStore
 
 Resolved snapshot
-  -> ADK session state key: shared_memory:effective_snapshot
+  -> ADK session state (resolved once per session)
   -> injected into model instructions and exposed through agent tools
 ```
 
 ### Application components
 
-| Component | Implemented responsibility |
+| Component | Responsibility |
 |---|---|
-| `apps/admin-console` | React/TypeScript administrative UI, guided setup, governance views, approvals, settings, and Entra placeholders. |
-| `apps/control-plane-api` | FastAPI control plane and runtime gateway; SQLAlchemy persistence; capability, grant, scope, policy, approval, and audit enforcement. |
-| `apps/reference-agent` | Google ADK reference consumer; calls only the Control Plane API, caches resolved preferences in session state, and exposes preference tools. |
-| PostgreSQL | Stores governance metadata and workflow state. It is not the canonical preference-value store in the managed architecture. |
-| Memory provider adapter | Selects the local mock backend or the intended Vertex Memory Bank backend. |
+| `apps/admin-console` | React/TypeScript admin UI: guided setup, organization/project workspace, domain detail, households, approvals, governance screens, Entra sign-in |
+| `apps/control-plane-api` | FastAPI control plane and runtime gateway; SQLAlchemy persistence; capability, grant, scope, purpose, consent, policy, approval, retention, and audit enforcement |
+| `apps/memory-agent` | Reference ADK agent: PostgreSQL sessions, governed long-term memory, household tools |
+| `apps/reference-agent` | Minimal thin-consumer ADK agent |
+| PostgreSQL | Governance metadata, workflow state, household roster, consent ledger. Not the preference-value store. |
+| Memory provider adapter | `MockMemoryStore` or `VertexMemoryBankStore`, selected by `MEMORY_BACKEND` |
 
 ### Deployment components
 
-The Terraform and container assets define Cloud Run services for the Control Plane API, Admin Console, and reference agent; a Cloud Run migration job; Cloud SQL for PostgreSQL; Artifact Registry; private networking; Secret Manager; an external HTTPS load balancer with IAP; and Cloud Monitoring/Logging resources.
-
-The repository does not provision a Memory Bank or Agent Engine directly. It expects an existing resource identifier and attempts to update its memory context configuration during activation.
+Terraform defines Cloud Run services for the Control Plane API, Admin Console, and reference agent; a
+Cloud Run migration job; private Cloud SQL for PostgreSQL; Artifact Registry; private networking;
+Secret Manager; an external HTTPS load balancer with IAP; and Cloud Monitoring/Logging resources. It
+does not create the Agent Engine / Memory Bank; activation updates an existing resource's memory context
+configuration.
 
 ## Runtime read flow
 
-The implemented preference-resolution flow is:
-
-1. The reference agent sends `POST /api/v1/runtime/preferences/resolve`.
-2. The Control Plane API resolves the authenticated principal to an active registered agent.
-3. The API verifies the `resolve_context` capability.
-4. Active, non-expired schema grants determine which schemas the agent may read.
-5. For each readable schema, the API derives the schema owner's organization/user scope.
-6. The provider adapter retrieves profile and explicit-overlay memories.
-7. The resolver groups candidates by logical preference suffix and applies source, domain, explicitness, recency, and confidence rules.
-8. The API returns values, provenance, schema versions, policy version, snapshot version, and writable attributes.
-9. The reference agent stores the result in `shared_memory:effective_snapshot` for the ADK session.
-
-This design already matches an important Unified Memory Layer principle: memory is read at a controlled session boundary and exposed to the model through a platform-owned integration.
+1. The agent calls `POST /api/v1/runtime/preferences/resolve` once per session.
+2. The API maps the authenticated principal to an active registered agent and checks `resolve_context`.
+3. Active, unexpired grants whose schema allows the agent's purpose determine readable schemas.
+4. For household schemas, the customer's household root is found or created.
+5. For each readable schema, the adapter reads profiles and explicit overlays at that schema's exact
+   scope (per-member schemas only when a member is named).
+6. The resolver groups candidates by logical key and applies source, domain, explicitness, recency, and
+   confidence rules.
+7. The API returns values, provenance, schema and policy versions, writable attributes, approved topics,
+   and the household roster.
+8. The agent caches the snapshot in session state.
 
 ## Runtime write flows
 
 ### Explicit preference update
 
-`PUT /api/v1/runtime/preferences/{attribute}` performs these checks before writing:
+`PUT /api/v1/runtime/preferences/{attribute}` checks, before writing: authenticated agent;
+`submit_candidates`; an active same-domain write grant allowed for the agent's purpose; a registered
+attribute mapping; exact scope; for per-member attributes, the target member (matched, proposed, or
+ambiguous) and guardian authority; the sensitivity screen; and for health data the confirmation and
+consent gate.
 
-- authenticated agent identity;
-- `submit_candidates` capability;
-- active write grant;
-- registered attribute mapping;
-- exact runtime scope;
-- same-domain and same-organization ownership for writes.
+The Vertex adapter retrieves the scope's existing facts to compute a write counter, then creates a new
+typed fact. Its lock is process-local and does not provide concurrency control across Cloud Run
+instances.
 
-The current Vertex adapter retrieves existing overlay memory and creates a new explicit overlay fact. Its process-local lock does not provide distributed concurrency control across Cloud Run instances.
+### Event submission
 
-### Conversation/event submission
+`POST /api/v1/runtime/memory/events` validates the same boundary, writes the candidate values, and
+stores the event text as a fact. It never triggers provider generation. There is no Pub/Sub writer.
 
-`POST /api/v1/runtime/memory/events` validates the same agent and grant boundary, creates a natural event fact, and requests provider-side ingestion/generation. There is no repository implementation of a Pub/Sub memory-writer pipeline.
+### Household operations
 
-### Refresh
-
-`POST /api/v1/runtime/preferences/refresh` repeats the authorized provider reads and resolution, returning a fresh snapshot to replace the ADK session cache.
+Add, rename, and merge members; move a value to another member; forget one value (withdrawing consent
+for health data). All are scoped to the caller's own household.
 
 ## Governance and lifecycle capabilities
 
-The repository contains persisted models and APIs for:
+Persisted models and APIs exist for organizations, projects, and memberships; organization and project
+settings; domains and scopes; schemas, versions, mappings, and the preference catalog; agents with
+capabilities and purpose; schema grants and access requests; resolution policies (schema priorities
+and attribute overrides); dynamic-memory policies; resource-change requests; runtime bindings and
+health snapshots; the household roster, aliases, and consent ledger; retention sweeps; and append-only
+audit events.
 
-- organizations, projects, and memberships;
-- organization and project settings;
-- domains and scope definitions;
-- profile schemas, immutable versions, mappings, and preference definitions;
-- registered agents and capability declarations;
-- schema grants and cross-organization access requests;
-- resolution policies, schema priority records, and attribute overrides;
-- dynamic-memory policies;
-- resource-change requests and approvals;
-- agent runtime bindings and health snapshots;
-- append-only control-plane audit events.
-
-Guided setup registers a schema and agent configuration locally while keeping user profile instances lazy. Owned-schema access can be approved during setup; shared-schema access remains subject to approval.
-
-Schema edits use an additive version workflow. A draft version is reviewed, then activated while the prior version is deprecated. Destructive scope, mapping removal, and rename operations are restricted to reduce data-integrity risk. Domain edits also use a resource-change approval workflow.
+Schema edits use a versioned workflow: a new version is submitted, approved, and becomes active while
+the previous one is deprecated; the runtime uses it without a restart. Domain edits use the same
+change-request workflow.
 
 ## Scope and isolation behavior
 
-The runtime currently enforces one exact provider scope shape:
+The runtime supports exactly three provider scope shapes:
 
 ```text
 organization_id + user_id
+organization_id + household_id
+organization_id + household_id + member_id
 ```
 
-The guided UI and metadata model also describe household, user-store, and custom scopes. Those choices are not implemented end to end: the runtime owner-scope builder rejects any scope that is not exactly organization plus user. They must be hidden or marked future until implemented.
+Any other key set is rejected. For household schemas, the household comes from the login; a request
+naming another household is refused. Cross-organization reads work after an approved grant, reading the
+owner organization's scope with the same identifiers. Cross-organization and cross-domain writes are
+blocked.
 
-Cross-organization reads are conceptually supported: an approved read grant causes the resolver to read the owner organization's schema using the same user identifier. Cross-organization writes are blocked. This is aligned with the intended organization/project governance model, subject to the authorization gaps below.
+## Production gates
 
-## Validated gaps and production gates
-
-### P0 — Vertex SDK integration does not match the supported public API
-
-The Vertex adapter calls `client.memory_banks`, `client.memory_banks.memories`, and `ingest_events` through that surface. Provisioning calls `client.runtimes.update`. The supported Agent Platform examples use `client.agent_engines.memories` and `client.agent_engines.update`.
-
-The current dependency range is broad enough to install SDK versions whose public surface does not match the adapter. Mock-backed tests do not exercise this integration. `MEMORY_BACKEND=vertex` therefore requires correction and a live integration test before production use.
-
-### P0 — Organization read isolation is incomplete
-
-Several administrative read paths accept an organization identifier without consistently verifying the caller's organization membership. The hierarchy response can also enumerate organizations, projects, members, domains, and agents more broadly than the caller's membership permits. UI filtering is not an authorization boundary; these checks must be enforced in the API repository/service layer.
-
-### P1 — Global schema precedence is persisted but not executed
-
-Guided setup persists schema-priority records. The runtime repository loads default resolution rules and attribute-specific overrides, but does not load the global schema-priority rows. Consequently, the wizard's global `schemaPrecedence` configuration is not applied unless equivalent precedence is expressed through an attribute override.
-
-### P1 — Scope choices exceed runtime support
-
-The UI and database can represent `USER`, `HOUSEHOLD`, `USER_STORE`, and custom scope definitions. Only the organization-user scope is accepted by the runtime. This mismatch can produce configurations that activate successfully but fail when an agent uses them.
-
-### P1 — Durable write guarantees are missing
-
-The write path has no durable outbox, idempotency key store, retry queue, dead-letter handling, or distributed optimistic concurrency control. Provider event ingestion can supply some asynchronous consolidation, but the platform still needs deterministic request deduplication and observable failure handling around its own API boundary.
-
-### P1 — UI settings can overwrite loaded values
-
-Organization and project settings forms combine asynchronous `defaultValue` fields with shadow form state. Saving without touching a field can serialize empty arrays or fallback thresholds over values that were loaded from the API. Controlled form state and regression tests are required.
-
-### P2 — Approval mutations need robust UI error handling
-
-Approval actions do not consistently expose pending, failure, and retry states. Backend enforcement remains authoritative, but an operator needs visible correlation IDs and a stable result state.
-
-### P2 — Dynamic-memory policy behavior is only partially validated
-
-Dynamic policy metadata is persisted and included in provider context configuration, but the local resolver does not independently enforce the policy. Live Memory Bank behavior has not been validated because of the SDK integration issue.
-
-### P2 — IAM is broader than the design intends
-
-Terraform grants a general Vertex AI user role to the runtime service account. Google documents Memory Bank-specific roles and IAM Conditions for scope-aware access. The deployment should use least-privilege roles and conditions after the application scope contract is finalized.
+| Gate (first review) | Status 2026-09-23 | Evidence / remaining work |
+|---|---|---|
+| **P0** Vertex SDK surface | ✅ Closed | Adapter and provisioner use `agentplatform` 2.x (`memory_banks.memories`, `runtimes.update`) and were exercised live against a real Agent Engine (DEART-56710 spike). The dependency range `google-cloud-aiplatform[agent_engines]>=1.112,<3.0` is still broad; pin it tighter. |
+| **P0** Organization read isolation | ❌ Open | Settings, members, approvals, and runtime bindings check membership. Generic resource lists (`list_resources`) and `organization-hierarchy` still return every organization's records to any authenticated admin. |
+| **P1** Global schema precedence | ❌ Open | The wizard stores schema priorities; the runtime loads only default rules and per-attribute overrides. Use attribute overrides until fixed. |
+| **P1** Scope choices exceed runtime | 🟡 Partly closed | Per User, Per Household, and Household + members now work end to end. Per User + Store and Custom are still offered and still rejected at runtime. |
+| **P1** Durable write guarantees | ❌ Open | No idempotency keys, outbox, retry queue, dead-letter handling, or distributed concurrency control. Provider `429` surfaces as HTTP 500. |
+| **P1** UI settings overwrite | ❌ Open | Organization settings save email recipients, Monitoring channel IDs, and billed project IDs as empty and the threshold as 80% unless those fields were edited. |
+| **P2** Approval action errors | ❌ Open | Loading errors are shown, but approve/reject/revoke actions have no error handling, so a denied decision (e.g. a purpose mismatch) fails silently in the UI. |
+| **P2** Dynamic-memory policy enforcement | ✅ Closed | The platform enforces approved topics, per-topic sensitivity, confidence threshold, and retention on every dynamic write and resolve. |
+| **P2** IAM breadth | ❌ Open | Runtime service accounts still hold `roles/aiplatform.user`; no Memory Bank-specific roles or IAM Conditions. |
 
 ## Validation results
 
-At the reviewed baseline:
+Run on 2026-09-23 against the mock store:
 
 | Check | Result |
 |---|---|
-| Python lint | Passed |
-| Python unit/integration tests | 63 passed, 2 skipped |
-| Frontend type check | Passed |
-| Frontend tests | 17 passed |
-| Frontend production build | Passed |
+| Python lint (`ruff check apps scripts tests`) | 1 error: `BLE001` in `scripts/memory_load_test.py` |
+| Repository boundary tests | 5 passed |
+| Control Plane API tests | 114 passed, 2 skipped (live-GCP and PostgreSQL integration tests are opt-in) |
+| Reference agent tests | 9 passed |
+| Memory agent tests | 3 passed |
+| Admin Console tests / build | 17 passed / build succeeded |
 
-These results validate the mock-backed and control-plane implementation. They do not validate live Vertex Memory Bank interoperability, IAM Conditions, provider quotas, or production failure recovery.
+These validate the control plane against the mock store. They don't validate live Memory Bank behavior
+at scale, IAM Conditions, quotas, or failure recovery.
 
 ## Evidence map
 
-| Finding | Primary repository area |
+| Finding | Repository area |
 |---|---|
-| ADK session cache and tool flow | `apps/reference-agent/app/reference_agent/agent.py` |
-| Control Plane HTTP client | `apps/reference-agent/app/reference_agent/client.py` |
-| Runtime authorization and resolution | `apps/control-plane-api/app/control_plane_api/services/runtime_service.py` |
-| SQL-backed resolution configuration | `apps/control-plane-api/app/control_plane_api/repositories/sqlalchemy_runtime_repository.py` |
-| Vertex provider adapter | `apps/control-plane-api/app/control_plane_api/integrations/vertex_memory_store.py` |
-| Agent-platform provisioning | `apps/control-plane-api/app/control_plane_api/services/vertex_provisioning.py` |
-| Governance resources and hierarchy | `apps/control-plane-api/app/control_plane_api/services/admin_service.py` |
-| Persistent data model | `apps/control-plane-api/app/control_plane_api/db/models.py` and Alembic migrations |
-| Guided setup | `apps/control-plane-api/app/control_plane_api/services/guided_setup_service.py` and Admin Console setup views |
-| Organization settings form | `apps/admin-console/src/features/organizations/OrganizationWorkspace.tsx` |
-| Cloud deployment | `infra/terraform` and Docker Compose files |
+| Session cache, tools, confirmation contract | `apps/memory-agent/app/memory_agent/agent.py` |
+| Runtime API client | `apps/memory-agent/app/memory_agent/client.py` |
+| Runtime authorization, household context, consent, resolution | `apps/control-plane-api/app/control_plane_api/services/runtime_service.py` |
+| Grants and resolution configuration | `apps/control-plane-api/app/control_plane_api/persistence/runtime_repository.py` |
+| Member matching | `apps/control-plane-api/app/control_plane_api/domain/household_identity.py` |
+| Vertex adapter | `apps/control-plane-api/app/control_plane_api/integrations/vertex_memory_store.py` |
+| Provisioning | `apps/control-plane-api/app/control_plane_api/services/vertex_provisioning.py` |
+| Governance, hierarchy, approvals | `apps/control-plane-api/app/control_plane_api/services/admin_service.py` |
+| Retention | `apps/control-plane-api/app/control_plane_api/services/retention_service.py` |
+| Data model | `apps/control-plane-api/app/control_plane_api/persistence/models.py`, `migrations/versions/` |
+| Guided setup | `apps/control-plane-api/app/control_plane_api/services/guided_setup.py`, `apps/admin-console/src/features/memory-setup/` |
+| Settings form | `apps/admin-console/src/features/organizations/OrganizationWorkspace.tsx` |
+| Approval actions | `apps/admin-console/src/features/approvals/ApprovalsTable.tsx` |
+| Cloud deployment | `infrastructure/terraform`, Docker Compose files |
 
 ## Production validation sequence
 
-1. Correct the Vertex SDK calls and pin/test a compatible SDK version.
-2. Run live create, retrieve, profile, event-ingestion, revision, and rollback tests in an isolated GCP project.
-3. Enforce membership filtering on every organization/project read and mutation.
-4. Load and test global schema precedence in the runtime resolver.
-5. Limit the UI to the supported user scope or implement the additional scope shapes end to end.
-6. Add durable idempotency, retry, and reconciliation around writes.
-7. Replace broad Vertex permissions with Memory Bank-specific roles and scope conditions.
-8. Add production telemetry for authorization decisions, provider operations, resolution outcomes, snapshot versions, latency, quotas, and cost.
+1. Enforce membership filtering on every organization/project read.
+2. Load and test global schema precedence in the runtime resolver.
+3. Hide or implement the Per User + Store and Custom scopes.
+4. Add idempotency, retry/reconciliation, and `429` → `503` + `Retry-After` handling.
+5. Fix the settings form and add error handling to approval actions.
+6. Replace broad Vertex permissions with Memory Bank-specific roles and scope conditions.
+7. Deploy to the landing zone and run live create, retrieve, delete, revision, quota, and failure tests.
+8. Add telemetry for authorization decisions, provider operations, resolution outcomes, latency,
+   quotas, and cost.
 
 ## Official references
 
-- [Memory Bank overview and scaling documentation](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank)
+- [Memory Bank overview](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank)
 - [Memory profiles](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank/profiles)
 - [Generate memories](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank/generate-memories)
 - [Ingest events](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/memory-bank/ingest-events)

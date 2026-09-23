@@ -58,8 +58,9 @@ Approved topics and the confidence threshold live on the domain's dynamic-memory
 | `confirmation_required` | Whether entries should be staged for user confirmation (see limitations) |
 | `retention_policy.retention_days` | Applied as expiry on stored entries |
 
-No schema migration is required — `memory_topics` is reused as the approved-topic authority.
-(`allowed_dynamic_categories` remains in the model but is unused.)
+`memory_topics` is the approved-topic authority; per-topic descriptions live in `topic_definitions`
+(migration `0006`) and reach the agent as `approvedTopicDetails`. (`allowed_dynamic_categories` remains
+in the model but is unused.)
 
 ## Resolution policies
 
@@ -84,7 +85,9 @@ in `source_priority`, so a canonical value always outranks a dynamic one for the
 - `POST /api/v1/runtime/preferences/resolve` — now returns `approvedTopics` and `DYNAMIC_MEMORY`
   entries (keyed `topic:<name>`) alongside canonical preferences.
 - `POST /api/v1/runtime/memory/forget` — right-to-be-forgotten; deletes every memory for a user
-  scope (gated by `SUBMIT_CANDIDATES`).
+  scope, or with `householdId` (+ optional `memberId`) one member or the whole household, cascading to
+  its members (gated by `SUBMIT_CANDIDATES`).
+- `POST /api/v1/runtime/preferences/{attribute}/forget` — deletes one canonical value.
 - `POST /api/v1/runtime/memory/purge` — operator on-demand deletion across the organization by
   `tier`/`attribute`/`topic` (gated by `ADMINISTER_MEMORY`; `dryRun` defaults true to preview).
 

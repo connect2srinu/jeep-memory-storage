@@ -1,273 +1,185 @@
 # Control Plane Platform for Google ADK
 
 This repository implements a governed preference-memory service between ADK agents and Google
-Vertex AI Memory Bank. Domain teams define preferences through the Admin Console and Admin API;
-PostgreSQL is the control-plane source of truth. Agents consume one stable runtime API and never need Memory Bank SDKs, schema IDs, or
-conflict-resolution logic.
+Vertex AI Memory Bank. Domain teams define preferences, schemas, agents, and access through the
+Admin Console and Admin API; PostgreSQL is the control-plane source of truth. Agents call one stable
+runtime API and never need Memory Bank SDKs, schema IDs, scope keys, or conflict-resolution logic.
 
 ## Current end-to-end flow
 
 ```text
 Platform admin
-  -> Admin Console: Create Memory Setup
-  -> select organization and project
-  -> preview and activate domain, preferences, schema, agent, grants, policies
-  -> Control Plane API applies active schemas to Agent Engine context_spec
-  -> profile instances remain lazy
+  -> Admin Console: Organizations -> create organization and project
+  -> Create Memory Setup wizard: domain, preferences, scope, memory, agents, (sharing, resolution)
+  -> preview (non-mutating) and activate
+  -> Control Plane API creates the domain, catalog preferences, schema(s), agent, grants, and policies
+     and registers the schemas with the memory backend (profiles stay lazy)
 
-User
-  -> tells an ADK agent a preference in natural language
-  -> agent chooses an attribute from writablePreferences
-  -> Control Plane API resolves the single same-domain writable schema
-  -> Memory Bank stores the explicit preference and ingests the event
-  -> refreshed and later Sessions resolve the saved preference
+Customer (ADK agent session)
+  -> agent resolves the effective snapshot once per session and injects it every turn
+  -> the agent's own LLM decides whether a message holds a preference and extracts it
+  -> save_preference / remember_dynamic_preference call the Control Plane runtime API
+  -> Control Plane validates: catalog + grant, scope + household member, sensitivity screen,
+     health consent, purpose, audit
+  -> Memory Bank stores a typed fact at the exact scope
+  -> later Sessions resolve the saved value
 ```
 
-The model and user do not provide a schema ID. The platform derives it from the authenticated
-agent, its organization/project/domain ownership, active grants, and schema mappings. Unknown, read-only, cross-domain, and
-ambiguous writes fail closed.
+The model and the customer never supply a schema ID. The platform derives it from the authenticated
+agent, its organization/project/domain, its active grants, and the schema mappings. Unknown,
+read-only, cross-domain, and ambiguous writes fail closed. Memory Bank's own managed extraction is
+turned off, so nothing is stored unless it passed through these checks.
 
-## Governance and Memory Bank scope
-
-The control-plane hierarchy is:
+## Governance hierarchy and memory scopes
 
 ```text
 Organization (line of business)
 └── Project
     ├── Agents
     └── Domains
-        └── Schemas and preference fields
+        └── Schemas (versioned) and preference fields
 ```
 
-Projects and domains are authorization metadata in PostgreSQL; they are not Memory Bank partition
-keys. The runtime authenticates the agent, derives its organization, and uses the exact Memory Bank
-scope `organization_id + user_id`. This gives one canonical user profile per schema within an
-organization while allowing the API to filter which project-owned schemas and fields an agent may
-read or write. Legacy `appName` and `domain` request fields remain accepted for reference-agent
-compatibility, but they do not determine the provider scope.
+Organizations, projects, and domains are authorization metadata in PostgreSQL; they are not Memory
+Bank partition keys. Each schema version is bound to one of three scope shapes:
 
-The initial implementation persists organizations/projects and validates that a domain and its
-agents belong to the same organization/project. Cross-project field-level requests,
-membership-derived RBAC enforcement, and implicit same-project grants remain subsequent
-governance slices.
+| Scope level | Memory Bank scope | Holds |
+|---|---|---|
+| Member | `organization_id + user_id` | one customer's own preferences |
+| Household | `organization_id + household_id` | preferences shared by the household |
+| Household member | `organization_id + household_id + member_id` | one person's preferences (e.g. a child's allergies) |
 
-The **Organizations** screen presents a directory-first workspace instead of raw JSON. A platform
-administrator selects an organization card to enter that organization's context. The left navigation
-then exposes organization-specific **Overview**, **Projects**, and **Members & Roles** areas. Opening a
-project adds project-specific **Overview**, **Domains**, **Agents**, and **Members & Roles** navigation.
-From this workspace, a platform administrator can:
-
-- add organization members with `OWNER`, `ADMIN`, or `VIEWER` roles;
-- create projects with an owning team and description;
-- see the projects and domains belonging to the organization;
-- add project members and inspect their direct project roles.
-
-Organizations are created as `ACTIVE` immediately in the POC because an organization approval
-workflow is not implemented. Governed resources that use the existing lifecycle workflow continue
-to start in `DRAFT` where applicable.
-
-A principal must be an active organization member before being assigned directly to one of its
-projects. Membership records are now durable and audited. This release still uses the existing
-platform-admin authorization boundary for mutations; deriving every admin request from persisted
-membership is the next security slice.
+For household setups, the logged-in customer (the ADK user ID) is the household root; the platform
+creates the household and root member on first use with surrogate IDs. Other people are resolved or
+proposed from names at runtime, new people and health data need a confirmation turn, and health data
+records consent. See [Dynamic Household Members](docs/dynamic-household-members-design.md).
 
 ## Applications
 
 | Component | Purpose | Local URL |
 |---|---|---|
-| `apps/admin-console` | Guided onboarding and advanced administration | `http://localhost:3000` |
-| `apps/control-plane-api` | Control plane, authorization, resolution, and Memory Bank adapter | `http://localhost:8080` |
-| `apps/reference-agent` | Thin ADK consumer used for demonstrations | `http://localhost:8000` |
-| PostgreSQL | Durable control-plane metadata, grants, policies, and audit | Compose network only |
+| `apps/admin-console` | Guided setup, organization/project workspace, households, governance screens | `http://localhost:3000` |
+| `apps/control-plane-api` | Admin and runtime APIs, authorization, resolution, Memory Bank adapter | `http://localhost:8080` |
+| `apps/memory-agent` | Reference ADK agent: Postgres sessions, governed long-term memory, household tools | `http://localhost:8000/dev-ui/?app=memory_agent` |
+| `apps/reference-agent` | Minimal thin-consumer ADK agent (Compose `agent` profile) | `http://localhost:8000/dev-ui/?app=reference_agent` |
+| PostgreSQL | Control-plane metadata, grants, policies, household roster, consent ledger, audit | Compose network; `127.0.0.1:15432` with the dev-UI overlay |
 
 ## Repository map
 
 ```text
 geap-memory/
 ├── apps/
-│   ├── admin-console/        React guided setup and administration UI
-│   ├── control-plane-api/           FastAPI runtime and admin service
-│   └── reference-agent/      ADK example consumer
-├── docs/                     Current architecture, onboarding, demo, and operations guides
-├── infrastructure/           Terraform and deployment support
-├── packages/                 Cross-application test fixtures
-├── scripts/                  Deployment, acceptance, and security utilities
-├── docker-compose.yml        Local mock-backed stack
-└── docker-compose.vertex.yml Vertex-backed local override
+│   ├── admin-console/            React admin UI
+│   ├── control-plane-api/        FastAPI admin + runtime service, Alembic migrations
+│   ├── memory-agent/             Reference ADK agent (short-term Postgres, long-term governed memory)
+│   └── reference-agent/          Minimal ADK consumer
+├── docs/                         Guides, designs, and analyses (start at docs/README.md)
+├── infrastructure/               Terraform and Cloud Run helpers
+├── packages/test-fixtures/       Cross-application test fixtures
+├── scripts/                      Deployment security check, API examples, load test
+├── tests/                        Repository boundary and deployment-security tests
+├── docker-compose.yml            Local mock-backed stack
+├── docker-compose.devui.yml      Publishes PostgreSQL on 127.0.0.1:15432 for the memory-agent dev UI
+├── docker-compose.pgadmin.yml    Same host mapping, for database tools
+└── docker-compose.vertex.yml     Vertex-backed local stack
 ```
 
 ## Prerequisites
 
-- Docker with Compose
-- Python 3.12 and the repository `.venv` for direct development
+- Docker with Compose v2
+- Python 3.12 (a repository `.venv` for the API and reference agent; `apps/memory-agent/.venv` for the
+  memory agent)
 - Node.js and npm for direct Admin Console development
-- Google Cloud Application Default Credentials for the Vertex-backed flow
-- An existing Agent Engine resource with Memory Bank enabled
-
-Authenticate for local Vertex access:
-
-```bash
-gcloud auth application-default login
-gcloud auth application-default set-quota-project "$GOOGLE_CLOUD_PROJECT"
-```
+- Google Cloud Application Default Credentials for Gemini and for the Vertex-backed flow
+- An existing Agent Engine resource with Memory Bank enabled, for the Vertex-backed flow only
 
 ## Run locally with the mock backend
 
-Use this mode for deterministic development without cloud mutations:
+From the repository root:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.devui.yml up -d --build --wait
 ```
 
-Activation reports `REGISTERED_LOCAL`. Schemas and profile data in the mock store are process-local
-and are lost when the Control Plane API restarts. PostgreSQL metadata is retained in the
-`shared-memory-postgres` Docker volume.
-
-Wait for all services to become healthy, then open:
+This starts PostgreSQL, the Control Plane API (with `MEMORY_BACKEND=mock`), and the Admin Console, and
+publishes PostgreSQL on `127.0.0.1:15432` so the memory-agent dev UI can store sessions. Open:
 
 - Admin Console: `http://localhost:3000`
-- Control Plane API health: `http://localhost:8080/healthz`
-- Control Plane API OpenAPI: `http://localhost:8080/docs`
+- API health: `http://localhost:8080/healthz`
+- API docs: `http://localhost:8080/docs`
 
-The reference agent is an optional Compose profile. Start it with the rest of the mock stack when
-Google Cloud credentials and the model settings in `.env` are available:
+Stop with `docker compose -f docker-compose.yml -f docker-compose.devui.yml down`. Add `-v` only when
+you intend to delete the PostgreSQL volume and all local control-plane data. Mock-store memories are
+process-local and are lost when the API container restarts; PostgreSQL metadata survives.
 
-```bash
-docker compose --profile agent up --build
-```
-
-Then open ADK Web at `http://localhost:8000/dev-ui/?app=reference_agent`.
-
-Useful lifecycle commands:
+Then start the agent dev UI (see [apps/memory-agent](apps/memory-agent/README.md)):
 
 ```bash
-docker compose ps
-docker compose logs -f control-plane-api admin-console
-docker compose down
-```
-
-Use `docker compose down -v` only when intentionally deleting the local PostgreSQL volume and all
-local control-plane data.
-
-The `0002_org_project_governance` migration backfills an existing database into `default-org` and
-`default-project`. For a disposable POC environment, reset the volume before testing the new
-hierarchy if you prefer an empty control plane:
-
-```bash
-docker compose down -v
-docker compose up --build
+cd apps/memory-agent
+CONTROL_PLANE_API_URL=http://localhost:8080 \
+REFERENCE_AGENT_ID=<registered agent id> \
+PREFERENCE_DOMAIN=<domain id> \
+SESSIONS_DATABASE_URL=postgresql+asyncpg://shared_memory:local-development-only@localhost:15432/shared_memory \
+.venv/bin/python -m memory_agent.serve
 ```
 
 ## Run locally with Vertex Memory Bank
 
 ```bash
+gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
 export GOOGLE_CLOUD_LOCATION=us-central1
 export AGENT_PLATFORM_MEMORY_BANK_ID=YOUR_AGENT_ENGINE_ID
 
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.vertex.yml \
-  --profile agent \
-  up --build
+docker compose -f docker-compose.yml -f docker-compose.vertex.yml up --build
 ```
 
-Activation must report `PROVISIONED` with backend `VertexMemoryBankStore`. A result of
-`REGISTERED_LOCAL` means the API was started without the Vertex override.
+Activation must report `PROVISIONED` with backend `VertexMemoryBankStore`; `REGISTERED_LOCAL` means the
+API is still on the mock backend. See [Deployment and Operations](docs/deployment-operations.md).
 
-Check the services:
+## Create a setup and use it
 
-```bash
-curl http://localhost:8080/healthz
-docker compose -f docker-compose.yml -f docker-compose.vertex.yml ps
-```
+The complete, tested walkthrough — organization, project, wizard, agent, and a full customer journey
+in the ADK dev UI — is [Household Memory — End-to-End UI Guide](docs/dynamic-household-test-guide.md).
+In short:
 
-For the complete local startup sequence, troubleshooting, and the GCP resource/deployment order,
-see [Deployment and operations](docs/deployment-operations.md).
+1. **Organizations** (top of the left panel) → create an organization, then a project.
+2. **Create Memory Setup** → Use Case → Preferences → Scope → Memory → Agents → Review → Activate.
+   Give the agent `READ_WRITE` on its owned schema so it can save preferences.
+3. Start the memory agent with the registered agent ID and domain, open the dev UI, and talk to it.
 
-## Create a domain and schema from the UI
+Activation registers schemas; it never creates a profile for every user. Profiles are created by the
+first authorized write.
 
-1. Open `http://localhost:3000`.
-2. Open **Organizations** from the left context switcher, then create or select an organization and
-   project.
-3. Select **Create Memory Setup**.
-4. Define the use case, choose that organization/project, and enter a DNS-style domain such as `travel`.
-5. Select catalog preferences and add custom preferences such as
-   `travel.seat_preference`.
-6. Select the profile scope and memory behavior. Per-user scope compiles to
-   `organization_id + user_id`.
-7. Register an agent such as `travel-assistant`.
-8. Set owned schema permission to `READ_WRITE` when the agent must save preferences.
-9. Request shared schemas only for data owned by other domains; those requests remain pending.
-10. Preview the non-mutating activation plan and activate.
-11. Verify the result names `travel-preferences-v1` and shows the expected backend.
-
-Activation creates the schema configuration, not a profile for every user. User-scoped profiles are
-created lazily by the first authorized write or provider generation event.
-
-The database starts without preloaded business domains. Create each environment's domains,
-preferences, schemas, agents, grants, and policies through the Admin Console or versioned Admin API
-automation. File-based YAML contract bootstrap and generated runtime JSON are no longer used.
-
-The wizard creates a new version-1 schema. Adding fields to an existing active schema requires a
-reviewed schema-version workflow and is intentionally rejected by the wizard.
-
-## Use the setup from ADK Web
-
-Stop any old ADK Web process before changing agent settings; Python tool signatures and environment
-variables are loaded at process start.
-
-```bash
-cd apps/reference-agent
-export CONTROL_PLANE_API_URL=http://localhost:8080
-export CONTROL_PLANE_API_TOKEN=""
-export CONTROL_PLANE_API_AUDIENCE=""
-export REFERENCE_AGENT_ID=travel-assistant
-export PREFERENCE_DOMAIN=travel
-export ADK_APP_NAME=travel_preferences
-
-adk web --host 0.0.0.0 --port 8000 app
-```
-
-Open `http://localhost:8000/dev-ui/?app=reference_agent`, choose a user, and say:
-
-```text
-I always prefer a window seat.
-```
-
-The tool call should contain only the canonical attribute and value:
-
-```json
-{
-  "attribute": "travel.seat_preference",
-  "value": "window"
-}
-```
-
-It must not contain `schemaId`. The effective snapshot exposes `writablePreferences`; the Control
-Plane API uses that registration state to select `travel-preferences-v1` behind the scenes.
-
-Ask `What preferences are you currently using?`, then create a new Session for the same user and ask
-again. Managed profile consolidation is asynchronous, but the explicit-preference overlay is
-available through the platform runtime path.
+To add a preference to a live schema, open **Govern & manage → Schemas** with the organization
+selected, pick the schema, and use **Create new version**; after approval in **Govern & manage →
+Approvals** it is usable without a restart. The wizard itself never mutates an active schema.
 
 ## Security boundary
 
-- `AUTH_ENABLED=false` is local-only and uses `X-Agent-ID`.
-- Production uses a Google-signed ID token and maps the verified principal to one active agent.
-- Agent capabilities gate operations: `resolve_context`, `submit_candidates`, and
-  `inspect_provenance`. See the detailed [capability contract](docs/agent-memory-setup.md#capabilities).
-- Grants gate schema access. A readable shared schema is not writable.
-- Automatic write routing considers only active `WRITE` or `READ_WRITE` grants owned by the
-  consumer agent's domain.
+- `AUTH_ENABLED=false` is local-only: agents are identified by `X-Agent-ID` and admins by
+  `X-Admin-*` headers.
+- Deployed agents present a Google-signed ID token mapped to exactly one active registered agent.
+- Admin users authenticate with Google (IAP or ID token) or Microsoft Entra ID
+  ([Entra setup](docs/entra-authentication.md)).
+- Agent capabilities gate operations (`resolve_context`, `submit_candidates`, `inspect_provenance`,
+  `administer_memory`); schema grants gate data. A readable shared schema is never writable.
+- Every write is screened for restricted and sensitive content; sensitive values must be
+  user-directed; health data about someone else needs confirmation and consent, and is refused for
+  other adults.
+- An agent's declared purpose must be allowed by each schema it reads; advertising never reaches
+  per-member or health data.
 - Agents never call Memory Bank directly and never make authorization decisions.
 
 ## Validation
 
 ```bash
-PYTHONPATH=apps/control-plane-api/app:. .venv/bin/python -m pytest -q apps/control-plane-api/tests
-PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
+python scripts/validate_deployment_security.py
+.venv/bin/ruff check apps scripts tests
+PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests .venv/bin/python -m pytest -q apps/control-plane-api/tests
+PYTHONPATH=apps/reference-agent/app .venv/bin/python -m pytest -q apps/reference-agent/tests
+(cd apps/memory-agent && .venv/bin/python -m pytest -q tests)
 
 cd apps/admin-console
 npm run typecheck
@@ -275,21 +187,9 @@ npm test
 npm run build
 ```
 
-Unit and API tests prove deterministic behavior. A release is not end-to-end validated until a
-live Vertex smoke test creates a new user preference and retrieves it in a later Session.
+Unit and API tests run against the mock store. A release is not end-to-end validated until a live
+Vertex smoke test creates a preference and retrieves it in a later Session.
 
 ## Documentation
 
-Start with [docs/README.md](docs/README.md). The canonical guides are:
-
-- [Guided UI onboarding](docs/guided-memory-setup.md)
-- [Domain onboarding](docs/domain-onboarding.md)
-- [ADK Web demo](docs/adk-web-demo.md)
-- [Architecture and flows](docs/agent-memory-setup.md)
-- [Vertex Memory Bank](docs/vertex-memory-bank.md)
-- [Deployment and operations](docs/deployment-operations.md)
-- [Admin API](docs/admin-api.md)
-
-Draw.io sources are the runtime/onboarding view
-[agent-memory-flows.drawio](docs/agent-memory-flows.drawio) and the deployable Google service view
-[google-cloud-services-architecture.drawio](docs/google-cloud-services-architecture.drawio).
+Start with [docs/README.md](docs/README.md).

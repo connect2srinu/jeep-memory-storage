@@ -5,7 +5,7 @@ A minimal ADK agent that splits memory across stores and tiers:
 | Memory | Mechanism | Where it lives |
 |---|---|---|
 | **Short-term** (session / conversation state) | ADK `DatabaseSessionService` | Cloud SQL / **PostgreSQL** |
-| **Long-term · canonical** (structured preferences) | Control Plane runtime API — `PUT /preferences/{attribute}` | **Governed schemas** (`{domain}-preferences-v1`) |
+| **Long-term · canonical** (structured preferences) | Control Plane runtime API — `PUT /preferences/{attribute}` | **Governed schemas** (`{domain}-preferences-v1`, or the household and member schemas) |
 | **Long-term · dynamic** (non-canonical facts) | Control Plane runtime API — `POST /memory/dynamic` | **Approved topics only** (per-domain policy) |
 
 Long-term memory is **not** ADK Memory Bank here. Durable facts are written to the Control Plane,
@@ -96,7 +96,9 @@ Both venvs are git-ignored.
 
 ## Run the demo
 
-Needs a reachable Control Plane API and Postgres:
+Needs a reachable Control Plane API and Postgres (start the stack with the `docker-compose.devui.yml`
+overlay so Postgres is on `127.0.0.1:15432`). Replace `grocery-agent` / `grocery` with the agent ID and
+domain you registered — a fresh database has none:
 
 ```bash
 cd apps/memory-agent
@@ -149,6 +151,16 @@ With the `grocery` domain's approved topics set to e.g. `shopping, fulfillment`,
 Open the dev UI's **Events / trace** panel to confirm which tool fired (and to see the `403`/`400`
 rejections for the unapproved/sensitive cases). Start a **new session** and ask about a saved topic
 to confirm cross-session recall through `resolve`.
+
+For household prompts ("My son Ryan is allergic to peanuts", merges, moves, consent), follow section 4
+of the [end-to-end UI guide](../../docs/dynamic-household-test-guide.md).
+
+## Tests
+
+```bash
+cd apps/memory-agent
+.venv/bin/python -m pytest -q tests
+```
 
 ## Notes
 

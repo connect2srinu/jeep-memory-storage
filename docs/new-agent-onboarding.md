@@ -1,218 +1,109 @@
 # New Agent Onboarding — Consuming Governed Memory via the Control Plane
 
-How to give a **new agent** long-term memory. The agent never talks to Vertex Memory Bank directly:
-it calls the **Control Plane runtime API**, and the platform brokers Memory Bank (storage, governance,
-resolution) behind it. The [`memory-agent`](../apps/memory-agent) is the reference implementation —
-copy it.
+How to give a new ADK agent long-term memory. The agent never talks to Vertex Memory Bank directly: it
+calls the Control Plane runtime API, which brokers Memory Bank behind it. The
+[`memory-agent`](../apps/memory-agent) is the reference implementation — copy it.
 
-**Guiding principle:** the agent holds **zero** schema/scope knowledge. It learns what it may
-read/write, the approved topics, and the household roster entirely from the **resolve snapshot** at
-runtime. Onboarding a new agent is mostly *registration* in the control plane + pointing the same thin
-client/callbacks/tools at your domain.
+**Guiding principle:** the agent holds no schema, scope, or member knowledge. It learns what it may
+write, the approved topics, and the household roster from the **resolve snapshot** at runtime.
+Onboarding is mostly *registration* in the control plane plus reusing the same client, callbacks,
+and tools.
 
----
+## Part A — Control-plane registration (not agent code)
 
-## Checklist
+Without this the agent gets `403 "not mapped to an active agent"`. Use the Admin Console's
+**Create Memory Setup** wizard ([Guided Memory Setup](guided-memory-setup.md)) or the Admin API.
 
-### Part A — Control-plane registration (prerequisite; not agent code)
-Without this the agent gets `403 "not mapped to an active agent"`. Do it via the Admin console/API or,
-for tests, `tests/db_seed.py`.
+- [ ] A **domain** with schema(s), scope definition(s), and (for several readable schemas) a resolution
+      policy.
+- [ ] A **registered agent**: ID, organization, project, `domain_id`, `purpose` (default
+      `personalization`), and capabilities:
+  - `resolve_context` — read the snapshot;
+  - `submit_candidates` — save, forget, and move values; manage household members in conversation;
+  - `inspect_provenance` — optional; provenance in the snapshot;
+  - `administer_memory` — only for organization-wide purge and the administrative roster endpoints.
+- [ ] **Schema grants**: `WRITE` / `READ_WRITE` only on schemas the agent's domain owns; `READ` on
+      others (requested and approved per schema).
+- [ ] For topic memory, an enabled **dynamic-memory policy** with approved topics.
+- [ ] For family memory, the **Household + members** scope (a household-shared schema and a per-member
+      schema). The household itself is created at runtime — no roster setup is needed.
 
-- [ ] **Domain** exists with schemas, scope definition(s), and a resolution policy.
-- [ ] **Register the agent** (`RegisteredAgentRecord`): id, organization, project, `domain_id`, and
-      **capabilities**:
-  - `resolve_context` — required to read the snapshot.
-  - `submit_candidates` — required to write (canonical or dynamic).
-  - `inspect_provenance` — optional; returns provenance in the snapshot.
-  - `administer_memory` — only for admin actions (purge, roster management).
-- [ ] **Schema grants** (`AgentSchemaGrantRecord`): one per schema the agent uses, with
-      `READ` / `WRITE` / `READ_WRITE`. Grant **WRITE only on schemas the agent owns**; `READ` for the rest.
-- [ ] (If using topic memory) the domain has an **enabled dynamic-memory policy** with approved topics.
-- [ ] (If using household memory) a **household-shared** schema (scope keys
-      `[organization_id, household_id]`) and/or a **per-member** schema (scope keys
-      `[organization_id, household_id, member_id]`) exist, plus a `household_members` roster — see
-      [household-scope-design.md](household-scope-design.md).
+## Part B — Agent-side code
 
-### Part B — Agent-side code (the whole integration)
-- [ ] **Runtime-API client** — copy [`client.py`](../apps/memory-agent/app/memory_agent/client.py)
-      (self-contained: `resolve_preferences`, `update_preference`, `write_dynamic_memory`, roster calls).
-- [ ] **Auth** — dev sends `X-Agent-ID`; prod sends a `Bearer` token (static or minted Google ID token).
-      The client's `TokenProvider` handles both; no agent code needed beyond wiring the env.
-- [ ] **Config / env** (see table below).
-- [ ] **`before_agent_callback`** — resolve the snapshot once per session, cache it in session state.
-- [ ] **`before_model_callback`** — inject the cached snapshot into the model context.
-- [ ] **Tools** — `get_preferences` (read), `save_preference` (canonical write),
-      `remember_dynamic_preference` (dynamic write). Add optional `member_id` for per-member memory.
-- [ ] **Instruction** — the write decision order + how to use `householdMembers[]` (below).
-- [ ] **Short-term sessions** — `DatabaseSessionService` on Postgres (async driver URL).
+Copy these from [`apps/memory-agent/app/memory_agent`](../apps/memory-agent/app/memory_agent):
+
+- [ ] **`client.py`** — self-contained runtime API client: resolve, update/forget/move preference,
+      dynamic memory, add/update/merge household members.
+- [ ] **Auth** — dev sends `X-Agent-ID`; production sends a bearer token (static, or a Google ID token
+      minted for `CONTROL_PLANE_API_AUDIENCE`).
+- [ ] **`before_agent_callback`** (`initialize_preference_snapshot`) — resolve once per session and
+      cache in session state.
+- [ ] **`before_model_callback`** (`inject_preference_snapshot`) — append the cached snapshot to the
+      model request. No API call per turn.
+- [ ] **Tools** — `get_preferences`, `save_preference`, `remember_dynamic_preference`, and for
+      households `forget_preference`, `add_household_member`, `update_household_member`,
+      `merge_household_members`, `move_preference`. Each write tool refreshes the cached snapshot.
+- [ ] **Instruction** — the write decision order and the confirmation contract (below). Start from the
+      memory agent's `INSTRUCTION`.
+- [ ] **Short-term sessions** — `DatabaseSessionService` on PostgreSQL with an async driver URL.
+
+Your own prompt, domain tools, and business logic sit alongside these; the memory pieces stay
+unchanged.
 
 ### Environment variables
-| Var | Purpose | Default |
+
+| Variable | Purpose | Default |
 |---|---|---|
 | `CONTROL_PLANE_API_URL` | Runtime API base URL | `http://localhost:8080` |
-| `REFERENCE_AGENT_ID` | Registered agent id (sent as `X-Agent-ID` in dev) | `grocery-agent` |
-| `PREFERENCE_DOMAIN` | Consumer domain — **must** equal the agent's `domain_id` | `grocery` |
-| `CONTROL_PLANE_API_TOKEN` | Prod: static bearer token | — |
-| `CONTROL_PLANE_API_AUDIENCE` | Prod: audience for minting Google ID tokens | — |
-| `SESSIONS_DATABASE_URL` | Short-term sessions (Postgres, `postgresql+asyncpg://…`) | local compose Postgres |
+| `REFERENCE_AGENT_ID` | Registered agent ID (sent as `X-Agent-ID` in dev) | `grocery-agent` |
+| `PREFERENCE_DOMAIN` | Consumer domain — must equal the agent's `domain_id` | `grocery` |
+| `CONTROL_PLANE_API_TOKEN` | Production: static bearer token | — |
+| `CONTROL_PLANE_API_AUDIENCE` | Production: audience for Google ID tokens | — |
+| `SESSIONS_DATABASE_URL` | Short-term sessions (`postgresql+asyncpg://…`) | local Compose PostgreSQL |
 | `GEMINI_MODEL` | Chat model | `gemini-3.5-flash` |
 | `ADK_APP_NAME` | ADK app name | `dual_memory_agent` |
 
----
+## What the snapshot gives the agent
 
-## What the snapshot gives you (so the agent needs no config)
-`resolve_preferences` returns, for the `{userId, appName, domain}` scope:
-- `preferences` — current effective values (each with `sensitivity`, `memorySource`).
-- `writablePreferences` — canonical attributes the agent may write.
-- `writablePreferenceDetails` — each writable attribute annotated with `level`
-  (`member` | `household` | `household_member`).
-- `approvedTopics` / `approvedTopicDetails` — non-canonical categories (with meaning + sensitivity).
-- `householdId` / `householdMembers` — the household and its members `[{memberId, displayName, …}]`.
+- `preferences` — effective values, each with `sensitivity` and `memorySource`.
+- `writablePreferences` / `writablePreferenceDetails` — attributes the agent may write, each with
+  `level` (`member`, `household`, or `household_member`), `description`, and `health`.
+- `approvedTopics` / `approvedTopicDetails` — dynamic-memory topics with meaning and sensitivity.
+- `householdId`, `householdMembers` (`memberId`, `displayName`, `relationship`, `memberKind`, `minor`,
+  `status`, `aliases`, `isSelf`), `actingMemberId`, `resolvedMemberId`.
 
-The agent reads all of this at runtime; it never hard-codes schema ids, attributes, topics, or members.
+## The write contract
 
----
+1. If a statement maps to a `writablePreferences` attribute, call `save_preference`. For a
+   `household_member` attribute about someone else, pass their `member_id` if they are in
+   `householdMembers`, otherwise their name and relationship. Never invent a member ID and never ask the
+   customer for one.
+2. Else if it fits an approved topic, call `remember_dynamic_preference` with that exact topic.
+3. Else tell the customer it can't be saved. Never invent an attribute or topic.
 
-## Minimal agent skeleton
+A write can come back without saving anything:
 
-```python
-# agent.py — the entire long-term-memory integration for a new agent.
-from __future__ import annotations
-import json
-from typing import Any
+| `status` | Meaning | Agent action |
+|---|---|---|
+| `needs_confirmation` | New person or health data | Ask `confirmationPrompt` verbatim; on yes, repeat with the returned `memberId` and `confirmed=true` |
+| `ambiguous` | Several members match | Ask which of `candidates` |
+| `not_allowed` | E.g. health data about another adult | Relay `message` |
 
-from google.adk import Runner
-from google.adk.agents import Agent
-from google.adk.agents.callback_context import CallbackContext
-from google.adk.apps import App
-from google.adk.models import Gemini, LlmRequest
-from google.adk.sessions import DatabaseSessionService
-from google.adk.tools import ToolContext
+## What the platform enforces
 
-from .client import ControlPlaneApiClient, GoogleIdTokenProvider, StaticTokenProvider
-from .settings import settings
+- Writes to an unregistered attribute or an unapproved topic are rejected.
+- Restricted content (phone, SSN, card, email, secrets, weapons, discriminatory targeting) is blocked;
+  sensitive content must be user-directed.
+- The scope level comes from the schema; `household_id` comes from the login. A household ID naming
+  another household is refused.
+- Health data needs confirmation and consent for a minor, and is refused for another adult.
+- The agent's purpose must be allowed by each schema it reads.
+- Deletion, retention, RBAC, and audit are central.
 
-SNAPSHOT_KEY = "shared_memory:effective_snapshot"
+## Verify a new agent
 
-INSTRUCTION = f"""
-You are an assistant for the {settings.consumer_domain} domain. The user's long-term preferences are
-resolved from the Control Plane and injected as an "Effective user preference snapshot" JSON. It holds
-current values ("preferences"), the attributes you may write ("writablePreferences" /
-"writablePreferenceDetails" — each with a "level" of member, household, or household_member), the
-approved topics ("approvedTopics"), and the household roster ("householdId" / "householdMembers":
-[{{memberId, displayName}}]).
-
-Answer preference questions from the snapshot (or call get_preferences). To remember something:
-1. If it maps to a writablePreferences attribute, call save_preference. If that attribute's level is
-   "household_member", map the named person to its memberId from "householdMembers" and pass it.
-2. Else if it fits an approvedTopics entry, call remember_dynamic_preference with that exact topic.
-3. Else decline. Never invent an attribute, topic, or memberId.
-"""
-
-def _client() -> ControlPlaneApiClient:
-    if settings.control_plane_api_token:
-        provider = StaticTokenProvider(settings.control_plane_api_token)
-    elif settings.control_plane_api_audience:
-        provider = GoogleIdTokenProvider(settings.control_plane_api_audience)
-    else:
-        provider = StaticTokenProvider(None)  # dev: X-Agent-ID
-    return ControlPlaneApiClient(base_url=settings.control_plane_api_url, token_provider=provider)
-
-def _identity(ctx: Any) -> tuple[str, str]:
-    session = getattr(ctx, "session", None)
-    user_id = getattr(ctx, "user_id", None) or getattr(session, "user_id", None)
-    session_id = getattr(session, "id", None)
-    if not user_id or not session_id:
-        raise ValueError("ADK context missing user/session id")
-    return str(user_id), str(session_id)
-
-def _key(member_id: str | None) -> str:
-    return SNAPSHOT_KEY if not member_id else f"{SNAPSHOT_KEY}:{member_id}"
-
-async def _resolve(ctx: Any, member_id: str | None = None) -> dict[str, Any]:
-    user_id, session_id = _identity(ctx)
-    snap = await _client().resolve_preferences(
-        user_id=user_id, session_id=session_id, app_name=settings.app_name,
-        consumer_domain=settings.consumer_domain, agent_id=settings.agent_id,
-        include_provenance=True, member_id=member_id,
-    )
-    payload = snap.model_dump(by_alias=True, mode="json")
-    ctx.state[_key(member_id)] = payload
-    return payload
-
-async def initialize_snapshot(cb: CallbackContext) -> None:
-    if not isinstance(cb.state.get(SNAPSHOT_KEY), dict):
-        await _resolve(cb)
-
-async def inject_snapshot(cb: CallbackContext, req: LlmRequest) -> None:
-    snap = cb.state.get(SNAPSHOT_KEY)
-    if isinstance(snap, dict):
-        req.append_instructions(
-            ["Effective user preference snapshot (JSON):\n" + json.dumps(snap, sort_keys=True)]
-        )
-
-async def get_preferences(tool_context: ToolContext, member_id: str | None = None) -> dict[str, Any]:
-    """Return the current preferences snapshot (member, or a specific household member)."""
-    cached = tool_context.state.get(_key(member_id))
-    return cached if isinstance(cached, dict) else await _resolve(tool_context, member_id)
-
-async def save_preference(attribute: str, value: str, tool_context: ToolContext,
-                          member_id: str | None = None) -> dict[str, Any]:
-    """Persist a canonical preference; the platform resolves the owning schema and scope level."""
-    user_id, _ = _identity(tool_context)
-    mutation = await _client().update_preference(
-        user_id=user_id, app_name=settings.app_name, consumer_domain=settings.consumer_domain,
-        agent_id=settings.agent_id, attribute=attribute, value=value, member_id=member_id,
-    )
-    return {"mutation": mutation.model_dump(by_alias=True, mode="json"),
-            "snapshot": await _resolve(tool_context, member_id)}
-
-async def remember_dynamic_preference(topic: str, value: str, tool_context: ToolContext) -> dict[str, Any]:
-    """Persist a non-canonical fact within an approved topic (rejected otherwise)."""
-    user_id, _ = _identity(tool_context)
-    mutation = await _client().write_dynamic_memory(
-        user_id=user_id, app_name=settings.app_name, consumer_domain=settings.consumer_domain,
-        agent_id=settings.agent_id, topic=topic, value=value,
-    )
-    return {"mutation": mutation.model_dump(by_alias=True, mode="json"),
-            "snapshot": await _resolve(tool_context)}
-
-root_agent = Agent(
-    name=settings.app_name,
-    model=Gemini(model=settings.model),
-    instruction=INSTRUCTION,
-    tools=[get_preferences, save_preference, remember_dynamic_preference],
-    before_agent_callback=initialize_snapshot,
-    before_model_callback=inject_snapshot,
-)
-app = App(name=settings.app_name, root_agent=root_agent)
-
-def build_runner() -> Runner:
-    return Runner(
-        agent=root_agent, app_name=settings.app_name,
-        session_service=DatabaseSessionService(db_url=settings.sessions_database_url),
-        memory_service=None,  # long-term memory is the Control Plane, not ADK Memory Bank
-    )
-```
-
-The only per-agent code beyond this is your **prompt, domain tools, and business logic** — not memory
-plumbing. Add domain tools to `tools=[…]`; leave the four memory pieces (client, two callbacks, three
-tools) unchanged.
-
----
-
-## What the platform enforces for you (so the agent stays simple)
-- Writes to an **unregistered attribute** or an **unapproved topic** are rejected.
-- **Sensitivity**: restricted content (phone/SSN/card/email/secret) → blocked; sensitive + inferred → refused.
-- **Scope routing**: the scope level is inferred from the schema — a `household_member`-level
-  attribute requires a `memberId`, and `household_id` is derived from the acting member. A guardian
-  check gates writing another member's data.
-- **Deletion / retention, RBAC, audit** — all central; the agent just calls the interface.
-
----
-
-## Verify a new agent works
-1. **Resolve** returns 200 with the expected `writablePreferences` / `approvedTopics` for your domain
-   (a 403 means the agent isn't registered or the domain doesn't match).
-2. **Write** a preference → resolve again → the value appears.
-3. Run the flows in [memory-flow-test-guide.md](memory-flow-test-guide.md) against your domain.
+1. **Resolve** returns 200 with the expected `writablePreferences` / `approvedTopics` (a 403 means the
+   agent isn't registered or the domain doesn't match).
+2. **Write** a preference, then resolve again: the value appears.
+3. Run the customer journey in the [end-to-end UI guide](dynamic-household-test-guide.md) and the API
+   checks in the [Memory Flow Test Guide](memory-flow-test-guide.md) against your domain.

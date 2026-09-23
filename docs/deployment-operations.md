@@ -14,8 +14,10 @@ state. Run them only in the intended project/environment with reviewed placehold
 - Google Cloud CLI and Application Default Credentials only for Vertex-backed mode;
 - a Vertex AI Agent Engine resource with Memory Bank enabled only for Vertex-backed mode.
 
-PostgreSQL is intentionally not published on host port `5432`; it is reachable only as `postgres`
-inside the Compose network. This avoids conflicts with an existing local PostgreSQL installation.
+PostgreSQL is not published on host port `5432`; it is reachable as `postgres` inside the Compose
+network. This avoids conflicts with an existing local PostgreSQL installation. The
+`docker-compose.devui.yml` (and `docker-compose.pgadmin.yml`) overlay publishes it on
+`127.0.0.1:15432` for host processes such as the memory-agent dev UI and database tools.
 
 ### Mock-backed stack
 
@@ -23,10 +25,12 @@ From the repository root:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.devui.yml up -d --build --wait
 ```
 
-This starts PostgreSQL, Control Plane API, and Admin Console. Confirm the stack:
+This starts PostgreSQL, Control Plane API, and Admin Console, and publishes PostgreSQL on
+`127.0.0.1:15432`. Run every `docker compose` command for this stack with the same two `-f` files
+(for example `down`, or `down -v` to delete the local database volume). Confirm the stack:
 
 ```bash
 docker compose ps
@@ -39,16 +43,20 @@ Open:
 - Control Plane API health: `http://localhost:8080/healthz`
 - Control Plane API OpenAPI: `http://localhost:8080/docs`
 
-To include the reference ADK agent, set `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and
-`GEMINI_MODEL` in `.env`, then run:
+The [memory agent](../apps/memory-agent/README.md) runs on the host (`python -m memory_agent.serve`)
+against this stack and is the recommended way to exercise it; see the
+[end-to-end UI guide](dynamic-household-test-guide.md). To run the minimal reference ADK agent in
+Compose instead, set `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `GEMINI_MODEL` in `.env`,
+then run:
 
 ```bash
 docker compose --profile agent up --build
 ```
 
-Open `http://localhost:8000/dev-ui/?app=reference_agent`. The default Compose registration is
-`grocery-agent` in the `grocery` domain. Change `REFERENCE_AGENT_ID`, `ADK_APP_NAME`, and
-`PREFERENCE_DOMAIN` in Compose or run ADK Web directly when testing a newly onboarded agent.
+Open `http://localhost:8000/dev-ui/?app=reference_agent`. The Compose service is configured for an
+agent named `grocery-agent` in the `grocery` domain, which does not exist in a fresh database; create it
+with the wizard or change `REFERENCE_AGENT_ID`, `ADK_APP_NAME`, and `PREFERENCE_DOMAIN` to match the
+agent you onboarded.
 
 ### Vertex-backed local stack
 
@@ -85,15 +93,24 @@ port mapping; do not expose the Compose PostgreSQL service unless an external cl
 
 ## 2. Validate before deployment
 
+These are the checks CI runs (`.github/workflows/platform-ci.yml`), plus the memory-agent tests:
+
 ```bash
-PYTHONPATH=apps/control-plane-api/app:. .venv/bin/python -m pytest -q apps/control-plane-api/tests
-PYTHONPATH=apps/reference-agent/app:. .venv/bin/python -m pytest -q apps/reference-agent/tests
+python scripts/validate_deployment_security.py
+.venv/bin/ruff check apps scripts tests
+.venv/bin/python -m pytest -q tests
+PYTHONPATH=apps/reference-agent/app .venv/bin/python -m pytest -q apps/reference-agent/tests
+PYTHONPATH=apps/control-plane-api/app:apps/control-plane-api/tests .venv/bin/python -m pytest -q apps/control-plane-api/tests
+(cd apps/memory-agent && .venv/bin/python -m pytest -q tests)
 
 cd apps/admin-console
 npm run typecheck
 npm test
 npm run build
 ```
+
+CI also applies the Alembic migrations to a real PostgreSQL, runs `test_postgres_control_plane.py`
+against it, runs `npm audit`, and validates the Terraform.
 
 ## 3. GCP resources and ownership
 
@@ -260,8 +277,8 @@ Use a dedicated test user and domain:
 6. verify a shared read-only schema cannot be written;
 7. inspect audit and correlation IDs.
 
-Allow for asynchronous managed-profile consolidation. Do not repeatedly create profiles when
-polling; use read-only resolve/inspection.
+Memory Bank reads are eventually consistent, so allow a short delay before a later-Session read. Do not
+repeatedly write when polling; use read-only resolve/inspection.
 
 ## 7. Observe
 
@@ -271,9 +288,9 @@ Do not log raw sensitive preference values unless an approved policy explicitly 
 
 ## 8. Roll back
 
-Roll back application images first. Revoke/retire new grants and policies or restore the prior active
-schema version; do not delete Memory Bank data as a deployment rollback. Correct user data through
-audited owner-domain operations.
+Roll back application images first. Revoke/retire new grants and policies, or submit and approve a
+corrected schema version (an approved version always replaces the active one); do not delete Memory
+Bank data as a deployment rollback. Correct user data through audited owner-domain operations.
 
 ## 9. Teardown
 

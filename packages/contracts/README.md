@@ -1,5 +1,6 @@
 # Shared Contracts Package
 
-This package will own versioned Runtime/Admin API schemas, generated clients, and the existing YAML
-contract compiler. The compiler remains in its current import path during the first migration slice
-so existing deployments and tests continue to work.
+Placeholder. The API contracts are currently defined by the Pydantic models in
+`apps/control-plane-api/app/control_plane_api/api/*/models.py` and published as OpenAPI at `/openapi.json`.
+The former YAML contract compiler is no longer used; domain configuration is created through the Admin
+Console or Admin API. Generated clients, if needed, would live here.

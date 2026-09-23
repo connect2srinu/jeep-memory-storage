@@ -1,40 +1,74 @@
 # Documentation index
 
-These documents describe the current implementation. Historical phase plans and the pre-refactor
-architecture assessment have been removed because their commands and component boundaries no
-longer represent the running system.
+All documents below describe the implementation on `feature/dynamic-household-members` as of
+2026-09-23. The analyses and decision records were re-checked against the code on that date; each one
+says what is now implemented and what is still open.
 
-| Audience | Start here |
+## Guides
+
+| Audience | Document |
 |---|---|
-| New platform user | [Guided Memory Setup](guided-memory-setup.md) |
+| Anyone new to the platform | [Household Memory — End-to-End UI Guide](dynamic-household-test-guide.md) — organization, project, wizard, agent, and a full customer journey, all from the UI |
+| Platform user creating a setup | [Guided Memory Setup](guided-memory-setup.md) |
 | Domain owner | [Domain Onboarding](domain-onboarding.md) |
-| Agent developer | [Reference Agent](../apps/reference-agent/README.md) |
-| Agent developer (split memory) | [Memory Agent](../apps/memory-agent/README.md) |
-| Platform developer | [Agent Memory Setup](agent-memory-setup.md) |
-| Memory governance | [Dynamic Memory Topic Gating](dynamic-memory-topic-gating.md) |
+| Agent developer | [New Agent Onboarding](new-agent-onboarding.md) · [Memory Agent](../apps/memory-agent/README.md) · [Reference Agent](../apps/reference-agent/README.md) |
+| Tester (API level) | [Memory Flow Test Guide](memory-flow-test-guide.md) — runtime API checks, the example script, and the load test |
 | Platform administrator | [Admin API](admin-api.md) |
 | Identity administrator | [Microsoft Entra Authentication](entra-authentication.md) |
-| DevOps/SRE | [Deployment and Operations](deployment-operations.md) |
-| Vertex integrator | [Vertex Memory Bank](vertex-memory-bank.md) |
+| DevOps / SRE | [Deployment and Operations](deployment-operations.md) |
 
-The Control Plane API ships interactive OpenAPI docs (Swagger UI at `/docs`, ReDoc at `/redoc`).
-See [Admin API](admin-api.md#interactive-api-documentation).
+The Control Plane API serves interactive OpenAPI docs at `/docs` (Swagger UI) and `/redoc`.
 
-Architecture and analysis:
+## Architecture and design
 
-- [Platform Reference Architecture](GEAP_Platform_Reference_Architecture.md) — current-vs-target analysis
-- [Control Panel UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and console redesign
-- [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phased plan
-- [Memory Flows](GEAP_Memory_Flows.drawio) — code-verified activation, preference write, session read, resource-relationship, and dynamic-memory topic-gate diagrams
+- [Agent Memory Setup and Runtime Flows](agent-memory-setup.md) — components, read/write flows,
+  scopes, capabilities, failure model
+- [Agent Turn Flow](architecture/agent-flow.md) — how one message becomes an answer or a tool call
+  inside ADK
+- [Dynamic Household Members](dynamic-household-members-design.md) — household scopes, runtime member
+  resolution, confirmation, consent, purpose, retention (design of record)
+- [Dynamic Memory Topic Gating](dynamic-memory-topic-gating.md) — canonical vs dynamic memory,
+  resolution policies, deletion
+- [Vertex Memory Bank](vertex-memory-bank.md) — provisioning, reads, writes, and deletion against the
+  provider
+
+## Analyses and decision records
+
+- [Platform Reference Architecture](GEAP_Platform_Reference_Architecture.md) — current vs target
+  Control Panel architecture
+- [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phase status
+- [Console UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and the three console
+  redesigns (now shipped)
+- [ADR-0001: Managed Memory Bank vs Custom Unified Memory Layer](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md)
+  and its evidence:
+  [architecture validation](current-memory-bank-architecture-validation.md),
+  [assumption validation](memory-bank-assumption-validation.md),
+  [capability matrix](memory-bank-vs-uml-capability-matrix.md),
+  [cost analysis](memory-bank-vs-uml-cost-analysis.md)
+- [Memory Layer Build vs Buy Gap Analysis](Memory_Layer_Build_vs_Buy_Gap_Analysis.md)
+- [Memory Sensitivity Classification](memory-sensitivity-classification-gap-analysis.md) — legal
+  matrix vs what the write gate enforces
+- [DEART-56710 Vertex Memory Bank spike](DEART-56710-vertex-memory-bank-spike.md) and its
+  [Jira summary](DEART-56710-jira-comment.md)
+
+## Presentations
+
+- [Memory Bank: build vs buy vs hybrid](presentations/memory-build-vs-buy/memory-build-vs-buy-three-way.md)
+- [Control Plane platform value](presentations/control-plane-platform-value/control-plane-platform-value-deck.md)
+
+## Diagrams
+
+The draw.io sources predate household scopes, runtime member resolution, consent, purpose, and
+retention; they still show the single `organization_id + user_id` scope. Use them for the overall
+component layout, and the Markdown documents above for current behavior.
+
+- [Memory Flows](GEAP_Memory_Flows.drawio) — activation, preference write, session read,
+  resource relationships, dynamic-memory topic gate
 - [Target Architecture](geap-target-architecture.drawio) — Entra → Console → API → GEAP services
+- [Platform Architecture](GEAP_Architecture.drawio)
 - [Agent Memory Flows](agent-memory-flows.drawio) — runtime and onboarding view
-- [Google Cloud Services Architecture](google-cloud-services-architecture.drawio) — deployable Google Cloud services
+- [Google Cloud Services Architecture](google-cloud-services-architecture.drawio) — deployable
+  Google Cloud services
 
-The Markdown guides are directly importable into Confluence. The former Confluence-specific copies,
-historical governance gap analysis, planning-only cost assessment, duplicate architecture diagrams,
-and standalone deployment placeholder sheet were removed. Their current material is consolidated in
-the guides above.
-
-Google Cloud pricing and service capabilities change. Use current official pricing and product
-documentation for funding or production decisions rather than treating repository documentation as
-a cost estimate.
+The Markdown files import directly into Confluence. Google Cloud pricing and service capabilities
+change; use current official pricing and product documentation for funding or production decisions.

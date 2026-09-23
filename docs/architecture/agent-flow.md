@@ -13,7 +13,9 @@ All in [`apps/memory-agent/app/memory_agent/agent.py`](../../apps/memory-agent/a
 root_agent = Agent(
     instruction=INSTRUCTION,                               # → the system instruction
     tools=[get_preferences, save_preference,              # → function declarations (name+docstring+params)
-           remember_dynamic_preference],
+           remember_dynamic_preference, forget_preference,
+           add_household_member, update_household_member,
+           merge_household_members, move_preference],
     before_agent_callback=initialize_preference_snapshot, # → resolve + cache the snapshot (no LLM)
     before_model_callback=inject_preference_snapshot,     # → append the snapshot to the request
 )
@@ -21,8 +23,8 @@ root_agent = Agent(
 
 | Seam | Our function | What it does |
 |---|---|---|
-| `instruction` | `INSTRUCTION` | the decision order (map → `save_preference`; else topic → `remember_dynamic_preference`; else decline) |
-| `tools` | `get_preferences`, `save_preference`, `remember_dynamic_preference` | ADK turns each into a **function declaration** from its **signature + docstring** — that's what the model reads to decide when to call it |
+| `instruction` | `INSTRUCTION` | the decision order (map → `save_preference`; else topic → `remember_dynamic_preference`; else decline) and the confirmation contract (`needs_confirmation` → ask, then repeat with `confirmed=true`) |
+| `tools` | `get_preferences`, `save_preference`, `remember_dynamic_preference`, plus the household tools `forget_preference`, `add_household_member`, `update_household_member`, `merge_household_members`, `move_preference` | ADK turns each into a **function declaration** from its **signature + docstring** — that's what the model reads to decide when to call it |
 | `before_agent_callback` | `initialize_preference_snapshot` | resolves the snapshot once per session via `POST /preferences/resolve` and caches it in `state[SNAPSHOT_STATE_KEY]` — **an HTTP call, not an LLM call** |
 | `before_model_callback` | `inject_preference_snapshot` | `llm_request.append_instructions([... snapshot JSON ...])` — puts `writablePreferences` / `writablePreferenceDetails` / `approvedTopics` / `approvedTopicDetails` / `householdMembers` in front of the model |
 
@@ -58,9 +60,10 @@ any tool execution; it loops until the model answers with no tool call.
    - ADK checks `model_response_event.get_function_calls()` (~1492) → `_postprocess_handle_function_calls_async`
      (~1645) → `functions.handle_function_calls_async` matches `function_call.name` to our Python
      function and calls it, e.g.
-     `save_preference("grocery.member_allergies", "peanut", member_id="kid1", tool_context=…)`.
-   - Our tool hits the Control Plane runtime API; the platform validates + screens + stores; the tool
-     returns a dict, which ADK appends as a `function_response` to the contents.
+     `save_preference("familygrocery.allergies", "peanuts", member_name="Ryan", relationship="son", tool_context=…)`.
+   - Our tool hits the Control Plane runtime API; the platform resolves the person, validates, screens,
+     and stores — or returns `needs_confirmation` with a question and stores nothing. The tool returns a
+     dict, which ADK appends as a `function_response` to the contents.
 
 5. **Loop.**
    - `_run_one_step_async` runs again with the tool result now in context → another `_call_llm_async`
@@ -106,7 +109,8 @@ sequenceDiagram
   after the tool result), but none is a dedicated "should-I-save" call — it is the agent's own loop.
 - **The Control Plane runs no LLM for this.** Managed generation is off: writes are `memories.create`,
   reads are `memories.retrieve`. The platform's screening (restricted/sensitive) is deterministic
-  regex, not a model. So: **agent LLM decides (judgment); platform enforces (rules).**
+  pattern matching, and household member matching is deterministic string similarity — neither is a
+  model. So: **agent LLM decides (judgment); platform enforces (rules).**
 
 ## Consequence for design
 

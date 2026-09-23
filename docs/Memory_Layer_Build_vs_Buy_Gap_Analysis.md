@@ -1,23 +1,27 @@
 # Memory Layer — Build vs Buy Gap Analysis
 
-**Purpose:** Compare a custom-built memory layer (custom DB + MCP) against the current managed Memory Bank implementation, across the team's agreed Areas of Assessment, to support the Build vs Buy decision.
-**Status:** Draft for team review — several rows are gated on spikes (marked ⚠ Needs data).
-**Baseline:** GEAP Control Plane (`cloud-geap-control-plane-apaasg`) — FastAPI control plane, PostgreSQL system of record, Vertex Memory Bank (`agentplatform` 2.x) as the managed store, deterministic in-process preference resolver.
-**Framework:** The 9 weighted areas and weights below were defined by the team (business directives: Cost, Maintainability; technical requirements: DR, Scale, Exit, Ontology).
+**Purpose:** Compare a custom-built memory layer (custom DB + MCP) against the current managed Memory
+Bank implementation, across the team's agreed Areas of Assessment, to support the Build vs Buy decision.
+**Status:** Draft for team review; re-checked against `feature/dynamic-household-members` on 2026-09-23.
+Rows marked ⚠ still need data from the spikes in §12.
+**Baseline:** GEAP Control Plane — FastAPI control plane, PostgreSQL system of record, Vertex Memory Bank
+(`agentplatform` 2.x) as the managed store, deterministic in-process resolver.
+**Framework:** The 9 weighted areas and weights were defined by the team (business directives: Cost,
+Maintainability; technical requirements: DR, Scale, Exit, Ontology).
 
-> **Terminology.** "Buy / Managed" = the **current implementation** — a governance Control Plane API wrapping Vertex Memory Bank. "Build / Custom" = replace the managed store with a self-hosted DB + custom memory logic, exposed to agents via MCP. The Control Plane API, PostgreSQL system of record, and resolver are assumed to stay in both options; only the **memory store** changes.
+> **Terminology.** "Buy / Managed" = the current implementation: the Control Plane API wrapping Vertex
+> Memory Bank. "Build / Custom" = replace the managed store with a self-hosted DB + custom memory logic,
+> exposed to agents via MCP. The Control Plane API, PostgreSQL system of record, and resolver stay in
+> both options; only the **memory store** changes.
 
 ---
 
 ## 1. How to read this document
 
-- **Current (Buy)** = what the managed implementation does today, verifiable in code.
+- **Current (Buy)** = what the implementation does today, verifiable in code.
 - **Custom (Build)** = what a self-hosted solution would entail.
-- **Gap / Leaning** = which option the evidence favors for that area, and why.
-- **Confidence** = High / Med / Low based on available evidence.
-- **⚠ Needs data** = no evidence in the codebase or from the vendor yet; convert to a Jira spike.
-
-Nothing below assumes a cost, latency, or DR figure we have not measured. Where a number is required, the row is marked ⚠ and a spike is proposed in §12.
+- **Leaning** = which option the evidence favors, and why. **Confidence** = High / Med / Low.
+- **⚠ Needs data** = not yet measured; tracked as a spike in §12.
 
 ---
 
@@ -25,39 +29,51 @@ Nothing below assumes a cost, latency, or DR figure we have not measured. Where 
 
 | # | Area | Weight | Leaning | Confidence | Spike needed |
 |---|---|---:|---|---|---|
-| 1 | Cost & TCO | 20% | Neutral | Low | ✅ Cost spike |
+| 1 | Cost & TCO | 20% | Leaning **Buy** | Low–Med | ✅ landing-zone cost run |
 | 2 | Maintainability & Complexity | 20% | **Buy** | Med–High | — |
-| 3 | Feature Parity & Data Modeling | 15% | Mixed (Buy: conflict resolution · Build: ontology, field-level updates) | Med | ✅ Data-model spike |
-| 4 | Resiliency & DR | 10% | **Build** *if Active/Active is hard-required* | Low | ✅ DR/multi-region spike |
-| 5 | Performance & Scalability | 10% | Neutral | Low | ✅ Load spike |
+| 3 | Feature Parity & Data Modeling | 15% | Mixed (Buy: resolution, households, deletion · Build: ontology, native field updates) | Med | ✅ data-model spike |
+| 4 | Resiliency & DR | 10% | **Build** *if Active/Active is hard-required* | Low | ✅ DR confirmation |
+| 5 | Performance & Scalability | 10% | Neutral | Low–Med | ✅ load spike |
 | 6 | Agent Integration | 10% | Neutral → Build *if heterogeneous hosts* | Med | — |
-| 7 | Exit Strategy | 5% | **Buy acceptable** (strong config portability) | Med | — |
-| 8 | Governance & Security | 5% | Slight **Build** | Med | ✅ PII/compliance review |
+| 7 | Exit Strategy | 5% | **Buy acceptable** | Med | ✅ export test |
+| 8 | Governance & Security | 5% | **Neutral** (was slight Build) | Med | ✅ PII/compliance review |
 | 9 | Migration Path | 5% | Neutral | Low | ✅ KSA migration spike |
 
-**Scores intentionally left blank.** A 1–5 score per area × weight produces the final matrix, but four of the highest-weight rows (Cost, DR, Scale, Migration) cannot be scored honestly until the spikes in §12 return data. Filling them now would be guesswork.
+**Scores are still left blank.** Cost, DR, Scale, and Migration (45% of the weight) can't be scored
+honestly until their spikes return data.
 
 ---
 
 ## 3. Cost & TCO — 20%
 
-**Current (Buy).** Managed Vertex Memory Bank is billed on API usage plus **provider-side structured-profile generation**, which runs an LLM to synthesize profiles from ingested events — a real, recurring token cost that is *not measured anywhere in the repo today*. Each `resolve` performs, per readable schema grant, two managed calls (`retrieve_profiles` + `retrieve`); each write performs `retrieve` + `create`. Fixed infra run-rate = Control Plane API (Cloud Run/GKE) + Cloud SQL PostgreSQL; there is **no self-managed memory database**.
+**Current (Buy).** Managed generation is **off**, so there are no Memory Bank generation or embedding
+token charges, and extraction rides on the agent's existing LLM call (no extra model call). What remains
+is per-operation billing: each resolve makes two calls per readable schema (`retrieve_profiles` +
+`retrieve`); each write makes one read and one `create`. A session that saves one preference with three
+readable schemas is about 13 reads and 1 write — roughly $0.45 per million sessions at published rates
+(see the [cost analysis](memory-bank-vs-uml-cost-analysis.md)). Fixed run-rate is the Control Plane API
+plus Cloud SQL; there is no self-managed memory database.
 
-**Custom (Build).** Cost shifts from managed per-call + generation fees to **fixed infra run-rate** (vector store + DB + embedding/generation pipeline) plus your own model tokens for generation/dedup. No managed markup, but you carry the always-on infra and the model spend directly.
+**Custom (Build).** Fixed infra (DB, pipeline, workers) plus your own model tokens for any extraction or
+dedup you add.
 
-**Gap.** The decision hinges on numbers we do not have: per-turn token cost of managed profile generation, per-`resolve` retrieval cost at real fan-out, and the two infra run-rates. **⚠ Needs data.**
+**Gap.** The per-operation economics are now small and known in structure; the real numbers still
+missing are billed usage in the target project and the infra run-rates. `scripts/memory_load_test.py`
+produces the measurement once deployed. **⚠ Needs data.**
 
-**Confidence: Low.** Structure is known; unit economics are not.
+**Leaning: Buy (operations are cheap; engineering TCO favors managed). Confidence: Low–Med.**
 
 ---
 
 ## 4. Maintainability & Complexity — 20%
 
-**Current (Buy).** The heavy, stateful work — structured profile generation, storage, scaling, retrieval, provider-side dedup — is operated by Google. The team's maintained surface is the Control Plane API + PostgreSQL + a thin `MemoryStore` SDK adapter. **Caveat, with direct evidence:** the managed SDK shipped a breaking change (`agentplatform` 1.x → 2.x: `agent_engines` → `memory_banks` / `runtimes`) that required a code fix to keep the service booting and provisioning working. Managed API version churn is a real, ongoing maintenance tax.
+**Current (Buy).** Google operates storage, scaling, and retrieval. The team maintains the Control Plane
+API, PostgreSQL, and a thin `MemoryStore` adapter. **Caveat with evidence:** the SDK shipped a breaking
+change (`agentplatform` 1.x → 2.x: `agent_engines` → `memory_banks` / `runtimes`) that required an
+adapter fix. Vendor API churn is a real, ongoing cost.
 
-**Custom (Build).** You own everything: an MCP server, DB operations, the embedding/generation pipeline and its prompts, dedup/conflict logic, scaling, and upgrades. Substantially larger operational and on-call surface, and you own correctness of memory generation.
-
-**Gap.** Managed clearly lowers day-to-day maintenance; the cost is exposure to vendor API churn (evidenced above) and less control. Build maximizes control at a large, permanent ops cost.
+**Custom (Build).** You own everything: MCP server, DB operations, extraction pipeline and prompts,
+dedup/conflict logic, scaling, upgrades, and on-call.
 
 **Leaning: Buy. Confidence: Med–High.**
 
@@ -66,68 +82,77 @@ Nothing below assumes a cost, latency, or DR figure we have not measured. Where 
 ## 5. Feature Parity & Data Modeling — 15%
 
 **Current (Buy).**
-- **Conflict resolution — parity, arguably a strength.** Deterministic resolution is implemented **in the Control Plane**, not delegated to the store: a strategy chain of source priority → domain priority → explicit-over-inferred → recency → confidence, with a minimum-confidence gate. This is Build-independent and already ours.
-- **Structured + unstructured.** Memory Bank stores schema-driven structured profiles (via `context_spec.structured_memory_configs`) and unstructured memories.
-- **Known limitation — no field-level structured update.** The managed API has no direct structured-profile field update, so explicit preferences are written as typed exact-scope **overlay memories** and merged at read time. It works, but it is a workaround.
-- **Ontology.** The model is domain → schema → attribute. It is **not** a rich ontology / knowledge graph.
-- **Dedup.** Partly handled by the explicit-overlay merge; the provider also dedups during generation — exact managed dedup semantics **⚠ not confirmed**.
-- **Extraction model — configurable, Google-only.** The Gemini model Memory Bank uses to extract/consolidate memories is now config-driven (`MEMORY_BANK_GENERATION_MODEL`, applied via the provisioner's `generation_config.model`). You can select any Google/Gemini tier (e.g. `gemini-2.5-flash` → `gemini-2.5-pro`), but Memory Bank accepts **Google-published models only** — no custom, tuned, or third-party extraction model. A non-Google extraction model is achievable **only on the Build path**. (Source: Google "Set up Memory Bank" — the generation-config `model` field, format `projects/.../publishers/google/models/{model}`.)
+- **Conflict resolution** is implemented in the control plane (source → domain → explicit-over-inferred
+  → recency → confidence, with a confidence gate), independent of the store. Global schema precedence
+  from the wizard is not yet executed.
+- **Scopes and households.** Three scope shapes (member, household-shared, household-member) with
+  login-rooted households, runtime member resolution, aliases, merge/move/rename, and a consent ledger —
+  all in the control plane, no provider change needed.
+- **Versioned schemas.** New versions go live without a restart; stored values survive.
+- **No field-level structured update** in the provider: explicit values are stored as typed exact-scope
+  facts and overlaid at read time (newest write per field wins). Works, but a workaround.
+- **Ontology:** domain → schema → attribute; not a knowledge graph.
+- **Extraction model:** irrelevant while managed generation is off (it is Gemini-only if ever used).
 
-**Custom (Build).** Could implement a richer ontology/graph model, native field-level updates, and bespoke dedup/conflict logic — more modeling flexibility.
+**Custom (Build).** Richer ontology/graph, native field-level updates, bespoke dedup and conflict logic.
 
-**Gap.** Conflict resolution favors staying (already built). Ontology and native field-level updates favor Build if those are hard requirements. Dedup semantics need confirmation.
-
-**Leaning: Mixed. Confidence: Med.**
+**Leaning: Mixed. Confidence: Med.** Ontology and native field updates favor Build only if they are hard
+requirements.
 
 ---
 
-## 6. Resiliency & DR — 10%  *(key swing factor)*
+## 6. Resiliency & DR — 10% *(key swing factor)*
 
-**Current (Buy).** The implementation runs Vertex Memory Bank in a **single region** (`us-central1` in config). **Active/Active multi-region (East/Central) failover and cross-region replication of the memory data are not configured or validated in the repo.** The Control Plane API and Cloud SQL can be made multi-region, but the memory *data* lives in one Vertex region, and Memory Bank's multi-region/replication capabilities are a managed-service property we have **⚠ not confirmed** with Google.
+**Current (Buy).** Memory Bank runs in a **single region** (`us-central1`). Active/Active multi-region
+and cross-region replication of memory data are not configured or confirmed with Google. The Control
+Plane API and Cloud SQL can be made multi-region; the memory data lives in one Vertex region.
 
-**Custom (Build).** A self-hosted store (multi-region Postgres/Spanner/vector DB) can be architected Active/Active with cross-region replication under your control — a genuine Build advantage **if** Vertex cannot meet the East/Central Active/Active requirement.
+**Custom (Build).** A self-hosted store can be Active/Active under your control.
 
-**Gap.** This is potentially the decisive area despite its 10% weight: if Active/Active East/Central is a hard business requirement and the managed service cannot satisfy it, that alone can force Build. **⚠ Needs data: confirm Vertex Memory Bank multi-region / DR guarantees from Google.**
+**Gap.** If Active/Active East/Central is a hard requirement the managed service can't meet, that alone
+can force Build. **⚠ Needs data: Google's Memory Bank DR guarantees.**
 
-**Leaning: Build if Active/Active is hard-required, else Buy. Confidence: Low until vendor DR is confirmed.**
+**Leaning: Build if Active/Active is hard-required, else Buy. Confidence: Low.**
 
 ---
 
 ## 7. Performance & Scalability — 10%
 
-**Current (Buy).** Each `resolve` issues N × (`retrieve_profiles` + `retrieve`) managed calls (one pair per readable grant) plus in-process resolution — i.e., multiple sequential network hops to a managed service on the read path. Writes issue `retrieve` + `create`. The effective snapshot is cached in ADK session state, which mitigates repeat reads. **Vertex Memory Bank throughput/latency limits at the stated 100k-concurrent target are ⚠ not documented in the repo and not load-tested.** (Also note: the API's in-process metrics reset per instance and are not aggregated — not a scalability blocker, but observability needs work before a load test is meaningful.)
+**Current (Buy).** The binding limit is the Memory Bank **per-minute quota** (reported in the build-vs-buy
+deck as 300 reads and 100 writes per minute per project and region by default, with a larger raise
+discussed with Google). Mitigations in the code: resolve once per session and cache; per-member schemas
+read only when a member is named; per-line-of-business banks possible. Each resolve still makes two
+sequential managed calls per readable schema. Provider `429` currently surfaces as HTTP 500, not a
+retryable `503`. Latency at the 100k-concurrent target is **⚠ not load-tested**.
 
-**Custom (Build).** Latency can be tuned via co-location and caching, and scaled to self-imposed limits — an advantage only if managed quotas/latency prove insufficient.
+**Custom (Build).** Tunable latency via co-location and caching, limited by your own capacity.
 
-**Gap.** Multiple sequential managed calls per resolve is a latency concern worth measuring; 100k concurrency vs Vertex quotas is unknown. **⚠ Needs data: load/scale spike.**
-
-**Leaning: Neutral. Confidence: Low.**
+**Leaning: Neutral. Confidence: Low–Med.**
 
 ---
 
 ## 8. Agent Integration — 10%
 
-**Current (Buy).** Agents integrate via the Control Plane **runtime REST API** (`/api/v1/runtime`); the resolved snapshot is injected into ADK session state. Verified: **there is no MCP layer today** — the reference agent has zero provider-SDK imports (CI-enforced) and calls the API over HTTP. Integration is clean for ADK; other agent frameworks/hosts need a bespoke client. Agent init payload = the bounded effective snapshot (readable schemas/attributes); managed context-retrieval payload caps are **⚠ not confirmed**.
+**Current (Buy).** Agents call the Control Plane **REST API** (`/api/v1/runtime`); the snapshot is
+injected into ADK session state. Two reference agents exist (memory-agent with household tools, and a
+minimal reference-agent), neither importing a provider SDK. There is **no MCP layer**; non-ADK hosts need a
+client.
 
-**Custom (Build).** A custom store fronted by **MCP** gives standardized, model-native tool discovery across heterogeneous agent hosts (Claude, LangGraph, IDE agents, partners) with less per-framework glue. Note: MCP can also be added as a thin adapter **in front of the current REST API** without a full Build — the two are not mutually exclusive.
+**Custom (Build).** MCP in front of a custom store standardizes tool discovery across heterogeneous hosts.
+MCP could equally be a thin adapter in front of the current REST API without a full Build.
 
-**Gap.** REST + ADK is sufficient today. If the roadmap needs many non-owned agent hosts, MCP (with or without Build) becomes valuable.
-
-**Leaning: Neutral → Build if heterogeneous hosts are required. Confidence: Med.**
+**Leaning: Neutral → Build only if many non-ADK hosts are required. Confidence: Med.**
 
 ---
 
 ## 9. Exit Strategy — 5%
 
-**Current (Buy).** There is real lock-in to the Vertex `agentplatform` SDK for the memory *data*, but two mitigations are already in the architecture and are genuine strengths:
-- **PostgreSQL is the system of record** for all configuration and governance (orgs, projects, domains, scopes, schemas, catalog, grants, policies, audit) — fully portable, provider-independent.
-- **A `MemoryStore` Protocol abstracts the provider** (mock and Vertex implementations exist), so swapping the memory backend is an architecturally supported operation, not a rewrite.
+**Current (Buy).** Lock-in is limited to stored memory values:
+- **PostgreSQL is the system of record** for all configuration and governance (organizations, projects,
+  domains, schemas, catalog, grants, policies, household roster, consent, audit).
+- **A `MemoryStore` protocol** abstracts the provider (mock and Vertex implementations).
 
-What remains provider-bound is the exported user **memory data** itself; portability of that data out of Vertex is **⚠ not confirmed** (needs an export/round-trip test).
-
-**Custom (Build).** Full data ownership, no lock-in by definition.
-
-**Gap.** Config/switching cost is already low thanks to the Protocol + PostgreSQL SoR — this materially softens the lock-in argument. The open item is memory-data export.
+Portability of the stored values out of Vertex (a `list`-based export) is **⚠ not tested**.
 
 **Leaning: Buy acceptable. Confidence: Med.**
 
@@ -135,47 +160,55 @@ What remains provider-bound is the exported user **memory data** itself; portabi
 
 ## 10. Governance & Security — 5%
 
-**Current (Buy).** The Control Plane enforces authorization (capabilities, per-agent schema grants, `organization_id + user_id` scope), immutable audit for admin mutations, and deterministic (non-model) resolution. **Gap:** PII masking / redaction at the memory boundary is **not implemented** — a `sensitivity_classification` field exists on preferences but nothing reads or enforces it. Guardrail flags (`confirmation_required`, dynamic-memory policy) exist. Compliance/data-residency is tied to the Vertex region.
+**Current (Buy).** The control plane enforces capabilities, per-agent schema grants, exact scopes, purpose
+limitation, immutable admin audit, and deterministic resolution. **Since the first version:** a
+sensitivity gate runs on every write (restricted blocked; sensitive only when user-directed; tiers stored
+and surfaced), health data needs confirmation and records consent, other adults' health data is refused,
+retention limits apply per tier, and deletion covers members, households, single values, purge, and
+consent withdrawal. **Still missing:** redaction to the actionable form and semantic inference
+detection. Data residency is tied to the Vertex region.
 
-**Custom (Build).** A self-hosted store makes native PII masking, redaction, and residency control easier to enforce end to end.
+**Custom (Build).** Native masking, redaction, and residency control are easier with your own store.
 
-**Gap.** The PII-masking gap exists in *both* options today, but is easier to close in Build (you control the store). `sensitivity_classification` being unused is a concrete, fixable gap regardless of the decision.
-
-**Leaning: Slight Build. Confidence: Med.**
+**Leaning: Neutral (was slight Build — the cited gap, an unused `sensitivity_classification`, is closed).
+Confidence: Med.**
 
 ---
 
 ## 11. Migration Path — 5%
 
-**Current (Buy).** Guided setup + activation provisions schemas and applies them to Memory Bank. **No tooling exists to migrate existing KSA Session Service data** into Memory Bank — it would require mapping KSA session data → domains/schemas/preferences and ingesting via the runtime API (`memory/events` / `preferences`). Effort depends on KSA data shape, which is **⚠ not known** here.
+**Current (Buy).** No tooling exists to migrate KSA Session Service data; it would map KSA data to domains,
+schemas, and preferences and write through the runtime API. Effort depends on the KSA data shape,
+**⚠ not known**.
 
-**Custom (Build).** Migrating into a store you control may allow simpler bulk import against a schema you define.
-
-**Gap.** No migration tooling exists for either path today; effort is unknown until the KSA data model is examined. **⚠ Needs data: KSA migration spike.**
+**Custom (Build).** Bulk import into a schema you define may be simpler.
 
 **Leaning: Neutral. Confidence: Low.**
 
 ---
 
-## 12. Recommended spikes (to complete the matrix)
+## 12. Spikes
 
-| Spike | Feeds area(s) | Question to answer |
-|---|---|---|
-| **Cost spike** | 1 | Measure per-turn generation tokens, per-`resolve` retrieval cost at real fan-out, and both infra run-rates. |
-| **DR / multi-region confirmation** | 4 | Confirm from Google whether Memory Bank supports Active/Active East/Central + cross-region replication; if not, quantify Build DR effort. |
-| **Load / scale spike** | 5 | Measure read/write latency and behavior toward 100k concurrent against Vertex quotas. |
-| **Data-model / ontology spike** | 3 | Decide whether domain/schema/attribute is sufficient or a true ontology/graph + native field-level updates are required. |
-| **PII / compliance review** | 8, 10 | Define masking/redaction requirements and whether managed residency satisfies compliance. |
-| **KSA migration spike** | 9, 11 | Inspect KSA Session Service data shape and estimate migration effort into each option. |
-| **Exit / portability test** | 7 | Round-trip export of Memory Bank data to confirm real portability. |
+| Spike | Feeds | Question | Status |
+|---|---|---|---|
+| Cost | 1 | Billed operations and infra run-rate in the target project | Tooling ready (`memory_load_test.py`); needs a landing-zone deployment |
+| DR / multi-region | 4 | Does Memory Bank support Active/Active East/Central with replication? | Open — needs Google confirmation |
+| Load / scale | 5 | Latency and behavior toward 100k concurrent against quotas | Partially run locally (quota limits observed); full run needs the landing zone and raised quota |
+| Data model / ontology | 3 | Is domain/schema/attribute enough, or is a graph + native field updates required? | Open; the household model shows complex relationships fit the current model |
+| PII / compliance | 8, 10 | Masking/redaction requirements; residency | Legal review of retention limits, consent wording, and option (b) pending |
+| KSA migration | 9, 11 | KSA data shape and migration effort | Open |
+| Exit / portability | 7 | Round-trip export of stored values | Open |
 
 ---
 
-## 13. Summary read (pending spikes)
+## 13. Summary read
 
-- **Buy is favored on the two highest-weight operational axes it can be judged on today** — Maintainability (with the caveat of vendor API churn, already felt in the 1.x→2.x migration) and, structurally, the governance/resolution machinery that is *already ours* regardless of store.
-- **Build's strongest cases are Resiliency/DR (Active/Active) and rich data modeling/ontology** — but the DR case is only decisive if Active/Active East/Central is a confirmed hard requirement the managed service cannot meet. That single confirmation (Spike 2) may drive the whole decision.
-- **The lock-in argument for Build is weaker than it first appears**, because the `MemoryStore` Protocol + PostgreSQL system of record already make the config portable and the backend swappable.
-- **Do not finalize the weighted score until the Cost, DR, and Load spikes return data** — those three sit on 40% of the total weight and are currently unmeasured.
-
-*Prepared as an implementation-grounded baseline; all ⚠ rows require the spikes in §12 before scoring.*
+- **Buy is favored on the axes that can be judged today:** maintainability, and the governance, household,
+  and resolution machinery that is already built and independent of the store.
+- **With managed generation off, managed operation costs are small**; the cost question is mainly
+  engineering TCO, which favors Buy.
+- **Build's strongest case is DR (Active/Active)** — decisive only if it is a confirmed hard requirement
+  Memory Bank can't meet. That single confirmation may decide the whole matter.
+- **Lock-in is weaker than it looks** because configuration lives in PostgreSQL and the store sits
+  behind a protocol.
+- **Don't finalize the weighted score until the Cost, DR, and Load spikes return data.**
