@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from control_plane_api.domain.sensitivity import SensitivityTier
-from control_plane_api.services.memory_classification import classify_content
+from control_plane_api.services.memory_classification import classify_content, redact_for_log
 
 
 @pytest.mark.parametrize(
@@ -26,3 +26,18 @@ def test_classify_content(value, tier, category) -> None:
 
 def test_non_string_is_non_sensitive() -> None:
     assert classify_content(42) == (SensitivityTier.NON_SENSITIVE, None)
+
+
+@pytest.mark.parametrize(
+    "value,tier,health,logged",
+    [
+        ("oat milk", SensitivityTier.NON_SENSITIVE, False, "oat milk"),
+        ("my SSN is 123-45-6789", SensitivityTier.RESTRICTED, False, "my SSN is ***"),
+        ("user is Muslim", SensitivityTier.SENSITIVE, False, "user is ***"),
+        ("walks daily", SensitivityTier.SENSITIVE, False, "***"),  # sensitive only by declaration
+        ("peanuts", SensitivityTier.NON_SENSITIVE, True, "***"),  # health data
+        (True, SensitivityTier.NON_SENSITIVE, False, True),
+    ],
+)
+def test_redact_for_log(value, tier, health, logged) -> None:
+    assert redact_for_log(value, tier, health=health) == logged

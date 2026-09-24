@@ -48,3 +48,20 @@ def classify_content(value: object) -> tuple[SensitivityTier, str | None]:
         if pattern.search(value):
             return tier, category
     return SensitivityTier.NON_SENSITIVE, None
+
+
+def redact_for_log(value: object, tier: SensitivityTier, *, health: bool = False) -> object:
+    """The form of a memory value that may be written to logs.
+
+    Normal values pass through (long text truncated). Health values are masked entirely. Sensitive or
+    restricted text has each matched term replaced with ``***``; if nothing matched (the value is
+    sensitive only by the attribute's declaration) it is masked entirely.
+    """
+    if not health and tier is SensitivityTier.NON_SENSITIVE:
+        return value[:200] if isinstance(value, str) else value
+    if health or not isinstance(value, str):
+        return "***"
+    masked = value
+    for _, _, pattern in _CATEGORY_PATTERNS:
+        masked = pattern.sub("***", masked)
+    return masked[:200] if masked != value else "***"

@@ -38,7 +38,7 @@
 | 7 | **Using children's or health data for advertising** | CCPA under-16 opt-in; state teen protections; COPPA | Every agent declares a purpose; every schema declares allowed purposes (default personalization only). Advertising is **hard-denied** for per-person and health data, at approval time and on every read. | Console C2 |
 | 8 | **Keeping data indefinitely** | CCPA retention disclosure; COPPA "no indefinite retention" | Schema owners set retention within platform limits (730 days sensitive/health, 1095 normal — placeholders for Legal). Setups above the limit are rejected. A sweep deletes expired values; unconfirmed people expire after 60 days, unanswered consent questions after 24 hours. | Script §7 · Console C3 |
 | 9 | **Not honoring deletion or consent withdrawal** | CCPA/MHMDA right to delete; consent withdrawal | Delete one value, one person, or the whole household; deleting health data withdraws its consent. Every deletion is audited. **Gap:** names and the consent ledger are kept (§5). | Script §8 · Chat A7 |
-| 10 | **An AI service storing things nobody approved** | Governance; unreviewed inferences | Only pre-approved attributes and topics can be stored; Memory Bank's managed extraction is off; every write is logged (without the value). | Architecture slide · Audit D |
+| 10 | **An AI service storing things nobody approved** | Governance; unreviewed inferences | Only pre-approved attributes and topics can be stored; Memory Bank's managed extraction is off; every decision — saved, refused, waiting for confirmation, or declined by the agent — is logged, with sensitive, restricted, and health values masked. | Architecture slide · Audit D |
 
 Also relevant: **HIPAA boundary.** Kroger Health pharmacy data must never feed grocery memory. Today
 that is an organizational control — pharmacy would be a separate, isolated domain with no grants from
@@ -113,14 +113,32 @@ pending consents expire on their own clocks. The sweep is manual today — nothi
 | Forget the household | Deletes the household's and every member's stored values |
 | Operator purge | Deletes by attribute or topic across the organization (preview first) |
 
-Every write and deletion emits a structured log event with who, what, and a correlation ID —
-**never the value**:
+Every write and deletion emits a structured audit event (`memory_write`, `memory_deletion`) with who,
+what, and a correlation ID — **never the value**:
 
 ```json
 {"event": "memory_deletion", "op": "forget_preference", "agent_id": "familygrocery-assistant",
  "attribute": "familygrocery.allergies", "member_id": "mbr_4be27774…", "deleted": 1,
  "consents_withdrawn": 2, "correlation_id": "f584a7ff-…"}
 ```
+
+Separately, every write **attempt** emits a `memory_decision` event in the Control Plane (and an
+`agent_memory_decision` event in the agent, including things the agent decided not to save) so the
+team can see what was proposed and why it was or wasn't stored. These include the value only in
+masked form: normal preferences appear as written, health values are replaced entirely by `***`,
+and restricted or sensitive terms are replaced by `***`:
+
+```json
+{"event": "memory_decision", "decision": "rejected", "key": "familygrocery.dislikes",
+ "value": "my SSN is ***", "category": "pii_ssn", "sensitivity": "restricted",
+ "reason": "attribute 'familygrocery.dislikes' contains restricted content (pii_ssn) …",
+ "schema_version": "1", "level": "household_member", "preference_type": "canonical"}
+{"event": "memory_decision", "decision": "needs_confirmation", "key": "familygrocery.allergies",
+ "value": "***", "health": true, "reason": "nothing saved: waiting for the customer's confirmation"}
+```
+
+**Legal to confirm** that logging normal preference values (e.g. "olives") in operational logs is
+acceptable, and the log retention period.
 
 ---
 
@@ -177,10 +195,13 @@ Open the dev UI **Events** panel to show the tool calls and the platform's `need
 ### Part D — Audit trail
 
 ```bash
-docker compose logs control-plane-api | grep -E 'memory_write|memory_deletion'
+docker compose logs control-plane-api | grep -E 'memory_write|memory_deletion|memory_decision'
 ```
 
-Show that each event names the agent, attribute, person, and correlation ID, and never the value.
+Show that audit events name the agent, attribute, person, and correlation ID but never the value, and
+that the decision log shows each refusal with its reason and the value masked (`"my SSN is ***"`,
+`"pork - user is ***"`, health values as `***`). The agent's own decisions, including things it chose
+not to save, are in the dev-UI server output as `agent_memory_decision`.
 
 ---
 
@@ -205,6 +226,8 @@ Show that each event names the agent, attribute, person, and correlation ID, and
 4. How long to keep consent records after withdrawal or deletion.
 5. What "delete my household" must remove beyond stored values (names, relationships, name variants).
 6. Whether "my son" should default to a minor, or the agent should ask.
+7. Whether normal preference values may appear in operational decision logs (masked for sensitive,
+   restricted, and health data), and how long those logs are kept.
 
 ---
 

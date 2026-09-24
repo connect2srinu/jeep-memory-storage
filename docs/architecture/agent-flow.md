@@ -13,7 +13,7 @@ All in [`apps/memory-agent/app/memory_agent/agent.py`](../../apps/memory-agent/a
 root_agent = Agent(
     instruction=INSTRUCTION,                               # → the system instruction
     tools=[get_preferences, save_preference,              # → function declarations (name+docstring+params)
-           remember_dynamic_preference, forget_preference,
+           remember_dynamic_preference, record_memory_decision, forget_preference,
            add_household_member, update_household_member,
            merge_household_members, move_preference],
     before_agent_callback=initialize_preference_snapshot, # → resolve + cache the snapshot (no LLM)
@@ -24,7 +24,7 @@ root_agent = Agent(
 | Seam | Our function | What it does |
 |---|---|---|
 | `instruction` | `INSTRUCTION` | the decision order (map → `save_preference`; else topic → `remember_dynamic_preference`; else decline) and the confirmation contract (`needs_confirmation` → ask, then repeat with `confirmed=true`) |
-| `tools` | `get_preferences`, `save_preference`, `remember_dynamic_preference`, plus the household tools `forget_preference`, `add_household_member`, `update_household_member`, `merge_household_members`, `move_preference` | ADK turns each into a **function declaration** from its **signature + docstring** — that's what the model reads to decide when to call it |
+| `tools` | `get_preferences`, `save_preference`, `remember_dynamic_preference`, `record_memory_decision` (logs a decision not to save — stores nothing), plus the household tools `forget_preference`, `add_household_member`, `update_household_member`, `merge_household_members`, `move_preference` | ADK turns each into a **function declaration** from its **signature + docstring** — that's what the model reads to decide when to call it |
 | `before_agent_callback` | `initialize_preference_snapshot` | resolves the snapshot once per session via `POST /preferences/resolve` and caches it in `state[SNAPSHOT_STATE_KEY]` — **an HTTP call, not an LLM call** |
 | `before_model_callback` | `inject_preference_snapshot` | `llm_request.append_instructions([... snapshot JSON ...])` — puts `writablePreferences` / `writablePreferenceDetails` / `approvedTopics` / `approvedTopicDetails` / `householdMembers` in front of the model |
 

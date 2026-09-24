@@ -247,7 +247,8 @@ Cloud Logging read APIs, Cloud Billing / BigQuery export, Example Store, feedbac
 
 - **Correlation:** `X-Correlation-Id` accepted or generated per request, echoed, and embedded in errors
   and audit events.
-- **Logging:** one JSON line per request; structured `memory_write` / `memory_deletion` events (tier,
+- **Logging:** one JSON line per request; `memory_decision` events for every write attempt (outcome,
+  reason, key, schema version, type, masked value); structured `memory_write` / `memory_deletion` events (tier,
   operation, sensitivity, source, version, correlation ID; never values); `retention.swept` audit events.
 - **Metrics:** in-process `(path, status)` counters at `/internal/metrics` — not Prometheus, not
   aggregated across instances, reset on restart.

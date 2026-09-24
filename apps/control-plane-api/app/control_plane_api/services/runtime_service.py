@@ -78,7 +78,7 @@ from control_plane_api.persistence.runtime_repository import RuntimeControlPlane
 from control_plane_api.repositories import MemoryStore
 from control_plane_api.security.authentication import AuthenticatedPrincipal
 from control_plane_api.services.authorization import AgentCapability
-from control_plane_api.services.memory_classification import classify_content
+from control_plane_api.services.memory_classification import classify_content, redact_for_log
 from control_plane_api.services.preference_resolver import PreferenceResolver
 from control_plane_api.services.scope_registry import ScopeRegistry
 
@@ -101,6 +101,15 @@ _CONFIRM_MESSAGE = (
     "Nothing was saved yet. Ask the user exactly the confirmationPrompt. Only if they answer yes, "
     "repeat the same call with memberId (when given) and confirmed=true."
 )
+
+# Why a write that returned normally did or didn't save, for the memory_decision log.
+_DECISION_REASONS = {
+    "updated": "saved",
+    "accepted": "saved",
+    "needs_confirmation": "nothing saved: waiting for the customer's confirmation",
+    "ambiguous": "nothing saved: more than one household member matches the name",
+    "not_allowed": "nothing saved: health data about another adult is not stored",
+}
 
 
 def _scope_values(scope: RuntimeScope) -> dict[str, str]:
@@ -170,6 +179,47 @@ def _log_memory_write(*, tier: str, version: int, **fields: object) -> None:
                 "tier": tier,
                 "op": "created" if version == 1 else "updated",
                 "version": version,
+                **fields,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
+
+
+def _log_memory_decision(
+    decision: str,
+    *,
+    preference_type: str,
+    key: str,
+    value: object,
+    declared: str | None = None,
+    health: bool = False,
+    **fields: object,
+) -> None:
+    """Emit one event per write attempt: what was proposed and what the control plane decided.
+
+    ``decision`` is the outcome (``updated``, ``accepted``, ``needs_confirmation``, ``ambiguous``,
+    ``not_allowed``, or ``rejected``). The value is logged only in masked form for sensitive,
+    restricted, and health data (see ``redact_for_log``).
+    """
+    detected, category = classify_content(value)
+    sensitivity = max_tier(parse_tier(declared), detected)
+    if health:
+        sensitivity = max_tier(sensitivity, SensitivityTier.SENSITIVE)
+    logger.info(
+        json.dumps(
+            {
+                "event": "memory_decision",
+                "correlation_id": correlation_id_context.get(),
+                "decision": decision,
+                "preference_type": preference_type,
+                "key": key,
+                "value": redact_for_log(value, sensitivity, health=health),
+                "value_length": len(str(value)),
+                "sensitivity": sensitivity.value,
+                "category": category,
+                "health": health,
                 **fields,
             },
             sort_keys=True,
@@ -507,25 +557,53 @@ class RuntimeMemoryService:
         self._require_consumer_scope(agent, request.scope)
         grants = await self._grants(agent)
         writes = []
+        accepted: list[tuple[object, dict[str, object]]] = []
         for candidate in request.candidates:
-            grant = self._resolve_write_grant(
-                agent,
-                grants,
-                candidate.attribute,
-                agent.domain_id,
-                candidate.schema_id,
-            )
-            if self._entity_key(grant):
-                raise ValueError(
-                    f"attribute {candidate.attribute!r} is sub-entity-scoped; write it via "
-                    "PUT /preferences/{attribute} with the entity id, not through ingest_event"
+            decision: dict[str, object] = {
+                "key": candidate.attribute,
+                "agent_id": agent.id,
+                "domain": agent.domain_id,
+                "user_id": request.scope.user_id,
+                "source": request.source,
+            }
+            try:
+                grant = self._resolve_write_grant(
+                    agent,
+                    grants,
+                    candidate.attribute,
+                    agent.domain_id,
+                    candidate.schema_id,
                 )
-            _screen_memory_write(
-                candidate.value,
-                declared=grant.attribute_sensitivity.get(candidate.attribute),
-                source=request.source,
-                label=f"attribute {candidate.attribute!r}",
-            )
+                canonical = grant.field_to_attribute.get(candidate.attribute, candidate.attribute)
+                decision.update(
+                    key=canonical,
+                    schema_id=grant.schema_id,
+                    schema_version=grant.schema_version,
+                    level=self._scope_level(grant),
+                    data_type=grant.attribute_data_types.get(canonical),
+                    declared=grant.attribute_sensitivity.get(canonical),
+                )
+                if self._entity_key(grant):
+                    raise ValueError(
+                        f"attribute {candidate.attribute!r} is sub-entity-scoped; write it via "
+                        "PUT /preferences/{attribute} with the entity id, not through ingest_event"
+                    )
+                _screen_memory_write(
+                    candidate.value,
+                    declared=grant.attribute_sensitivity.get(candidate.attribute),
+                    source=request.source,
+                    label=f"attribute {candidate.attribute!r}",
+                )
+            except (ValueError, PermissionError) as error:
+                _log_memory_decision(
+                    "rejected",
+                    preference_type="canonical",
+                    value=candidate.value,
+                    reason=str(error),
+                    **decision,
+                )
+                raise
+            accepted.append((candidate.value, decision))
             await self._register_schema(grant)
             writes.append(
                 PreferenceWrite(
@@ -536,12 +614,48 @@ class RuntimeMemoryService:
             )
         scope = self._memory_scope(request.scope, agent)
         result = await self.store.ingest_event(scope, MemoryEvent(request.text, tuple(writes)))
+        for value, decision in accepted:
+            _log_memory_decision(
+                "accepted", preference_type="canonical", value=value, reason="saved", **decision
+            )
         return RuntimeMutationResponse(status="accepted", reference=result.natural_memory.id)
 
     async def write_dynamic_memory(
         self, principal: AuthenticatedPrincipal, request: DynamicMemoryWrite
     ) -> RuntimeMutationResponse:
         agent = await self._agent(principal)
+        decision: dict[str, object] = {
+            "key": f"topic:{request.topic}",
+            "agent_id": agent.id,
+            "domain": agent.domain_id,
+            "user_id": request.scope.user_id,
+            "source": request.source,
+            "confidence": request.confidence,
+        }
+        try:
+            response = await self._write_dynamic_memory(agent, request, decision)
+        except (ValueError, PermissionError) as error:
+            _log_memory_decision(
+                "rejected",
+                preference_type="dynamic",
+                value=request.value,
+                reason=str(error),
+                **decision,
+            )
+            raise
+        _log_memory_decision(
+            response.status,
+            preference_type="dynamic",
+            value=request.value,
+            reason=_DECISION_REASONS.get(response.status, response.status),
+            value_version=response.profile_version,
+            **decision,
+        )
+        return response
+
+    async def _write_dynamic_memory(
+        self, agent: RuntimeAgent, request: DynamicMemoryWrite, decision: dict[str, object]
+    ) -> RuntimeMutationResponse:
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
         policy = await self.repository.get_dynamic_memory_policy(agent.domain_id)
@@ -549,6 +663,7 @@ class RuntimeMemoryService:
             raise PermissionError(
                 f"dynamic memory is not enabled for domain {agent.domain_id!r}"
             )
+        decision["declared"] = policy.topic_sensitivity.get(request.topic)
         if request.topic not in policy.approved_topics:
             raise PermissionError(
                 f"topic {request.topic!r} is not an approved dynamic-memory topic for "
@@ -666,6 +781,44 @@ class RuntimeMemoryService:
         request: ExplicitPreferenceUpdate,
     ) -> RuntimeMutationResponse:
         agent = await self._agent(principal)
+        # Filled in as the write is resolved, then logged with the outcome.
+        decision: dict[str, object] = {
+            "key": attribute,
+            "agent_id": agent.id,
+            "domain": agent.domain_id,
+            "user_id": request.scope.user_id,
+            "source": request.source,
+            "confirmed": request.confirmed,
+        }
+        try:
+            response = await self._update_preference(agent, attribute, request, decision)
+        except (ValueError, PermissionError) as error:
+            _log_memory_decision(
+                "rejected",
+                preference_type="canonical",
+                value=request.value,
+                reason=str(error),
+                **decision,
+            )
+            raise
+        _log_memory_decision(
+            response.status,
+            preference_type="canonical",
+            value=request.value,
+            reason=_DECISION_REASONS.get(response.status, response.status),
+            value_version=response.profile_version,
+            member_id=response.member_id,
+            **decision,
+        )
+        return response
+
+    async def _update_preference(
+        self,
+        agent: RuntimeAgent,
+        attribute: str,
+        request: ExplicitPreferenceUpdate,
+        decision: dict[str, object],
+    ) -> RuntimeMutationResponse:
         self._require_capability(agent, AgentCapability.SUBMIT_CANDIDATES)
         self._require_consumer_scope(agent, request.scope)
         grants = await self._grants(agent)
@@ -679,6 +832,15 @@ class RuntimeMemoryService:
         profile_field = self._profile_field(grant, attribute)
         canonical = grant.field_to_attribute.get(attribute, attribute)
         health = canonical in grant.health_attributes
+        decision.update(
+            key=canonical,
+            schema_id=grant.schema_id,
+            schema_version=grant.schema_version,
+            level=self._scope_level(grant),
+            data_type=grant.attribute_data_types.get(canonical),
+            declared=grant.attribute_sensitivity.get(canonical),
+            health=health,
+        )
         sensitivity = _screen_memory_write(
             request.value,
             declared=grant.attribute_sensitivity.get(canonical),

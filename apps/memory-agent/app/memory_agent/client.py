@@ -139,10 +139,15 @@ class ControlPlaneApiClient:
         *,
         agent_id: str,
         payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
+        headers = await self._headers(agent_id)
+        if correlation_id:
+            # The control plane logs this id on its side, so both logs can be joined.
+            headers["X-Correlation-ID"] = correlation_id
         async with httpx.AsyncClient(
             base_url=self.base_url,
-            headers=await self._headers(agent_id),
+            headers=headers,
             timeout=self.timeout,
         ) as client:
             response = await client.request(method, path, json=payload)
@@ -204,6 +209,7 @@ class ControlPlaneApiClient:
         topic: str,
         value: Any,
         confidence: float = 1.0,
+        correlation_id: str | None = None,
     ) -> RuntimeMutation:
         payload = await self._request(
             "POST",
@@ -215,6 +221,7 @@ class ControlPlaneApiClient:
                 "value": value,
                 "confidence": confidence,
             },
+            correlation_id=correlation_id,
         )
         return RuntimeMutation.model_validate(payload)
 
@@ -232,6 +239,7 @@ class ControlPlaneApiClient:
         member_name: str | None = None,
         relationship: str | None = None,
         confirmed: bool = False,
+        correlation_id: str | None = None,
     ) -> RuntimeMutation:
         body: dict[str, Any] = {
             "scope": self._scope(user_id, app_name, consumer_domain, member_id),
@@ -250,6 +258,7 @@ class ControlPlaneApiClient:
             f"/api/v1/runtime/preferences/{quote(attribute, safe='.')}",
             agent_id=agent_id,
             payload=body,
+            correlation_id=correlation_id,
         )
         return RuntimeMutation.model_validate(payload)
 

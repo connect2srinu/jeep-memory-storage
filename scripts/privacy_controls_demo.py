@@ -267,6 +267,9 @@ if OPTS.with_purpose_check:
     show("platform message", body.get("message"))
 else:
     print("\nPurpose limitation: re-run with --with-purpose-check (registers a demo advertising agent).")
-print("Audit trail: docker compose logs control-plane-api | grep -E 'memory_write|memory_deletion'")
+print(
+    "Audit and decision logs: docker compose logs control-plane-api "
+    "| grep -E 'memory_write|memory_deletion|memory_decision'"
+)
 print(f"\n# Result: {PASSED} passed, {FAILED} failed")
 raise SystemExit(1 if FAILED else 0)

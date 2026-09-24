@@ -16,6 +16,7 @@ Then open http://localhost:8000/dev-ui/?app=memory_agent
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,10 @@ def build_app():
 
 
 def main() -> None:
+    # Show the agent's memory-decision events (INFO) next to uvicorn's own output.
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"), format="%(levelname)s %(name)s %(message)s"
+    )
     uvicorn.run(
         build_app(),
         host=os.getenv("HOST", "127.0.0.1"),

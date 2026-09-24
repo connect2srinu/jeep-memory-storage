@@ -33,7 +33,7 @@ async def test_resolve_and_update_forward_member_id(monkeypatch) -> None:
     client = ControlPlaneApiClient(base_url="http://control-plane")
     captured: dict[str, dict] = {}
 
-    async def fake_request(method, path, *, agent_id, payload):
+    async def fake_request(method, path, *, agent_id, payload, correlation_id=None):
         captured["payload"] = payload
         return RESOLVE_STUB if path.endswith("/resolve") else MUTATION_STUB
 
@@ -83,7 +83,7 @@ async def test_reference_writes_and_confirmation_round_trip(monkeypatch) -> None
         "confirmationPrompt": "Should I add Ryan (your son) to your household?",
     }
 
-    async def fake_request(method, path, *, agent_id, payload):
+    async def fake_request(method, path, *, agent_id, payload, correlation_id=None):
         calls.append((method, path, payload))
         return proposal
 

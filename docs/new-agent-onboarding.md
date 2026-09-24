@@ -40,9 +40,11 @@ Copy these from [`apps/memory-agent/app/memory_agent`](../apps/memory-agent/app/
       cache in session state.
 - [ ] **`before_model_callback`** (`inject_preference_snapshot`) — append the cached snapshot to the
       model request. No API call per turn.
-- [ ] **Tools** — `get_preferences`, `save_preference`, `remember_dynamic_preference`, and for
-      households `forget_preference`, `add_household_member`, `update_household_member`,
-      `merge_household_members`, `move_preference`. Each write tool refreshes the cached snapshot.
+- [ ] **Tools** — `get_preferences`, `save_preference`, `remember_dynamic_preference`,
+      `record_memory_decision` (logs what the model decided not to save), and for households
+      `forget_preference`, `add_household_member`, `update_household_member`,
+      `merge_household_members`, `move_preference`. Each write tool refreshes the cached snapshot and
+      logs an `agent_memory_decision` event (values masked for health, sensitive, and rejected items).
 - [ ] **Instruction** — the write decision order and the confirmation contract (below). Start from the
       memory agent's `INSTRUCTION`.
 - [ ] **Short-term sessions** — `DatabaseSessionService` on PostgreSQL with an async driver URL.

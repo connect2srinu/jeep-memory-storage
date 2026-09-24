@@ -183,8 +183,18 @@ per operation.
 ## Observe
 
 ```bash
-docker compose logs -f control-plane-api 2>&1 | grep -E "memory_write|memory_deletion"
+docker compose logs -f control-plane-api 2>&1 | grep -E "memory_write|memory_deletion|memory_decision"
 ```
 
-`memory_write` carries tier, operation, sensitivity, source, version, and correlation ID;
-`memory_deletion` carries the forget or purge details. Values are never logged.
+- `memory_write` (audit) carries tier, operation, sensitivity, source, version, and correlation ID —
+  never the value.
+- `memory_deletion` (audit) carries the forget or purge details.
+- `memory_decision` is emitted for every write attempt with the outcome (`updated`, `accepted`,
+  `needs_confirmation`, `ambiguous`, `not_allowed`, `rejected`), `reason`, `preference_type`
+  (canonical / dynamic), `key`, `schema_id`, `schema_version`, `level`, `data_type`, `value_version`,
+  `sensitivity`, `category`, `health`, and the value in masked form: normal values as written; health
+  values as `***`; restricted or sensitive terms replaced by `***`.
+
+The memory agent's dev-UI server prints `agent_memory_decision` events for the same writes as seen from
+the agent, plus `declined` events when the model decides not to save something
+(`record_memory_decision`). Set `LOG_LEVEL` to change the agent's log level.

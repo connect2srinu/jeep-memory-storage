@@ -33,6 +33,8 @@ class RuntimeSchemaGrant:
     attribute_descriptions: dict[str, str] = field(default_factory=dict)
     # Attributes flagged as health data (stricter matching, confirmation, consent).
     health_attributes: frozenset[str] = frozenset()
+    # attribute_id -> catalog data type (string | boolean | integer | number).
+    attribute_data_types: dict[str, str] = field(default_factory=dict)
     # Purposes an agent may declare to use this schema.
     allowed_purposes: tuple[str, ...] = ("personalization",)
 

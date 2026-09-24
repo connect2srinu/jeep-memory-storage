@@ -10,7 +10,10 @@ preferences back through the runtime API, so long-term memory always lands in th
 from __future__ import annotations
 
 import json
+import logging
+import re
 from typing import Any
+from uuid import uuid4
 
 from google.adk import Runner
 from google.adk.agents import Agent
@@ -22,12 +25,17 @@ from google.adk.tools import ToolContext
 
 from .client import (
     ControlPlaneApiClient,
+    ControlPlaneApiError,
     GoogleIdTokenProvider,
     StaticTokenProvider,
 )
 from .settings import settings
 
 SNAPSHOT_STATE_KEY = "shared_memory:effective_snapshot"
+
+logger = logging.getLogger("memory_agent.memory_decision")
+# Emails and digit runs (phone, card, account numbers) are masked even in non-sensitive log values.
+_IDENTIFIERS = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+|\d[\d\s().-]{3,}\d")
 
 INSTRUCTION = f"""
 You are a helpful assistant for the {settings.consumer_domain} domain with two kinds of memory.
@@ -61,14 +69,21 @@ SAVING. Pick the attribute whose description best matches the statement:
     aliases); otherwise pass member_name (and relationship, e.g. "son", if the customer said it).
     Never invent a member_id, and never ask the customer for one — they don't know member ids.
 - Otherwise, if it fits an approved topic, call remember_dynamic_preference with that topic.
-- Otherwise do not store it; explain that this kind of information isn't something you can save
-  yet (for example, if there is no attribute for dislikes, say so — don't save it as an allergy).
+- Otherwise do not store it: call record_memory_decision, then explain that this kind of
+  information isn't something you can save yet (for example, if there is no attribute for dislikes,
+  say so — don't save it as an allergy).
+
+RECORDING DECISIONS. Whenever the customer states a preference or a fact about themselves or their
+household, or asks you to remember something, and you decide NOT to save it, call
+record_memory_decision with a short paraphrase and the reason. Do not call it for ordinary shopping
+requests.
 
 WHAT THE PLATFORM RETURNS. Every write returns a "status":
 - updated / added / merged / moved / forgotten / exists: done — tell the customer briefly.
 - needs_confirmation: NOTHING was saved. Ask the customer exactly the "confirmationPrompt" and stop.
   Only if they clearly say yes, call the same tool again with the same values, plus the returned
-  member_id, and confirmed=true. If they say no, tell them nothing was saved.
+  member_id, and confirmed=true. If they say no, call record_memory_decision (reason: the customer
+  said no) and tell them nothing was saved.
 - ambiguous: NOTHING was saved. Ask the "confirmationPrompt" (which person they mean). Then repeat
   with the chosen person's member_id, or add a new person with add_household_member.
 - not_allowed: NOTHING was saved. Explain the "message". For another adult's allergy, offer to save
@@ -172,6 +187,47 @@ async def get_preferences(
     return await _resolve_snapshot(tool_context, member_id)
 
 
+def _log_decision(
+    tool_context: ToolContext, *, decision: str, value: object, masked: bool, **fields: object
+) -> None:
+    """Emit one agent-side event per memory decision: saved, not saved, or declined by the model.
+
+    The value is masked entirely for health, sensitive, and rejected items; otherwise identifiers
+    (emails, digit runs) are masked and the text is truncated.
+    """
+    user_id, session_id = _identity(tool_context)
+    text = str(value)
+    logger.info(
+        json.dumps(
+            {
+                "event": "agent_memory_decision",
+                "decision": decision,
+                "value": "***" if masked else _IDENTIFIERS.sub("***", text)[:200],
+                "value_length": len(text),
+                "agent_id": settings.agent_id,
+                "user_id": user_id,
+                "session_id": session_id,
+                **fields,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    )
+
+
+def _snapshot_entry(tool_context: ToolContext, section: str, field: str, name: str) -> dict[str, Any]:
+    """The snapshot's details for one writable attribute or approved topic, if listed."""
+    snapshot = tool_context.state.get(SNAPSHOT_STATE_KEY) or {}
+    return next(
+        (
+            item
+            for item in snapshot.get(section, [])
+            if item.get(field) == name or str(item.get(field, "")).endswith(f".{name}")
+        ),
+        {},
+    )
+
+
 async def _result(
     tool_context: ToolContext, mutation: Any, member_id: str | None = None
 ) -> dict[str, Any]:
@@ -200,17 +256,54 @@ async def save_preference(
     the customer the confirmationPrompt first. Set confirmed=true only after they said yes to it.
     """
     user_id, _ = _identity(tool_context)
-    mutation = await build_control_plane_api_client().update_preference(
-        user_id=user_id,
-        app_name=settings.app_name,
-        consumer_domain=settings.consumer_domain,
-        agent_id=settings.agent_id,
-        attribute=attribute,
+    detail = _snapshot_entry(tool_context, "writablePreferenceDetails", "attribute", attribute)
+    health = bool(detail.get("health"))
+    fields = {
+        "tool": "save_preference",
+        "correlation_id": str(uuid4()),
+        "preference_type": "canonical",
+        "key": attribute,
+        "level": detail.get("level"),
+        "health": health,
+        "relationship": relationship,
+        "confirmed": confirmed,
+    }
+    try:
+        mutation = await build_control_plane_api_client().update_preference(
+            user_id=user_id,
+            app_name=settings.app_name,
+            consumer_domain=settings.consumer_domain,
+            agent_id=settings.agent_id,
+            attribute=attribute,
+            value=value,
+            member_id=member_id,
+            member_name=member_name,
+            relationship=relationship,
+            confirmed=confirmed,
+            correlation_id=fields["correlation_id"],
+        )
+    except ControlPlaneApiError as error:
+        _log_decision(
+            tool_context,
+            decision="rejected",
+            value=value,
+            masked=True,
+            reason=str(error),
+            http_status=error.status_code,
+            member_id=member_id,
+            **fields,
+        )
+        raise
+    _log_decision(
+        tool_context,
+        decision=mutation.status,
         value=value,
-        member_id=member_id,
-        member_name=member_name,
-        relationship=relationship,
-        confirmed=confirmed,
+        masked=health,
+        reason=mutation.message,
+        reference=mutation.reference,
+        value_version=mutation.profile_version,
+        member_id=mutation.member_id or member_id,
+        **fields,
     )
     return await _result(tool_context, mutation, mutation.member_id)
 
@@ -340,15 +433,74 @@ async def remember_dynamic_preference(
     that list. Use this only when no writablePreferences entry fits the request.
     """
     user_id, _ = _identity(tool_context)
-    mutation = await build_control_plane_api_client().write_dynamic_memory(
-        user_id=user_id,
-        app_name=settings.app_name,
-        consumer_domain=settings.consumer_domain,
-        agent_id=settings.agent_id,
-        topic=topic,
+    detail = _snapshot_entry(tool_context, "approvedTopicDetails", "topic", topic)
+    sensitive = detail.get("sensitivity", "normal") != "normal"
+    fields = {
+        "tool": "remember_dynamic_preference",
+        "correlation_id": str(uuid4()),
+        "preference_type": "dynamic",
+        "key": f"topic:{topic}",
+        "sensitivity": detail.get("sensitivity"),
+    }
+    try:
+        mutation = await build_control_plane_api_client().write_dynamic_memory(
+            user_id=user_id,
+            app_name=settings.app_name,
+            consumer_domain=settings.consumer_domain,
+            agent_id=settings.agent_id,
+            topic=topic,
+            value=value,
+            correlation_id=fields["correlation_id"],
+        )
+    except ControlPlaneApiError as error:
+        _log_decision(
+            tool_context,
+            decision="rejected",
+            value=value,
+            masked=True,
+            reason=str(error),
+            http_status=error.status_code,
+            **fields,
+        )
+        raise
+    _log_decision(
+        tool_context,
+        decision=mutation.status,
         value=value,
+        masked=sensitive,
+        reference=mutation.reference,
+        value_version=mutation.profile_version,
+        **fields,
     )
     return await _result(tool_context, mutation)
+
+
+async def record_memory_decision(
+    statement: str,
+    reason: str,
+    tool_context: ToolContext,
+    sensitive: bool = False,
+) -> dict[str, Any]:
+    """Record that you decided NOT to save something the customer said. Nothing is stored.
+
+    Call this when the customer states a preference or a fact about themselves or their household,
+    or asks you to remember something, and you won't save it — because no writablePreferences
+    attribute or approved topic fits, it isn't a lasting preference, or they said no to a
+    confirmationPrompt. Don't call it for ordinary shopping requests.
+    statement: a short paraphrase of what was not saved. reason: why.
+    sensitive: true for health, religion, ethnicity, sexual orientation, finances, or identifiers.
+    """
+    _log_decision(
+        tool_context,
+        decision="declined",
+        value=statement,
+        masked=sensitive,
+        tool="record_memory_decision",
+        preference_type="none",
+        reason=reason,
+        sensitive=sensitive,
+    )
+    return {"recorded": True, "saved": False}
 
 
 root_agent = Agent(
@@ -359,6 +511,7 @@ root_agent = Agent(
         get_preferences,
         save_preference,
         remember_dynamic_preference,
+        record_memory_decision,
         forget_preference,
         add_household_member,
         update_household_member,

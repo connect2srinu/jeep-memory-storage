@@ -235,11 +235,13 @@ class SqlAlchemyRuntimeControlPlaneRepository:
             field_to_attribute = {item.profile_field: item.attribute_id for item in mappings}
             attribute_sensitivity: dict[str, str] = {}
             attribute_descriptions: dict[str, str] = {}
+            attribute_data_types: dict[str, str] = {}
             health_attributes: set[str] = set()
             for attribute_id in set(field_to_attribute.values()):
                 definition = await self.session.get(PreferenceDefinitionRecord, attribute_id)
                 if definition is not None:
                     attribute_sensitivity[attribute_id] = definition.sensitivity_classification
+                    attribute_data_types[attribute_id] = definition.data_type
                     if definition.description:
                         attribute_descriptions[attribute_id] = definition.description
                     if (definition.validation_rules or {}).get("health"):
@@ -256,6 +258,7 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     attribute_sensitivity=attribute_sensitivity,
                     attribute_descriptions=attribute_descriptions,
                     health_attributes=frozenset(health_attributes),
+                    attribute_data_types=attribute_data_types,
                     allowed_purposes=tuple(version.allowed_purposes or ("personalization",)),
                 )
             )

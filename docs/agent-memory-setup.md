@@ -86,6 +86,11 @@ The Control Plane API:
    confirmation turn that records consent;
 6. writes through `MemoryStore` and emits a `memory_write` audit event.
 
+Every attempt, whatever the outcome, also emits a `memory_decision` log event with the key, schema
+version, level, data type, sensitivity, reason, and the value masked for sensitive, restricted, and
+health data. On the agent side, the memory agent logs `agent_memory_decision` events for its writes and
+for statements its model decided not to save (the `record_memory_decision` tool).
+
 A write that needs the customer's answer writes nothing and returns `200` with
 `status: needs_confirmation` (and a platform-worded `confirmationPrompt`), `ambiguous` (with
 `candidates`), or `not_allowed` (with `message`). The agent asks the question and repeats the call with

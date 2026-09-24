@@ -3,6 +3,8 @@ resolve, propose, confirm and govern household members."""
 
 from __future__ import annotations
 
+import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -276,6 +278,52 @@ async def test_own_health_data_is_confirmed_for_you(client) -> None:
     assert asked["confirmationPrompt"] == 'Please confirm: save allergies as "latex" for you?'
     assert (await save(client, "allergies", "latex", confirmed=True))["status"] == "updated"
     assert (await resolve(client))["preferences"]["allergies"]["value"] == "latex"
+
+
+@pytest.mark.asyncio
+async def test_every_write_decision_is_logged_with_masked_values(client, caplog) -> None:
+    caplog.set_level(logging.INFO)
+    await save(client, "preferred_store", "Kroger")
+    await save(client, "allergies", "peanuts", memberName="Ryan", relationship="son")
+    blocked = await client.put(
+        f"/api/v1/runtime/preferences/{DOMAIN}.dislikes",
+        headers=AGENT,
+        json={"scope": scope(), "value": "my SSN is 123-45-6789"},
+    )
+    assert blocked.status_code == 400
+
+    events = {}
+    for record in caplog.records:
+        message = record.getMessage()
+        if message.startswith("{") and '"memory_decision"' in message:
+            event = json.loads(message)
+            events[event["decision"]] = event
+    saved = events["updated"]
+    assert (saved["key"], saved["value"], saved["preference_type"]) == (
+        f"{DOMAIN}.preferred_store",
+        "Kroger",
+        "canonical",
+    )
+    assert (saved["schema_version"], saved["level"], saved["data_type"]) == (
+        "1",
+        "household",
+        "string",
+    )
+    assert saved["value_version"] == 1
+    pending = events["needs_confirmation"]
+    assert (pending["value"], pending["health"], pending["level"]) == (
+        "***",
+        True,
+        "household_member",
+    )
+    rejected = events["rejected"]
+    assert (rejected["value"], rejected["category"], rejected["sensitivity"]) == (
+        "my SSN is ***",
+        "pii_ssn",
+        "restricted",
+    )
+    assert "restricted content" in rejected["reason"]
+    assert "123-45-6789" not in caplog.text and "peanuts" not in caplog.text
 
 
 @pytest.mark.asyncio

@@ -46,6 +46,16 @@ persists non-canonical facts that fall inside the domain's **approved topics**.
   `add_household_member`, `update_household_member`, `merge_household_members`, `move_preference`.
   Design: [`docs/dynamic-household-members-design.md`](../../docs/dynamic-household-members-design.md).
 
+- **Decision logging:** each `save_preference` / `remember_dynamic_preference` call logs an
+  `agent_memory_decision` event (logger `memory_agent.memory_decision`) with the outcome, key,
+  preference type, level, value version, and the value — masked as `***` for health data, sensitive
+  topics, and anything the platform rejected. When the model decides *not* to save something the
+  customer said, it calls `record_memory_decision`, which stores nothing and logs a `declined` event.
+  `python -m memory_agent.serve` prints these at `LOG_LEVEL` (default `INFO`). The control plane logs
+  its own `memory_decision` event for every write attempt. Each save sends a fresh
+  `X-Correlation-ID`, and both events carry it as `correlation_id`, so one grep finds both sides.
+  `record_memory_decision` makes no platform call, so it has no correlation ID; use `session_id`.
+
 ## Configuration
 
 | Env var | Purpose | Default |

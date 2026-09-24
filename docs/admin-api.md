@@ -150,7 +150,8 @@ The Admin Console's **Govern & manage → Households** screen uses these endpoin
 
 `GET /audit` returns append-only admin audit events (actor, action, target, correlation ID, before and
 after state). Runtime memory writes and deletions are logged as structured `memory_write` /
-`memory_deletion` events in the API logs, not in this table.
+`memory_deletion` events in the API logs, not in this table; every write attempt is also logged as a
+`memory_decision` event with its outcome and a masked value.
 
 ## Local example
 
