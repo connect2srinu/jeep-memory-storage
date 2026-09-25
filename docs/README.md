@@ -39,6 +39,8 @@ The Control Plane API serves interactive OpenAPI docs at `/docs` (Swagger UI) an
 - [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phase status
 - [Console UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and the three console
   redesigns (now shipped)
+- [Next Sprint — Governed Memory Stories](next-sprint-memory-stories.md) — privacy, attributes,
+  extraction cost, edge cases, evals, confidence, and load-test stories, each marked verify / gap / design
 - [ADR-0001: Managed Memory Bank vs Custom Unified Memory Layer](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md)
   and its evidence:
   [architecture validation](current-memory-bank-architecture-validation.md),
