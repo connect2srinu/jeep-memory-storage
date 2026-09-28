@@ -1,0 +1,23 @@
+<section id="approvals" data-transition="fade" style="background:#EEF1F6; color:#14213D; font-family:'IBM Plex Sans', Arial, sans-serif; padding:128px; display:flex; flex-direction:column; gap:44px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-family:'Rubik', Arial, sans-serif; font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F6FDE">Access requests</p>
+<h2 style="font-family:'Rubik', Arial, sans-serif; font-size:64px; font-weight:600; line-height:1.1">Ask for specific preferences. The owner approves each one.</h2>
+</div>
+<div style="display:flex; gap:48px">
+<div style="flex:1; display:flex; flex-direction:column; gap:24px">
+<div style="display:flex; gap:20px; align-items:center"><p style="font-family:'Rubik', Arial, sans-serif; font-size:30px; font-weight:600; background:#2F6FDE; color:#F7F6F2; padding:6px 20px; border-radius:30px">1</p><p style="font-size:30px"><b>Request</b> — pick preferences, and <b>Read</b> or <b>Read + write</b></p></div>
+<div style="display:flex; gap:20px; align-items:center"><p style="font-family:'Rubik', Arial, sans-serif; font-size:30px; font-weight:600; background:#2F6FDE; color:#F7F6F2; padding:6px 20px; border-radius:30px">2</p><p style="font-size:30px"><b>Review</b> — the owner unticks anything to deny</p></div>
+<div style="display:flex; gap:20px; align-items:center"><p style="font-family:'Rubik', Arial, sans-serif; font-size:30px; font-weight:600; background:#2F6FDE; color:#F7F6F2; padding:6px 20px; border-radius:30px">3</p><p style="font-size:30px"><b>Grant</b> — only the approved preferences</p></div>
+<div style="display:flex; gap:20px; align-items:center"><p style="font-family:'Rubik', Arial, sans-serif; font-size:30px; font-weight:600; background:#2F6FDE; color:#F7F6F2; padding:6px 20px; border-radius:30px">4</p><p style="font-size:30px"><b>Revoke</b> — any time; access stops at once</p></div>
+</div>
+<div style="width:720px; display:flex; flex-direction:column; gap:18px; background:#FFFFFF; border:1px solid #C9D3E6; border-radius:20px; padding:40px; box-shadow:0 12px 32px rgba(20,33,61,0.12)">
+<p style="font-size:26px; color:#5B6475">Approvals · pending</p>
+<p style="font-size:28px"><b>cooklist → ksa-preferences</b> · READ_WRITE</p>
+<div style="display:flex; gap:16px; align-items:center"><x-icon name="Check" style="color:#2F6FDE; width:36px; height:36px"></x-icon><p style="font-size:26px">organic_brand</p></div>
+<div style="display:flex; gap:16px; align-items:center"><x-icon name="Check" style="color:#2F6FDE; width:36px; height:36px"></x-icon><p style="font-size:26px">dietary_restriction</p></div>
+<div style="display:flex; gap:16px; align-items:center"><p style="font-size:26px; color:#5B6475; width:36px">—</p><p style="font-size:26px; color:#5B6475">preferred_milk (unticked = denied)</p></div>
+<div style="display:flex; gap:16px"><p style="font-size:26px; font-weight:600; background:#2F6FDE; color:#F7F6F2; padding:10px 24px; border-radius:10px">Approve 2 of 3</p><p style="font-size:26px; color:#B4432F; border:2px solid #B4432F; padding:8px 24px; border-radius:10px">Reject</p></div>
+</div>
+</div>
+<aside>This is the governance moment. A request names individual preferences and says whether the agent wants to read them or also write them. The owner sees one tickbox per preference and can approve some and deny others. The agent only ever sees what was approved, and revoking takes effect on the next read.</aside>
+</section>

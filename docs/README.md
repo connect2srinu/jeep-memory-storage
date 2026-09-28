@@ -60,6 +60,8 @@ The Control Plane API serves interactive OpenAPI docs at `/docs` (Swagger UI) an
 - [Governed Memory — Privacy & Legal Review](presentations/privacy-legal-review/privacy-controls-briefing.md)
   — top privacy risks, the controls in code, and a live demo run sheet
   (`scripts/privacy_controls_demo.py`)
+- [Governed Memory: Three Agent Models](presentations/three-agent-models/README.md) — private,
+  hybrid and consumer-only agents, sensitivity, per-preference approvals and cross-agent writes
 - [Memory Bank: build vs buy vs hybrid](presentations/memory-build-vs-buy/memory-build-vs-buy-three-way.md)
 - [Control Plane platform value](presentations/control-plane-platform-value/control-plane-platform-value-deck.md)
 

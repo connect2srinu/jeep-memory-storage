@@ -1,0 +1,29 @@
+<section id="crosswrite" data-transition="fade" style="background:#F7F6F2; color:#14213D; font-family:'IBM Plex Sans', Arial, sans-serif; padding:128px; display:flex; flex-direction:column; gap:44px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-family:'Rubik', Arial, sans-serif; font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F6FDE">Cross-agent write</p>
+<h2 style="font-family:'Rubik', Arial, sans-serif; font-size:64px; font-weight:600; line-height:1.1">Tell one agent, and every approved agent knows</h2>
+</div>
+<div style="display:flex; gap:24px; align-items:center">
+<div style="flex:1; display:flex; flex-direction:column; gap:12px; background:#FFFFFF; border-top:10px solid #E8913A; border-radius:16px; padding:32px">
+<p style="font-size:24px; color:#5B6475">Customer to Cooklist</p>
+<p style="font-size:30px; line-height:1.35">"Switch my organic brand to Private Selection."</p>
+</div>
+<x-connector head="end" style="width:90px; color:#14213D; border-width:5px"></x-connector>
+<div style="flex:1; display:flex; flex-direction:column; gap:12px; background:#FFFFFF; border-top:10px solid #2F6FDE; border-radius:16px; padding:32px">
+<p style="font-size:24px; color:#5B6475">Saved in KSA's preferences</p>
+<p style="font-size:30px; line-height:1.35">organic_brand = Private Selection</p>
+</div>
+<x-connector head="end" style="width:90px; color:#14213D; border-width:5px"></x-connector>
+<div style="flex:1; display:flex; flex-direction:column; gap:12px; background:#FFFFFF; border-top:10px solid #2F6FDE; border-radius:16px; padding:32px">
+<p style="font-size:24px; color:#5B6475">Customer to KSA, next session</p>
+<p style="font-size:30px; line-height:1.35">Shops with Private Selection. One value, no copy.</p>
+</div>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px 48px">
+<p style="font-size:28px"><b>Only approved preferences</b> — whole-schema writes are refused</p>
+<p style="font-size:28px"><b>Only what the customer said</b> — inferred values are refused</p>
+<p style="font-size:28px"><b>Never health data</b> — refused at request and at save</p>
+<p style="font-size:28px"><b>Traceable</b> — logged as delegated, with the writing agent</p>
+</div>
+<aside>This answers the brand question from the business. The customer tells Cooklist; the value is written into KSA's own schema, checked against KSA's rules, and KSA reads it back next time. There is never a second copy to fall out of sync. The guardrails keep it narrow: specific approved preferences, customer-stated values only, no health data, and every such write is marked in the logs.</aside>
+</section>

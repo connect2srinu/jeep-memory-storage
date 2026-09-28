@@ -1,0 +1,18 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-09-28T23:30:00Z"},
+  "title": "Governed Memory: Three Agent Models",
+  "order": ["cover", "idea", "models", "map", "declare", "sensitivity", "approvals", "crosswrite", "runtime", "versions", "setup", "limits"],
+  "sections": {
+    "s1": {"description": "The idea: agents own their memory and share it only by approval", "start": "cover"},
+    "s2": {"description": "The three agent models and how preferences flow between them", "start": "models"},
+    "s3": {"description": "What an agent declares: canonical and dynamic preferences, and their sensitivity", "start": "declare"},
+    "s4": {"description": "How access is requested, approved per preference, and enforced", "start": "approvals"},
+    "s5": {"description": "Setting it up, and what is still open", "start": "setup"}
+  },
+  "faces": {
+    "rubik": {"family": "Rubik", "href": "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"},
+    "ibm-plex-sans": {"family": "IBM Plex Sans", "href": "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"}
+  },
+  "designSystems": []
+}

@@ -1,0 +1,23 @@
+<section id="versions" data-transition="fade" style="background:#F7F6F2; color:#14213D; font-family:'IBM Plex Sans', Arial, sans-serif; padding:128px; display:flex; flex-direction:column; gap:52px">
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-family:'Rubik', Arial, sans-serif; font-size:24px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#2F6FDE">When a schema changes</p>
+<h2 style="font-family:'Rubik', Arial, sans-serif; font-size:64px; font-weight:600; line-height:1.1">New versions only add. Approvals keep working.</h2>
+</div>
+<div style="display:flex; gap:32px; align-items:center">
+<div style="width:520px; display:flex; flex-direction:column; gap:12px; background:#FFFFFF; border:1px solid #DDE2EA; border-radius:16px; padding:36px">
+<h3 style="font-family:'Rubik', Arial, sans-serif; font-size:36px; font-weight:600">KSA · version 1</h3>
+<p style="font-size:26px">organic_brand · dietary_restriction · …</p>
+</div>
+<x-connector head="end" style="width:120px; color:#14213D; border-width:5px"></x-connector>
+<div style="flex:1; display:flex; flex-direction:column; gap:12px; background:#FFFFFF; border:3px solid #2F6FDE; border-radius:16px; padding:36px">
+<h3 style="font-family:'Rubik', Arial, sans-serif; font-size:36px; font-weight:600">KSA · version 2</h3>
+<p style="font-size:26px">everything in v1 + <b>preferred_size</b> (new)</p>
+</div>
+</div>
+<div style="display:flex; flex-direction:column; gap:22px">
+<p style="font-size:30px"><b>Nothing is removed or renamed</b> — existing preferences and values carry over.</p>
+<p style="font-size:30px"><b>Approved access carries over</b> — Cooklist's grant on organic_brand still works on v2.</p>
+<p style="font-size:30px"><b>New preferences are not shared automatically</b> — preferred_size needs a new approval.</p>
+</div>
+<aside>A new schema version can only add preferences, so nothing that other agents depend on disappears under them. Because approvals list individual preferences, a new field is never quietly handed to other agents; they have to ask. That's also why a breaking change, like removing a field, isn't possible in this flow today.</aside>
+</section>
