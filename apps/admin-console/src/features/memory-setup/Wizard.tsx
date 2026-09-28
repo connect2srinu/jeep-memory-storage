@@ -59,6 +59,8 @@ function move<T>(items: T[], index: number, direction: -1 | 1): T[] {
   return next;
 }
 
+const NEW_DOMAIN = "__new_domain__";
+
 export function projectDomainOptions(
   domains: AdminRecord[],
   organizationId: string,
@@ -71,8 +73,11 @@ export function projectDomainOptions(
   );
 }
 
-export function wizardSteps(sharingEnabled: boolean, schemaCount: number): WizardStep[] {
-  const items: WizardStep[] = ["Use Case", "Preferences", "Scope", "Memory", "Agents"];
+export function wizardSteps(sharingEnabled: boolean, schemaCount: number, consumerOnly = false): WizardStep[] {
+  // A consumer-only agent keeps no memory of its own, so it has no scope or memory settings.
+  const items: WizardStep[] = consumerOnly
+    ? ["Use Case", "Preferences", "Agents"]
+    : ["Use Case", "Preferences", "Scope", "Memory", "Agents"];
   if (sharingEnabled) items.push("Sharing");
   if (schemaCount > 1) items.push("Resolution");
   items.push("Review", "Activate");
@@ -142,6 +147,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [organizationId, setOrganizationId] = useState("retail");
   const [projectId, setProjectId] = useState("shopping");
   const [domain, setDomain] = useState("grocery");
+  // True while the user is typing a new domain instead of picking an existing one.
+  const [newDomain, setNewDomain] = useState(false);
   const [environment, setEnvironment] = useState("development");
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
   const [customPreferences, setCustomPreferences] = useState<CustomPreference[]>([]);
@@ -178,6 +185,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const [permission, setPermission] = useState("READ_WRITE");
   const [sharingEnabled, setSharingEnabled] = useState(false);
   const [sharedSchemaIds, setSharedSchemaIds] = useState<string[]>([]);
+  // Shared schemas where the agent also asks to write the ticked preferences (delegated write).
+  const [writeSchemaIds, setWriteSchemaIds] = useState<string[]>([]);
   const [precedence, setPrecedence] = useState<string[]>([]);
   const [started, setStarted] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
@@ -234,13 +243,13 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   );
 
   useEffect(() => {
-    if (!projectDomains.length) return;
+    if (!projectDomains.length || newDomain) return;
     setDomain((current) =>
       projectDomains.some((item) => text(item, "id") === current)
         ? current
         : text(projectDomains[0], "id"),
     );
-  }, [projectDomains]);
+  }, [newDomain, projectDomains]);
 
   const externalOwners = useMemo(() => {
     const selected = new Set(selectedPreferences);
@@ -251,6 +260,18 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         .filter((owner) => owner && owner !== domain),
     );
   }, [catalog, domain, selectedPreferences]);
+
+  // Consumer only: every ticked preference is owned by another domain (custom ones are always owned).
+  const consumerOnly = useMemo(
+    () =>
+      selectedPreferences.length > 0 &&
+      selectedPreferences.every((attribute) => {
+        const item = catalog.find((record) => text(record, "attribute_id") === attribute);
+        const owner = item ? preferenceOwner(item) : "";
+        return Boolean(owner) && owner !== domain;
+      }),
+    [catalog, domain, selectedPreferences],
+  );
 
   const discoverableSchemas = useMemo(
     () => schemas.filter((item) => text(item, "domain_id") !== domain && text(item, "status") === "ACTIVE"),
@@ -268,6 +289,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   const preferenceLevelFor = (attribute: string): "household" | "member" =>
     preferenceLevels[attribute] ?? "household";
   const ownedSchemaIds = useMemo(() => {
+    if (consumerOnly) return [];
     if (scopeType !== "HOUSEHOLD_MEMBERS") return [`${domain}-preferences-v1`];
     const ids: string[] = [];
     if (selectedPreferences.some((attr) => preferenceLevelFor(attr) === "household")) {
@@ -277,7 +299,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       ids.push(`${domain}-member-preferences-v1`);
     }
     return ids.length ? ids : [`${domain}-household-preferences-v1`];
-  }, [scopeType, domain, selectedPreferences, preferenceLevels]);
+  }, [consumerOnly, scopeType, domain, selectedPreferences, preferenceLevels]);
   const availableSchemas = useMemo(
     () => [...ownedSchemaIds, ...sharedSchemaIds],
     [ownedSchemaIds, sharedSchemaIds],
@@ -286,8 +308,8 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
   useEffect(() => setPrecedence(availableSchemas), [availableSchemas]);
 
   const steps = useMemo<WizardStep[]>(() => {
-    return wizardSteps(sharingEnabled, availableSchemas.length);
-  }, [availableSchemas.length, sharingEnabled]);
+    return wizardSteps(sharingEnabled, availableSchemas.length, consumerOnly);
+  }, [availableSchemas.length, consumerOnly, sharingEnabled]);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
 
   function togglePreference(attribute: string) {
@@ -310,6 +332,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     setError("");
   }
 
+  const dynamicOn = dynamicEnabled && !consumerOnly;
   const payload = useMemo<AdminRecord>(() => ({
     useCase: {
       name,
@@ -330,18 +353,18 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
     },
     memory: {
       canonical,
-      dynamicEnabled,
+      dynamicEnabled: dynamicOn,
       confidenceThreshold: confidence,
       confirmationRequired: confirmation,
       retentionDays: retention,
       profileRetentionDays: profileRetention.trim() ? Number(profileRetention) : null,
-      memoryTopics: dynamicEnabled
+      memoryTopics: dynamicOn
         ? topicRows
             .map((row) => ({ name: row.name.trim(), tier: row.tier }))
             .filter((row) => row.name)
             .map((row) => (row.tier === "normal" ? row.name : `${row.name}:${row.tier}`))
         : [],
-      topicDefinitions: dynamicEnabled
+      topicDefinitions: dynamicOn
         ? Object.fromEntries(
             topicRows
               .filter((row) => row.name.trim() && row.description.trim())
@@ -358,16 +381,19 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       principal: null,
       ownedSchemaPermission: permission,
     },
-    sharedSchemas: sharedSchemaIds.map((schemaId) => ({ schemaId, permission: "READ" })),
+    sharedSchemas: sharedSchemaIds.map((schemaId) => ({
+      schemaId,
+      permission: writeSchemaIds.includes(schemaId) ? "READ_WRITE" : "READ",
+    })),
     resolution: availableSchemas.length > 1
       ? { schemaPrecedence: precedence, attributeOverrides: [] }
       : null,
     preferenceLevels: scopeType === "HOUSEHOLD_MEMBERS" ? preferenceLevels : {},
   }), [
     agentId, agentMode, agentName, availableSchemas.length, canonical, confidence,
-    confirmation, customPreferences, customScopeKeys, description, domain, dynamicEnabled,
+    confirmation, customPreferences, customScopeKeys, description, domain, dynamicOn,
     environment, name, organizationId, permission, precedence, preferenceLevels, profileRetention, projectId, retention, scopeType, selectedPreferences,
-    sharedSchemaIds, team, topicRows,
+    sharedSchemaIds, team, topicRows, writeSchemaIds,
   ]);
 
   async function generatePreview() {
@@ -431,7 +457,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
           <label>Use case name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>Organization<select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setProjectId(""); }}><option value="">Select organization</option>{organizations.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Line-of-business and tenant boundary</small></label>
           <label>Project<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Select project</option>{projects.filter((item) => text(item, "organization_id") === organizationId).map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</select><small>Agents share project-owned domains</small></label>
-          <label>Domain<input list="domain-options" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><datalist id="domain-options">{projectDomains.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name")}</option>)}</datalist><small>{projectDomains.length ? "Choose an existing domain in this project, or type a new one to create it." : "No domains in this project yet — type a name to create the first."}</small></label>
+          <label>Domain{projectDomains.length > 0 && <select value={newDomain ? NEW_DOMAIN : domain} onChange={(event) => { const picked = event.target.value; setNewDomain(picked === NEW_DOMAIN); setDomain(picked === NEW_DOMAIN ? "" : picked); }}>{projectDomains.map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "name") ? `${text(item, "name")} (${text(item, "id")})` : text(item, "id")}</option>)}<option value={NEW_DOMAIN}>+ New domain…</option></select>}{(newDomain || !projectDomains.length) && <input placeholder="new-domain-id, e.g. travel" value={domain} onChange={(event) => setDomain(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />}<small>{projectDomains.length ? "Pick an existing domain in this project, or + New domain… to create one." : "No domains in this project yet — type a name to create the first."}</small></label>
           <label className="wide">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <label>Owning team<input value={team} onChange={(event) => setTeam(event.target.value)} /></label>
           <label>Environment<select value={environment} onChange={(event) => setEnvironment(event.target.value)}><option value="development">Development</option><option value="test">Test</option><option value="production">Production</option></select></label>
@@ -439,6 +465,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       </>}
       {step === "Preferences" && <>
         <h3>Select reusable preferences</h3><p>Recommended attributes are preselected. Attributes owned elsewhere are handled through shared access.</p>
+        {consumerOnly && <div className="scope-callout"><strong>Consumer only</strong><span>Every selected preference is owned by another team. This agent keeps no preferences of its own and reads only what those owners approve.</span></div>}
         <div className="catalog-grid">{catalog.map((item) => {
           const attribute = text(item, "attribute_id");
           const recommended = isRecommended(item, domain);
@@ -471,12 +498,12 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
         <h3>Register or select an agent</h3>
         <div className="segmented"><button className={agentMode === "new" ? "active" : ""} onClick={() => setAgentMode("new")}>Register new</button><button className={agentMode === "existing" ? "active" : ""} onClick={() => setAgentMode("existing")}>Select existing</button></div>
         {agentMode === "existing" ? <label>Agent<select value={agentId} onChange={(event) => { setAgentId(event.target.value); setAgentName(text(agents.find((item) => text(item, "id") === event.target.value) ?? {}, "display_name")); }}><option value="">Choose an agent</option>{agents.filter((item) => text(item, "domain_id") === domain && text(item, "status") === "ACTIVE").map((item) => <option key={text(item, "id")} value={text(item, "id")}>{text(item, "display_name")}</option>)}</select></label> : <div className="form-grid"><label>Agent ID<input value={agentId} onChange={(event) => setAgentId(event.target.value)} /></label><label>Display name<input value={agentName} onChange={(event) => setAgentName(event.target.value)} /></label></div>}
-        <label>Owned schema access<select value={permission} onChange={(event) => setPermission(event.target.value)}><option>READ</option><option>WRITE</option><option>READ_WRITE</option></select></label>
+        {!consumerOnly && <label>Owned schema access<select value={permission} onChange={(event) => setPermission(event.target.value)}><option>READ</option><option>WRITE</option><option>READ_WRITE</option></select></label>}
         <label className="switch-row"><span><strong>Discover shared schemas</strong><small>Request read access to profiles owned by other teams</small></span><input type="checkbox" checked={sharingEnabled} onChange={(event) => { setSharingEnabled(event.target.checked); if (!event.target.checked) setSharedSchemaIds([]); }} /></label>
       </>}
       {step === "Sharing" && <>
         <h3>Request shared schema access</h3><p>Requests remain pending until each target schema owner approves them.</p>
-        <div className="catalog-grid">{discoverableSchemas.map((item) => { const id = text(item, "id"); const visibility = text(item, "visibility"); const access = text(item, "access_status"); return <label className={`catalog-card ${sharedSchemaIds.includes(id) ? "selected" : ""}`} key={id}><input type="checkbox" checked={sharedSchemaIds.includes(id)} onChange={() => setSharedSchemaIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])} /><span><strong>{text(item, "display_name")}</strong><small>{id} · owner {text(item, "domain_id")} · {visibility.toLowerCase()}</small><p>{access === "APPROVED" ? "Approved READ access" : access === "PENDING" ? "Access request pending" : "Selecting submits a READ request"}</p></span></label>; })}</div>
+        <div className="catalog-grid">{discoverableSchemas.map((item) => { const id = text(item, "id"); const visibility = text(item, "visibility"); const access = text(item, "access_status"); return <div key={id}><label className={`catalog-card ${sharedSchemaIds.includes(id) ? "selected" : ""}`}><input type="checkbox" checked={sharedSchemaIds.includes(id)} onChange={() => setSharedSchemaIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])} /><span><strong>{text(item, "display_name")}</strong><small>{id} · owner {text(item, "domain_id")} · {visibility.toLowerCase()}</small><p>{access === "APPROVED" ? "Approved READ access" : access === "PENDING" ? "Access request pending" : "Selecting submits a READ request"}</p></span></label>{sharedSchemaIds.includes(id) && <label className="switch-row"><span><strong>Also write the ticked preferences</strong><small>Customer-stated values are saved to the owner's schema, so both agents see one value. Health data is never writable.</small></span><input type="checkbox" checked={writeSchemaIds.includes(id)} onChange={() => setWriteSchemaIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])} /></label>}</div>; })}</div>
       </>}
       {step === "Resolution" && <>
         <h3>Set schema precedence</h3><p>The first schema wins when higher-priority resolution strategies tie.</p>
@@ -485,7 +512,7 @@ export function MemorySetupWizard({ api }: { api: AdminApiClient }) {
       </>}
       {step === "Review" && <>
         <h3>Review generated configuration</h3>
-        <div className="summary-grid"><div><span>Use case</span><strong>{name}</strong></div><div><span>Domain</span><strong>{domain}</strong></div><div><span>Preferences</span><strong>{selectedPreferences.length}</strong></div><div><span>Scope</span><strong>{scopeType}</strong></div><div><span>Agent</span><strong>{agentId}</strong></div><div><span>Approvals</span><strong>{sharedSchemaIds.length}</strong></div></div>
+        <div className="summary-grid"><div><span>Use case</span><strong>{name}</strong></div><div><span>Domain</span><strong>{domain}</strong></div><div><span>Preferences</span><strong>{selectedPreferences.length}{consumerOnly ? " (consumer only)" : ""}</strong></div><div><span>Scope</span><strong>{scopeType}</strong></div><div><span>Agent</span><strong>{agentId}</strong></div><div><span>Approvals</span><strong>{sharedSchemaIds.length}</strong></div></div>
         <button className="primary" type="button" disabled={submitting} onClick={generatePreview}>{submitting ? "Validating…" : "Validate and generate preview"}</button>
         {preview && <><div className="alert success">Configuration is valid. No user profile instances will be created.</div>{Array.isArray(preview.warnings) && preview.warnings.map((warning) => <div className="alert warning" key={String(warning)}>{String(warning)}</div>)}<details><summary>Advanced YAML preview / export</summary><pre className="yaml-preview">{String(preview.generatedYaml)}</pre><button className="secondary" onClick={() => navigator.clipboard.writeText(String(preview.generatedYaml))}>Copy YAML</button></details></>}
       </>}

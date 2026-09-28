@@ -232,7 +232,11 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     .order_by(SchemaPreferenceMappingRecord.profile_field)
                 )
             ).all()
-            field_to_attribute = {item.profile_field: item.attribute_id for item in mappings}
+            field_to_attribute = {
+                item.profile_field: item.attribute_id
+                for item in mappings
+                if grant.attributes is None or item.attribute_id in grant.attributes
+            }
             attribute_sensitivity: dict[str, str] = {}
             attribute_descriptions: dict[str, str] = {}
             attribute_data_types: dict[str, str] = {}
@@ -260,6 +264,8 @@ class SqlAlchemyRuntimeControlPlaneRepository:
                     health_attributes=frozenset(health_attributes),
                     attribute_data_types=attribute_data_types,
                     allowed_purposes=tuple(version.allowed_purposes or ("personalization",)),
+                    schema_fields=frozenset(item.profile_field for item in mappings),
+                    attribute_scoped=grant.attributes is not None,
                 )
             )
         return tuple(result)

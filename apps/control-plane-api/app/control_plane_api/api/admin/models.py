@@ -213,6 +213,8 @@ class AccessRequestCreate(AdminModel):
     requesting_team: str = Field(alias="requestingTeam", min_length=1)
     target_schema_id: str = Field(alias="targetSchemaId", min_length=1)
     requested_permission: str = Field(alias="requestedPermission", min_length=1)
+    # Attributes of the target schema to share; omit to request the whole schema.
+    attributes: list[str] | None = Field(default=None, min_length=1)
     business_reason: str = Field(alias="businessReason", min_length=1)
     expiration: datetime | None = None
 
@@ -220,6 +222,8 @@ class AccessRequestCreate(AdminModel):
 class AccessDecision(AdminModel):
     expiration: datetime | None = None
     reason: str | None = None
+    # On approve: the attributes the owner grants, a subset of those requested. Omit to grant all.
+    attributes: list[str] | None = Field(default=None, min_length=1)
 
 
 class AdminRecord(AdminModel):

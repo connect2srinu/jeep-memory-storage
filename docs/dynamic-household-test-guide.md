@@ -107,7 +107,7 @@ Left panel → **Create Memory Setup** → **Start setup**. The steps are shown 
 | Use case name | `Family Grocery` |
 | Organization | `Retail` |
 | Project | `Shopping` |
-| Domain | `familygrocery` (type it; it's new) |
+| Domain | Pick **+ New domain…**, then type `familygrocery` (if the project has no domains yet, just type it) |
 | Description | `Household grocery preferences` |
 | Owning team | `grocery-platform` |
 | Environment | Development |

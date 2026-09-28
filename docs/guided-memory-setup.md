@@ -22,15 +22,20 @@ appears when the agent will read more than one schema.
 
 | Step | What you enter |
 |---|---|
-| **Use Case** | Name, description, owning team, organization, project, and domain. The Domain field lists existing domains in the selected project; type a new DNS-style name (e.g. `travel`) to create one. |
+| **Use Case** | Name, description, owning team, organization, project, and domain. The Domain dropdown lists the existing domains in the selected project; pick **+ New domain…** and type a DNS-style name (e.g. `travel`) to create one. With no domains in the project, only the text box is shown. |
 | **Preferences** | Reusable catalog preferences (recommended ones are preselected) and **+ Create custom preference**: attribute ID, display name, description, datatype, allowed values, sensitivity (non-sensitive / sensitive / restricted), and **Health data**. Health data is treated as at least sensitive. |
 | **Scope** | Who the memory belongs to (see below). For **Household + members**, assign each preference to the **Household (shared)** or **Member (per person)** tier. |
 | **Memory** | Canonical preferences on/off; **Preference retention (days)**; dynamic memory with confidence threshold, retention, approved topics (each with a sensitivity and a description), and *Require user confirmation*. |
 | **Agents** | Register a new agent (ID, display name) or select an existing one in the domain; owned schema access (`READ`, `WRITE`, `READ_WRITE`); optionally discover shared schemas. |
-| **Sharing** | Pick schemas owned by other teams; each selection submits a `READ` access request that stays pending until the owner approves it. |
+| **Sharing** | Pick schemas owned by other teams; each selection submits a `READ` access request that stays pending until the owner approves it. The request names the preferences you ticked from that schema, and the owner can approve all or only some of them. Turn on *Also write the ticked preferences* to request `READ_WRITE`: the agent can then save those preferences into the owner's schema (customer-stated values only, never health data). |
 | **Resolution** | Order the readable schemas. See the known limitation below. |
 | **Review** | The non-mutating preview: generated schemas, scopes, grants, policies, and warnings. |
 | **Activate** | Applies everything in one transaction. |
+
+**Consumer-only agents.** If every preference you tick is owned by another team, the setup is
+consumer-only: the wizard skips Scope and Memory, creates no schema, scope, or dynamic memory for the
+domain, and registers the agent read-only. The agent reads only the preferences those owners approve.
+Consumer-only needs at least one shared schema, and dynamic memory must be off.
 
 Custom preference IDs must use the domain prefix and a non-empty suffix, e.g.
 `travel.seat_preference`; `travel.` is rejected.

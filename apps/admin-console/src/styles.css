@@ -176,6 +176,9 @@ table { width: 100%; border-collapse: collapse; font-size: .84rem; }th { positio
 .filter-control { display: grid; gap: 6px; color: #52667b; font-size: .76rem; font-weight: 800; }
 .filter-control select { padding: 9px 12px; border: 1px solid #b9ccdc; border-radius: 8px; background: white; }
 .approvals-table td small { display: block; color: #7a8797; font-weight: 500; }
+.attribute-choices { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 12px; }
+.attribute-choices label { display: flex; gap: 6px; align-items: center; }
+.request-list article small { display: block; color: #7a8797; font-weight: 500; }
 .row-actions { white-space: nowrap; }
 .row-actions button { margin-right: 6px; padding: 6px 11px; border: 1px solid #bdcad8; border-radius: 7px; color: #234b6c; background: white; font-weight: 750; }
 .row-actions button.danger { border-color: #e3b6b6; color: #a82d2d; }

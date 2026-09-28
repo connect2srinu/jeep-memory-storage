@@ -326,11 +326,12 @@ export class AdminApiClient {
     requestId: string,
     action: "approve" | "reject" | "revoke" | "expire",
     reason: string,
+    attributes?: string[],
   ): Promise<AdminRecord> {
     return (
       await this.request<AdminRecordEnvelope>(`/access-requests/${requestId}/${action}`, {
         method: "POST",
-        body: JSON.stringify({ reason: reason || undefined }),
+        body: JSON.stringify({ reason: reason || undefined, attributes }),
       })
     ).data;
   }

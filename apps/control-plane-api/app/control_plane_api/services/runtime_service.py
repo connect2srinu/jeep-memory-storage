@@ -422,7 +422,8 @@ class RuntimeMemoryService:
             dict.fromkeys(
                 attribute
                 for grant in grants
-                if grant.domain_id == agent.domain_id and self._allows(grant.permission, write=True)
+                if (grant.domain_id == agent.domain_id or grant.attribute_scoped)
+                and self._allows(grant.permission, write=True)
                 for attribute in grant.field_to_attribute.values()
             )
         )
@@ -431,9 +432,9 @@ class RuntimeMemoryService:
         seen_writable: set[str] = set()
         writable_preference_details: list[WritablePreference] = []
         for grant in grants:
-            if grant.domain_id != agent.domain_id or not self._allows(
-                grant.permission, write=True
-            ):
+            if not (
+                grant.domain_id == agent.domain_id or grant.attribute_scoped
+            ) or not self._allows(grant.permission, write=True):
                 continue
             level = self._scope_level(grant)
             for attribute in grant.field_to_attribute.values():
@@ -521,7 +522,7 @@ class RuntimeMemoryService:
         self._require_capability(agent, AgentCapability.INSPECT_PROVENANCE)
         self._require_consumer_scope(agent, request.scope)
         grants = {item.schema_id: item for item in await self._grants(agent)}
-        profiles: list[tuple[MemoryProfile, str]] = []
+        profiles: list[tuple[MemoryProfile, RuntimeSchemaGrant]] = []
         for schema_id in request.schema_ids:
             grant = grants.get(schema_id)
             if grant is None or not self._allows(grant.permission, write=False):
@@ -531,7 +532,7 @@ class RuntimeMemoryService:
             await self._register_schema(grant)
             scope = self._owner_scope(request.scope, grant)
             profiles.extend(
-                (profile, grant.domain_id)
+                (profile, grant)
                 for profile in await self.store.get_profiles(scope, (schema_id,))
             )
         return {
@@ -539,13 +540,18 @@ class RuntimeMemoryService:
             "profiles": [
                 {
                     "schemaId": profile.schema_id,
-                    "domain": owner_domain,
+                    "domain": grant.domain_id,
                     "organizationId": profile.scope.organization_id,
-                    "values": profile.values,
+                    # Only the fields this grant shares.
+                    "values": {
+                        field: value
+                        for field, value in profile.values.items()
+                        if field in grant.field_to_attribute
+                    },
                     "version": profile.version,
                     "updatedAt": profile.updated_at.isoformat(),
                 }
-                for profile, owner_domain in profiles
+                for profile, grant in profiles
             ],
         }
 
@@ -582,7 +588,10 @@ class RuntimeMemoryService:
                     level=self._scope_level(grant),
                     data_type=grant.attribute_data_types.get(canonical),
                     declared=grant.attribute_sensitivity.get(canonical),
+                    owner_domain=grant.domain_id,
+                    delegated=grant.domain_id != agent.domain_id,
                 )
+                self._require_delegated_write_rules(agent, grant, canonical, request.source)
                 if self._entity_key(grant):
                     raise ValueError(
                         f"attribute {candidate.attribute!r} is sub-entity-scoped; write it via "
@@ -840,7 +849,10 @@ class RuntimeMemoryService:
             data_type=grant.attribute_data_types.get(canonical),
             declared=grant.attribute_sensitivity.get(canonical),
             health=health,
+            owner_domain=grant.domain_id,
+            delegated=grant.domain_id != agent.domain_id,
         )
+        self._require_delegated_write_rules(agent, grant, canonical, request.source)
         sensitivity = _screen_memory_write(
             request.value,
             declared=grant.attribute_sensitivity.get(canonical),
@@ -1289,8 +1301,10 @@ class RuntimeMemoryService:
         grant = grants.get(schema_id)
         if grant is None or not self._allows(grant.permission, write=True):
             raise PermissionError(f"agent {agent.id!r} lacks WRITE access to schema {schema_id!r}")
-        if grant.domain_id != scope_domain:
-            raise PermissionError("cross-domain profile writes are not allowed")
+        if grant.domain_id != scope_domain and not grant.attribute_scoped:
+            raise PermissionError(
+                "cross-domain profile writes need a write grant approved for specific attributes"
+            )
         if grant.owner_organization_id != agent.organization_id:
             raise PermissionError("cross-organization profile writes are not allowed")
         return grant
@@ -1303,7 +1317,8 @@ class RuntimeMemoryService:
         scope_domain: str,
         schema_id: str | None,
     ) -> RuntimeSchemaGrant:
-        """Resolve a schema only from active, same-domain writable grants."""
+        """Resolve a schema from active writable grants: same-domain, or another domain's schema
+        when the owner approved writing these specific attributes (a delegated write)."""
         if schema_id is not None:
             return self._require_write_grant(
                 agent,
@@ -1321,7 +1336,7 @@ class RuntimeMemoryService:
         writable = tuple(
             grant
             for grant in matching
-            if grant.domain_id == scope_domain
+            if (grant.domain_id == scope_domain or grant.attribute_scoped)
             and grant.owner_organization_id == agent.organization_id
             and self._allows(grant.permission, write=True)
         )
@@ -1343,6 +1358,25 @@ class RuntimeMemoryService:
         )
 
     @staticmethod
+    def _require_delegated_write_rules(
+        agent: RuntimeAgent, grant: RuntimeSchemaGrant, attribute: str, source: str
+    ) -> None:
+        """A write into another domain's schema carries only what the customer said, and never
+        health data (its confirmation and consent belong to the owning domain's experience)."""
+        if grant.domain_id == agent.domain_id:
+            return
+        if source == MemorySource.INFERENCE:
+            raise PermissionError(
+                f"attribute {attribute!r} is owned by {grant.domain_id!r}; only values the "
+                "customer stated can be saved to another domain's schema"
+            )
+        if attribute in grant.health_attributes:
+            raise PermissionError(
+                f"attribute {attribute!r} is health data owned by {grant.domain_id!r}; "
+                "it cannot be saved from another domain"
+            )
+
+    @staticmethod
     def _profile_field(grant: RuntimeSchemaGrant, attribute: str) -> str:
         if attribute in grant.field_to_attribute:
             return attribute
@@ -1357,7 +1391,7 @@ class RuntimeMemoryService:
                 id=grant.schema_id,
                 domain=grant.domain_id,
                 version=grant.schema_version,
-                fields=frozenset(grant.field_to_attribute),
+                fields=grant.schema_fields or frozenset(grant.field_to_attribute),
             )
         )
 

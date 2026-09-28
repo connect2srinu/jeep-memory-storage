@@ -102,9 +102,16 @@ def add_member(name: str, relationship: str) -> str:
     return body.get("memberId", "")
 
 
-def consents(household_id: str) -> list[dict]:
+def consents(household_id: str, until=lambda items: True) -> list[dict]:
+    """The consent ledger, re-read briefly until ``until`` holds: the API commits after it
+    responds, so the previous call's consent change may not be visible for a moment."""
     path = f"/api/v1/admin/organizations/{OPTS.org}/households/{household_id}/consents"
-    return call("GET", path, admin=True)[1].get("items", [])
+    for _ in range(10):
+        items = call("GET", path, admin=True)[1].get("items", [])
+        if until(items):
+            break
+        time.sleep(0.3)
+    return items
 
 
 def check(label: str, ok: bool, detail: object = "") -> None:
@@ -140,7 +147,11 @@ check("agent can't self-confirm a value the customer wasn't asked about",
       forged.get("status") == "needs_confirmation", forged)
 code, saved = save("allergies", "peanuts", ryan, confirmed=True)
 check("customer's yes saves the allergy", saved.get("status") == "updated", saved)
-granted = [c for c in consents(household) if c.get("status") == "GRANTED"]
+granted = [
+    c
+    for c in consents(household, lambda items: any(c.get("status") == "GRANTED" for c in items))
+    if c.get("status") == "GRANTED"
+]
 check("consent ledger records who, about whom, and the exact wording", len(granted) == 1, granted)
 if granted:
     show("consent", {k: granted[0].get(k) for k in ("category", "attribute_id", "prompt_text", "status")})
@@ -210,7 +221,10 @@ code, body = call(
 )
 check("forgetting the allergy deletes it", body.get("status") == "forgotten", body)
 show("platform message", body.get("message"))
-statuses = sorted(c.get("status") for c in consents(household))
+statuses = sorted(
+    c.get("status")
+    for c in consents(household, lambda items: any(c.get("status") == "WITHDRAWN" for c in items))
+)
 check("its consent is marked WITHDRAWN", "WITHDRAWN" in statuses, statuses)
 code, body = call("POST", "/api/v1/runtime/memory/forget", {"scope": scope(householdId=household)})
 check("forgetting the household cascades to every member", code == 200, body)

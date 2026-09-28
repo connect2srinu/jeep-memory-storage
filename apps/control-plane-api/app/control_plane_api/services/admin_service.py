@@ -1881,8 +1881,34 @@ class AdminControlPlaneService:
         self.authorizer.require_domain(
             principal, agent.domain_id, AdminRole.AGENT_OWNER, AdminRole.DOMAIN_ADMIN
         )
-        if await self.session.get(ProfileSchemaRecord, payload.target_schema_id) is None:
+        target_schema = await self.session.get(ProfileSchemaRecord, payload.target_schema_id)
+        if target_schema is None:
             raise ResourceNotFoundError(f"schema {payload.target_schema_id} was not found")
+        attributes = sorted(set(payload.attributes)) if payload.attributes else None
+        if permission != AccessPermission.READ and target_schema.domain_id != agent.domain_id:
+            # Delegated write: only named attributes of another domain's schema, never health data.
+            if not attributes:
+                raise ValueError(
+                    "write access to another domain's schema must name the attributes to write"
+                )
+            health = [
+                attribute
+                for attribute in attributes
+                if (definition := await self.session.get(PreferenceDefinitionRecord, attribute))
+                and (definition.validation_rules or {}).get("health")
+            ]
+            if health:
+                raise ValueError(
+                    f"health data cannot be written from another domain: {', '.join(health)}"
+                )
+        if attributes:
+            unknown = set(attributes) - await self.active_schema_attributes(
+                payload.target_schema_id
+            )
+            if unknown:
+                raise ValueError(
+                    f"schema {payload.target_schema_id} does not map: {', '.join(sorted(unknown))}"
+                )
         pending = await self.session.scalar(
             select(AccessRequestRecord).where(
                 AccessRequestRecord.requesting_agent_id == payload.requesting_agent_id,
@@ -1902,6 +1928,7 @@ class AdminControlPlaneService:
             requesting_team=payload.requesting_team,
             target_schema_id=payload.target_schema_id,
             requested_permission=permission.value,
+            attributes=attributes,
             business_reason=payload.business_reason,
             requested_by=principal.principal,
             requested_at=now,
@@ -1916,6 +1943,27 @@ class AdminControlPlaneService:
             principal, "access_request.created", "access_request", record.id, None, after
         )
         return after
+
+    async def active_schema_attributes(self, schema_id: str) -> set[str]:
+        """Attribute ids mapped by the schema's latest active version."""
+        version = await self.session.scalar(
+            select(ProfileSchemaVersionRecord)
+            .where(
+                ProfileSchemaVersionRecord.schema_id == schema_id,
+                ProfileSchemaVersionRecord.status == LifecycleStatus.ACTIVE.value,
+            )
+            .order_by(ProfileSchemaVersionRecord.version.desc())
+            .limit(1)
+        )
+        if version is None:
+            return set()
+        return set(
+            await self.session.scalars(
+                select(SchemaPreferenceMappingRecord.attribute_id).where(
+                    SchemaPreferenceMappingRecord.schema_version_id == version.id
+                )
+            )
+        )
 
     async def list_access_requests(self, principal: AdminPrincipal) -> list[dict[str, Any]]:
         self.authorizer.require_read(principal)
@@ -1987,6 +2035,7 @@ class AdminControlPlaneService:
         *,
         expiration: datetime | None = None,
         reason: str | None = None,
+        attributes: list[str] | None = None,
     ) -> dict[str, Any]:
         record = await self.session.get(AccessRequestRecord, request_id)
         if record is None:
@@ -2012,6 +2061,22 @@ class AdminControlPlaneService:
                 raise ResourceConflictError("only a pending access request can be decided")
             if expiration and _utc(expiration) <= now:
                 raise ValueError("expiration must be in the future")
+            if attributes is not None:
+                if decision != AccessRequestStatus.APPROVED:
+                    raise ValueError("attributes can only be chosen when approving")
+                # The owner may approve some of the requested attributes and deny the rest.
+                requested = set(record.attributes or []) or await self.active_schema_attributes(
+                    record.target_schema_id
+                )
+                extra = set(attributes) - requested
+                if extra:
+                    raise ValueError(
+                        f"cannot approve attributes that were not requested: "
+                        f"{', '.join(sorted(extra))}"
+                    )
+                record.approved_attributes = sorted(set(attributes))
+            elif decision == AccessRequestStatus.APPROVED:
+                record.approved_attributes = record.attributes
             record.status = decision.value
             record.approved_by = principal.principal
             record.approved_at = now
@@ -2083,6 +2148,9 @@ class AdminControlPlaneService:
         )
         health = False
         for mapping in mappings:
+            granted = request.approved_attributes
+            if granted and mapping.attribute_id not in granted:
+                continue
             preference = await self.session.get(PreferenceDefinitionRecord, mapping.attribute_id)
             health = health or bool(preference and (preference.validation_rules or {}).get("health"))
         if health or (scope is not None and "member_id" in scope.scope_keys):
@@ -2105,6 +2173,7 @@ class AdminControlPlaneService:
             )
             self.session.add(grant)
         grant.permission = request.requested_permission
+        grant.attributes = request.approved_attributes
         grant.status = LifecycleStatus.ACTIVE.value
         grant.approved_by = principal.principal
         grant.approved_at = now

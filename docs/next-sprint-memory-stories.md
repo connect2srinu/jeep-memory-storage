@@ -125,9 +125,14 @@ Read access approved for another team covers the whole schema, including fields 
 (from the Shopping V1 → V2 analysis). A new health or sensitive attribute becomes readable by those
 teams without anyone re-approving it.
 
+**Update:** attribute-level read grants are now implemented. A request can name attributes, the wizard
+sends the ticked ones, and new fields are not shared with those grants. Grants approved before this
+change, or requested without attributes, still cover the whole schema.
+
 **Acceptance criteria**
 
-- Adding a health or sensitive attribute to a schema that has other teams' read grants requires those grants to be re-approved, or excludes the new field until they are.
+- Existing whole-schema grants to other domains are re-requested with attributes, or reviewed and kept on purpose.
+- Adding a health or sensitive attribute to a schema that still has whole-schema grants from other domains requires those grants to be re-approved.
 - Covered by a test.
 
 ---

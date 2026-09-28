@@ -5,17 +5,48 @@ import type { AdminRecord } from "../../types";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { records } from "../../lib/records";
 
+// Attribute-level approval: a request names attributes; the owner unticks the ones to deny.
+function useAttributeChoices() {
+  const [denied, setDenied] = useState<Record<string, string[]>>({});
+  function toggle(id: string, attribute: string) {
+    setDenied((current) => {
+      const list = current[id] ?? [];
+      return { ...current, [id]: list.includes(attribute) ? list.filter((item) => item !== attribute) : [...list, attribute] };
+    });
+  }
+  return (row: AdminRecord, canChoose: boolean) => {
+    const id = recordId(row);
+    const requested = Array.isArray(row.attributes) ? row.attributes.map(String) : [];
+    const approved = Array.isArray(row.approved_attributes) ? row.approved_attributes.map(String) : null;
+    const choosing = canChoose && requested.length > 0;
+    const granted = requested.filter((attribute) => !(denied[id] ?? []).includes(attribute));
+    const partial = choosing && granted.length < requested.length;
+    return {
+      canApprove: !choosing || granted.length > 0,
+      attributes: partial ? granted : undefined,
+      approveLabel: partial ? `Approve ${granted.length} of ${requested.length}` : "Approve",
+      view: choosing
+        ? <span className="attribute-choices">{requested.map((attribute) => <label key={attribute}><input type="checkbox" checked={granted.includes(attribute)} onChange={() => toggle(id, attribute)} />{attribute}</label>)}</span>
+        : <small>{approved && approved.length ? `Approved: ${approved.join(", ")}` : requested.length ? requested.join(", ") : "All attributes"}</small>,
+    };
+  };
+}
+
 export function AccessActions({ records, api, reload, approvalsOnly, writable = true }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean; writable?: boolean }) {
   const visible = approvalsOnly ? records.filter((record) => record.status === "PENDING") : records;
-  async function act(id: string, action: "approve" | "reject" | "revoke" | "expire") {
-    await api.decideAccess(id, action, `${action} from Admin Console`);
+  const attributeChoice = useAttributeChoices();
+  async function act(id: string, action: "approve" | "reject" | "revoke" | "expire", attributes?: string[]) {
+    await api.decideAccess(id, action, `${action} from Admin Console`, attributes);
     reload();
   }
-  return <div className="request-list">{visible.map((record) => <article key={recordId(record)}>
-    <div><strong>{String(record.requesting_agent_id)}</strong> → {String(record.target_schema_id)}<p>{String(record.business_reason)}</p></div>
-    <span className={`pill ${String(record.status).toLowerCase()}`}>{String(record.status)}</span>
-    <div className="actions">{writable && record.status === "PENDING" && <><button type="button" onClick={() => act(recordId(record), "approve")}>Approve</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}{writable && record.status === "APPROVED" && <button className="danger" type="button" onClick={() => act(recordId(record), "revoke")}>Revoke</button>}</div>
-  </article>)}</div>;
+  return <div className="request-list">{visible.map((record) => {
+    const choice = attributeChoice(record, writable && record.status === "PENDING");
+    return <article key={recordId(record)}>
+      <div><strong>{String(record.requesting_agent_id)}</strong> → {String(record.target_schema_id)} · {String(record.requested_permission ?? "")}{choice.view}<p>{String(record.business_reason)}</p></div>
+      <span className={`pill ${String(record.status).toLowerCase()}`}>{String(record.status)}</span>
+      <div className="actions">{writable && record.status === "PENDING" && <><button type="button" disabled={!choice.canApprove} title={choice.canApprove ? undefined : "Tick at least one attribute, or reject the request"} onClick={() => act(recordId(record), "approve", choice.attributes)}>{choice.approveLabel}</button><button className="danger" type="button" onClick={() => act(recordId(record), "reject")}>Reject</button></>}{writable && record.status === "APPROVED" && <button className="danger" type="button" onClick={() => act(recordId(record), "revoke")}>Revoke</button>}</div>
+    </article>;
+  })}</div>;
 }
 
 export function ResourceChangeActions({ records, api, reload, approvalsOnly, writable = true }: { records: AdminRecord[]; api: AdminApiClient; reload: () => void; approvalsOnly: boolean; writable?: boolean }) {
@@ -80,8 +111,9 @@ export function ApprovalsTable({ rows, api, reload, writable }: { rows: AdminRec
     if (sortKey === key) setSortDir((current) => (current === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
   }
-  async function act(id: string, action: "approve" | "reject" | "revoke") {
-    await api.decideAccess(id, action, `${action} from Approvals`);
+  const attributeChoice = useAttributeChoices();
+  async function act(id: string, action: "approve" | "reject" | "revoke", attributes?: string[]) {
+    await api.decideAccess(id, action, `${action} from Approvals`, attributes);
     reload();
   }
 
@@ -100,17 +132,18 @@ export function ApprovalsTable({ rows, api, reload, writable }: { rows: AdminRec
       const id = recordId(row);
       const status = String(row.status);
       const isIncoming = String(row.direction ?? "") === "INCOMING";
+      const choice = attributeChoice(row, writable && isIncoming && status === "PENDING");
       return <tr key={id}>
         <td><span className={`dir-pill ${String(row.direction ?? "").toLowerCase()}`}>{String(row.direction ?? "—")}</span></td>
         <td><span className={`status-chip ${status.toLowerCase()}`}>{status}</span></td>
         <td><strong>{String(row.requesting_agent_name || row.requesting_agent_id || "—")}</strong>{row.requesting_team ? <small>{String(row.requesting_team)}</small> : null}</td>
         <td>{String(row.requesting_project_id ?? "—")}</td>
         <td>{String(row.owning_domain_id ?? "—")}</td>
-        <td>{String(row.target_schema_id ?? "—")}</td>
+        <td>{String(row.target_schema_id ?? "—")}{choice.view}</td>
         <td>{String(row.requested_permission ?? "—")}</td>
         <td>{formatDate(row.requested_at)}</td>
         <td className="row-actions">{writable && isIncoming && status === "PENDING"
-          ? <><button type="button" onClick={() => act(id, "approve")}>Approve</button><button className="danger" type="button" onClick={() => act(id, "reject")}>Reject</button></>
+          ? <><button type="button" disabled={!choice.canApprove} title={choice.canApprove ? undefined : "Tick at least one attribute, or reject the request"} onClick={() => act(id, "approve", choice.attributes)}>{choice.approveLabel}</button><button className="danger" type="button" onClick={() => act(id, "reject")}>Reject</button></>
           : writable && isIncoming && status === "APPROVED"
             ? <button className="danger" type="button" onClick={() => act(id, "revoke")}>Revoke</button>
             : <span className="muted">—</span>}</td>

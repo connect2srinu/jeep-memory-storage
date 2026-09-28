@@ -204,7 +204,8 @@ class GuidedMemorySetupService:
                     principal=request.agent.principal,
                     capabilities={
                         "resolve_context": True,
-                        "submit_candidates": request.agent.owned_schema_permission != "READ",
+                        "submit_candidates": bool(owned_schema_ids)
+                        and request.agent.owned_schema_permission != "READ",
                         "inspect_provenance": True,
                         "administer_memory": False,
                     },
@@ -232,6 +233,11 @@ class GuidedMemorySetupService:
 
         pending = []
         for shared in request.shared_schemas:
+            # Share only the attributes ticked in the wizard; none ticked = the whole schema.
+            ticked = sorted(
+                set(request.selected_preferences)
+                & await self.admin.active_schema_attributes(shared.schema_id)
+            )
             shared_request = await self.admin.create_access_request(
                 principal,
                 AccessRequestCreate(
@@ -239,6 +245,7 @@ class GuidedMemorySetupService:
                     requestingTeam=request.use_case.owning_team,
                     targetSchemaId=shared.schema_id,
                     requestedPermission=shared.permission,
+                    attributes=ticked or None,
                     businessReason=f"Shared schema requested by {request.use_case.name}",
                 ),
             )
@@ -319,13 +326,13 @@ class GuidedMemorySetupService:
                     fields=frozenset(fields),
                 )
             )
-        primary_schema_id = owned_schema_ids[0]
-        primary_scope_id = tiers[0]["scope_id"]
+        primary_schema_id = owned_schema_ids[0] if owned_schema_ids else None
+        primary_scope_id = tiers[0]["scope_id"] if tiers else None
         await self.admin._audit(
             principal,
             "memory_setup.activated",
             "memory_setup",
-            primary_schema_id,
+            primary_schema_id or domain,
             None,
             {
                 "environment": request.use_case.environment,
@@ -368,9 +375,24 @@ class GuidedMemorySetupService:
         preferences = await self._preference_specs(request)
         owned = [item for item in preferences if item["owner"] == request.use_case.domain]
         if not owned:
-            raise ValueError(
-                "select or create at least one preference owned by the use-case domain"
-            )
+            # Consumer-only: no preferences of its own, only approved access to other schemas.
+            if not request.shared_schemas:
+                raise ValueError(
+                    "select or create at least one preference owned by the use-case domain, "
+                    "or request shared schemas for a consumer-only agent"
+                )
+            if request.memory.dynamic_enabled:
+                raise ValueError(
+                    "a consumer-only agent keeps no memory of its own; disable dynamic memory"
+                )
+        for shared in request.shared_schemas:
+            if shared.permission != "READ" and not set(request.selected_preferences) & (
+                await self.admin.active_schema_attributes(shared.schema_id)
+            ):
+                raise ValueError(
+                    f"write access to {shared.schema_id} needs at least one of its preferences "
+                    "ticked; only ticked preferences can be written"
+                )
         tiers = self._tiers(request, owned)
         for tier in tiers:
             check_retention(
@@ -435,7 +457,7 @@ class GuidedMemorySetupService:
                 "description": request.use_case.description,
                 "owningTeam": request.use_case.owning_team,
             },
-            "schema": schemas_contract[0],
+            "schema": schemas_contract[0] if schemas_contract else None,
             "schemas": schemas_contract,
             "dynamicMemory": request.memory.model_dump(by_alias=True),
             "agent": {
@@ -477,6 +499,7 @@ class GuidedMemorySetupService:
             "domain": request.use_case.domain,
             "environment": request.use_case.environment,
             "ownedPreferenceCount": len(owned),
+            "consumerOnly": not owned,
             "scope": request.scope.type,
             "agent": request.agent.id,
             "sharedSchemaCount": len(request.shared_schemas),
@@ -518,6 +541,8 @@ class GuidedMemorySetupService:
         schema ({org, household_id, member_id}) by each preference's level.
         """
         domain = request.use_case.domain
+        if not owned_specs:
+            return []  # consumer-only: nothing of its own to provision
         if request.scope.type == "HOUSEHOLD_MEMBERS":
             levels = self._level_map(request)
             groups = {

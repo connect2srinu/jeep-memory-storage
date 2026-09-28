@@ -155,3 +155,80 @@ async def test_user_1001_approval_resolution_update_and_refresh(tmp_path: Path) 
             }
     finally:
         await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_attribute_level_grant_shares_only_the_requested_attributes(tmp_path: Path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'attribute-grant.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    async with database.session() as session:
+        customer_grant = await session.get(
+            AgentSchemaGrantRecord, "grocery-agent:customer-preferences-v1"
+        )
+        assert customer_grant is not None
+        customer_grant.status = "REVOKED"
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused", auth_enabled=False, google_id_token_audience=None
+        ),
+        database=database,
+        store=MockMemoryStore(),
+    )
+    request = {
+        "requestingAgentId": "grocery-agent",
+        "requestingTeam": "grocery-platform",
+        "targetSchemaId": "customer-preferences-v1",
+        "requestedPermission": "READ",
+        "businessReason": "Only the fulfillment preference",
+    }
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            for attribute, value in FIXTURE["profiles"]["customer"].items():
+                saved = await client.put(
+                    f"/api/v1/runtime/preferences/{attribute}",
+                    headers=agent("customer-agent"),
+                    json={
+                        "scope": scope("customer"),
+                        "schemaId": "customer-preferences-v1",
+                        "value": value,
+                    },
+                )
+                assert saved.status_code == 200, saved.text
+
+            unknown = await client.post(
+                "/api/v1/admin/access-requests",
+                headers=admin("AGENT_OWNER", "grocery"),
+                json={**request, "attributes": ["customer.not_in_schema"]},
+            )
+            assert unknown.status_code == 400
+            assert "customer.not_in_schema" in unknown.text
+
+            requested = await client.post(
+                "/api/v1/admin/access-requests",
+                headers=admin("AGENT_OWNER", "grocery"),
+                json={**request, "attributes": ["customer.fulfillment_preference"]},
+            )
+            assert requested.status_code == 201, requested.text
+            assert requested.json()["data"]["attributes"] == ["customer.fulfillment_preference"]
+            approved = await client.post(
+                f"/api/v1/admin/access-requests/{requested.json()['data']['id']}/approve",
+                headers=admin("SCHEMA_OWNER", "customer"),
+                json={},
+            )
+            assert approved.status_code == 200, approved.text
+
+            resolved = await client.post(
+                "/api/v1/runtime/preferences/resolve",
+                headers=agent("grocery-agent"),
+                json={"scope": scope("grocery"), "sessionId": "attribute-grant"},
+            )
+            assert resolved.status_code == 200, resolved.text
+            preferences = resolved.json()["preferences"]
+            assert preferences["fulfillment_preference"]["ownerDomain"] == "customer"
+            # customer.preferred_store has a value but was not granted, so it never reaches grocery.
+            assert preferences.get("preferred_store", {}).get("ownerDomain") != "customer"
+    finally:
+        await database.dispose()

@@ -51,6 +51,10 @@ describe("guided memory setup", () => {
       "Use Case", "Preferences", "Scope", "Memory", "Agents", "Sharing",
       "Resolution", "Review", "Activate",
     ]);
+    // Consumer only: no scope or memory settings of its own.
+    expect(wizardSteps(true, 1, true)).toEqual([
+      "Use Case", "Preferences", "Agents", "Sharing", "Review", "Activate",
+    ]);
   });
 
   it("recommends Grocery defaults and catalog-configured domains", () => {

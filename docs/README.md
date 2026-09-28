@@ -9,7 +9,7 @@ says what is now implemented and what is still open.
 | Audience | Document |
 |---|---|
 | Anyone new to the platform | [Household Memory — End-to-End UI Guide](dynamic-household-test-guide.md) — organization, project, wizard, agent, and a full customer journey, all from the UI |
-| Platform user creating a setup | [Guided Memory Setup](guided-memory-setup.md) |
+| Platform user creating a setup | [Guided Memory Setup](guided-memory-setup.md) · [Three Agent Memory Models — UI Test Guide](three-agent-models-test-guide.md) (private, hybrid, consumer only) |
 | Domain owner | [Domain Onboarding](domain-onboarding.md) |
 | Agent developer | [New Agent Onboarding](new-agent-onboarding.md) · [Memory Agent](../apps/memory-agent/README.md) · [Reference Agent](../apps/reference-agent/README.md) |
 | Tester (API level) | [Memory Flow Test Guide](memory-flow-test-guide.md) — runtime API checks, the example script, and the load test |
@@ -39,6 +39,8 @@ The Control Plane API serves interactive OpenAPI docs at `/docs` (Swagger UI) an
 - [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phase status
 - [Console UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and the three console
   redesigns (now shipped)
+- [Unified Memory Requirements — Proposed Remarks](unified-memory-requirements-remarks.md) — status
+  and concerns for each functional and non-functional requirement, ready to paste into the page
 - [Next Sprint — Governed Memory Stories](next-sprint-memory-stories.md) — privacy, attributes,
   extraction cost, edge cases, evals, confidence, and load-test stories, each marked verify / gap / design
 - [ADR-0001: Managed Memory Bank vs Custom Unified Memory Layer](adr/ADR-0001-shared-memory-memory-bank-vs-unified-memory-layer.md)

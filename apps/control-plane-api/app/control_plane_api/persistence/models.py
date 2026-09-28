@@ -305,6 +305,8 @@ class AgentSchemaGrantRecord(TimestampMixin, Base):
         ForeignKey("profile_schemas.id", ondelete="CASCADE"), nullable=False
     )
     permission: Mapped[str] = mapped_column(String(16), nullable=False, default="NONE")
+    # Attribute-level grant: only these attributes of the schema are visible. None = whole schema.
+    attributes: Mapped[list[str] | None] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     approved_by: Mapped[str | None] = mapped_column(String(255))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -421,6 +423,10 @@ class AccessRequestRecord(TimestampMixin, Base):
         ForeignKey("profile_schemas.id", ondelete="CASCADE"), nullable=False
     )
     requested_permission: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Attributes requested. None = the whole schema.
+    attributes: Mapped[list[str] | None] = mapped_column(JSON)
+    # Attributes the owner approved (all requested unless narrowed); copied to the grant.
+    approved_attributes: Mapped[list[str] | None] = mapped_column(JSON)
     business_reason: Mapped[str] = mapped_column(Text, nullable=False)
     requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

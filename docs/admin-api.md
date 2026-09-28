@@ -78,7 +78,28 @@ POST /access-requests/{id}/approve | /reject | /revoke | /expire
 
 Approval creates or re-activates the agent-schema grant in the same transaction and checks that the
 schema allows the agent's purpose. Rejection creates no grant; revocation or expiry disables it. A grant
-covers the whole logical schema across versions.
+covers the logical schema across versions.
+
+A request may name `attributes` (attribute IDs mapped by the schema's active version). The grant then
+shares only those attributes: the agent's resolve snapshot and raw profiles contain nothing else, and
+attributes added to the schema later are not shared until a new request is approved. Without
+`attributes` the grant covers the whole schema. The Create Memory Setup wizard sends the attributes you
+ticked for each shared schema.
+
+The owner can approve some of the requested attributes and deny the rest: pass `attributes` (a subset
+of those requested) to `/approve`. The request keeps `attributes` (requested) and records
+`approved_attributes`; the grant gets only the approved ones. The Approvals page shows a tickbox per
+requested attribute for this.
+
+**Cross-domain (delegated) writes.** `WRITE` or `READ_WRITE` on another domain's schema must name
+`attributes` and cannot include health attributes. Once approved, the agent sees those attributes in
+`writablePreferences` and saves them with the normal `PUT /preferences/{attribute}`; the value lands in
+the owner's schema, so the owner's agents read the same value. Only customer-stated values are accepted
+(`source: inference` is refused), the owner's type, sensitivity, and retention rules apply, and the agent
+can forget what it may write. Revoking the grant stops further writes; saved values stay with the owner.
+The `memory_decision` log marks these writes with `delegated: true` and `owner_domain`. Schema versions
+are additive, so an approved write stays valid across versions, and attributes added later are not
+writable until a new request is approved.
 
 ## Organization workspace endpoints
 

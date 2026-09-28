@@ -386,3 +386,206 @@ async def test_guided_setup_household_two_tier(tmp_path: Path) -> None:
             assert grant is not None
             assert grant.permission == "READ_WRITE" and grant.status == "ACTIVE"
     await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_shared_schema_request_carries_only_the_ticked_attributes(tmp_path: Path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'guided-attributes.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused", auth_enabled=False, google_id_token_audience=None
+        ),
+        database=database,
+        store=MockMemoryStore(),
+    )
+    payload = setup_payload()
+    payload["selectedPreferences"] = ["rewards.reward_type", "customer.preferred_store"]
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Write access to a shared schema needs at least one of its preferences ticked.
+        untargeted_write = await client.post(
+            "/api/v1/admin/memory-setups/preview",
+            headers=PLATFORM,
+            json={
+                **payload,
+                "selectedPreferences": ["rewards.reward_type"],
+                "sharedSchemas": [{"schemaId": "customer-preferences-v1", "permission": "READ_WRITE"}],
+            },
+        )
+        assert untargeted_write.status_code == 400
+        assert "only ticked preferences can be written" in untargeted_write.text
+
+        activated = await client.post(
+            "/api/v1/admin/memory-setups/activate", headers=PLATFORM, json=payload
+        )
+        assert activated.status_code == 201, activated.text
+        requests = await client.get("/api/v1/admin/access-requests", headers=PLATFORM)
+        [shared] = [
+            item
+            for item in requests.json()["items"]
+            if item["requesting_agent_id"] == "rewards-assistant"
+            and item["target_schema_id"] == "customer-preferences-v1"
+        ]
+        assert shared["attributes"] == ["customer.preferred_store"]
+    await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_consumer_only_agent_owns_nothing_and_reads_only_what_is_approved(
+    tmp_path: Path,
+) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'consumer-only.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    store = MockMemoryStore()
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused", auth_enabled=False, google_id_token_audience=None
+        ),
+        database=database,
+        store=store,
+    )
+    payload = setup_payload()
+    payload["useCase"]["domain"] = "mealplanner"
+    payload["agent"]["id"] = "mealplanner-assistant"
+    payload["selectedPreferences"] = ["customer.preferred_store", "customer.fulfillment_preference"]
+    payload["customPreferences"] = []
+    payload["resolution"] = None
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        with_dynamic = await client.post(
+            "/api/v1/admin/memory-setups/preview", headers=PLATFORM, json=payload
+        )
+        assert with_dynamic.status_code == 400
+        assert "disable dynamic memory" in with_dynamic.text
+
+        payload["memory"]["dynamicEnabled"] = False
+        no_sharing = await client.post(
+            "/api/v1/admin/memory-setups/preview",
+            headers=PLATFORM,
+            json={**payload, "sharedSchemas": []},
+        )
+        assert no_sharing.status_code == 400
+
+        activated = await client.post(
+            "/api/v1/admin/memory-setups/activate", headers=PLATFORM, json=payload
+        )
+        assert activated.status_code == 201, activated.text
+        result = activated.json()
+        assert result["summary"]["consumerOnly"] is True
+        assert result["resources"]["schemaIds"] == []
+        [request_id] = result["pendingApprovals"]
+
+        # Seed values in the customer schema, then approve only one of the two requested.
+        for attribute, value in {
+            "customer.preferred_store": "Store-B",
+            "customer.fulfillment_preference": "pickup",
+        }.items():
+            saved = await client.put(
+                f"/api/v1/runtime/preferences/{attribute}",
+                headers={"X-Agent-ID": "customer-agent"},
+                json={
+                    "scope": {"userId": "meal-user", "appName": "meals", "domain": "customer"},
+                    "schemaId": "customer-preferences-v1",
+                    "value": value,
+                },
+            )
+            assert saved.status_code == 200, saved.text
+        approved = await client.post(
+            f"/api/v1/admin/access-requests/{request_id}/approve",
+            headers=PLATFORM,
+            json={"attributes": ["customer.fulfillment_preference"]},
+        )
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["data"]["attributes"] == [
+            "customer.fulfillment_preference",
+            "customer.preferred_store",
+        ]
+        assert approved.json()["data"]["approved_attributes"] == [
+            "customer.fulfillment_preference"
+        ]
+
+        resolved = await client.post(
+            "/api/v1/runtime/preferences/resolve",
+            headers={"X-Agent-ID": "mealplanner-assistant"},
+            json={
+                "scope": {"userId": "meal-user", "appName": "meals", "domain": "mealplanner"},
+                "sessionId": "meal-session",
+            },
+        )
+        assert resolved.status_code == 200, resolved.text
+        snapshot = resolved.json()
+        assert snapshot["preferences"]["fulfillment_preference"]["value"] == "pickup"
+        assert "preferred_store" not in snapshot["preferences"]
+        assert snapshot["writablePreferences"] == []
+
+        write = await client.put(
+            "/api/v1/runtime/preferences/customer.fulfillment_preference",
+            headers={"X-Agent-ID": "mealplanner-assistant"},
+            json={
+                "scope": {"userId": "meal-user", "appName": "meals", "domain": "mealplanner"},
+                "value": "delivery",
+            },
+        )
+        assert write.status_code == 403
+    async with database.session() as session:
+        agent = await session.get(RegisteredAgentRecord, "mealplanner-assistant")
+        assert agent is not None and agent.capabilities["submit_candidates"] is False
+        assert await session.get(ProfileSchemaRecord, "mealplanner-preferences-v1") is None
+    await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_owner_can_approve_only_some_requested_attributes(tmp_path: Path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{tmp_path / 'partial-approval.db'}")
+    await database.create_schema()
+    await seed_control_plane(database)
+    app = create_app(
+        ControlPlaneApiSettings(
+            database_url="unused", auth_enabled=False, google_id_token_audience=None
+        ),
+        database=database,
+        store=MockMemoryStore(),
+    )
+    request = {
+        "requestingAgentId": "grocery-agent",
+        "requestingTeam": "grocery-platform",
+        "targetSchemaId": "customer-preferences-v1",
+        "requestedPermission": "READ",
+        "attributes": ["customer.fulfillment_preference"],
+        "businessReason": "Partial approval check",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        created = await client.post("/api/v1/admin/access-requests", headers=PLATFORM, json=request)
+        assert created.status_code == 201, created.text
+        request_id = created.json()["data"]["id"]
+        path = f"/api/v1/admin/access-requests/{request_id}"
+
+        not_requested = await client.post(
+            f"{path}/approve", headers=PLATFORM, json={"attributes": ["customer.preferred_store"]}
+        )
+        assert not_requested.status_code == 400
+        assert "not requested" in not_requested.text
+        on_reject = await client.post(
+            f"{path}/reject",
+            headers=PLATFORM,
+            json={"attributes": ["customer.fulfillment_preference"]},
+        )
+        assert on_reject.status_code == 400
+
+        approved = await client.post(f"{path}/approve", headers=PLATFORM, json={})
+        assert approved.status_code == 200, approved.text
+        # Without a choice, everything requested is approved.
+        assert approved.json()["data"]["approved_attributes"] == [
+            "customer.fulfillment_preference"
+        ]
+    async with database.session() as session:
+        grant = await session.get(AgentSchemaGrantRecord, "grocery-agent:customer-preferences-v1")
+        assert grant is not None and grant.attributes == ["customer.fulfillment_preference"]
+    await database.dispose()

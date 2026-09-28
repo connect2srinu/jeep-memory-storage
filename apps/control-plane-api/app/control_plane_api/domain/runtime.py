@@ -37,6 +37,11 @@ class RuntimeSchemaGrant:
     attribute_data_types: dict[str, str] = field(default_factory=dict)
     # Purposes an agent may declare to use this schema.
     allowed_purposes: tuple[str, ...] = ("personalization",)
+    # Every field of the schema version, for registering it with the store. field_to_attribute
+    # holds only the fields this grant shares (all of them unless the grant names attributes).
+    schema_fields: frozenset[str] = frozenset()
+    # The grant names specific attributes. Only such grants may write into another domain's schema.
+    attribute_scoped: bool = False
 
 
 @dataclass(frozen=True, slots=True)

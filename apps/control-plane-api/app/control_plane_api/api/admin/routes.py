@@ -743,6 +743,7 @@ def create_admin_router(
                 status,
                 expiration=payload.expiration,
                 reason=payload.reason,
+                attributes=payload.attributes,
             )
         )
 
