@@ -39,6 +39,8 @@ The Control Plane API serves interactive OpenAPI docs at `/docs` (Swagger UI) an
 - [Control Panel Roadmap](GEAP_Control_Panel_Roadmap.md) — product vision and phase status
 - [Console UX Redesign](GEAP_Console_UX_Redesign.md) — data-model validation and the three console
   redesigns (now shipped)
+- [Evaluating Vertex AI Memory Bank](memory-bank-evaluation.md) — the three evaluation criteria
+  (extraction, storage, governance), the options considered, and the recommendation
 - [Unified Memory Requirements — Proposed Remarks](unified-memory-requirements-remarks.md) — status
   and concerns for each functional and non-functional requirement, ready to paste into the page
 - [Next Sprint — Governed Memory Stories](next-sprint-memory-stories.md) — privacy, attributes,
