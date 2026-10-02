@@ -1,0 +1,11 @@
+Thanks Vyas, Pawan, fair points, and I agree with the MVP scope. Memory Bank owns the memory semantics (extraction, consolidation, retrieval, summarization), and we shouldn't rebuild any of that. My earlier note went too far; please set aside the read-optimization and summarization parts.
+
+The one thing I'd like to keep is a thin API between the agents and Memory Bank (diagram attached). It isn't a memory layer. It passes calls straight through to Memory Bank's native APIs and only enforces the few rules that must apply the same way for every team:
+
+Privacy: no health or sensitive data stored without consent. In our POC, Memory Bank's own extraction turned "my doctor said my cholesterol is high" into "prefers heart-healthy breakfast options".
+Access: IAM controls who can call Memory Bank, but not which customer's memories or which preferences an agent can read or write.
+Audit and deletion: one place to log every write and to handle customer deletion requests.
+
+Without this, each agent team implements these rules on its own. An SDK helps, but it's opt-in: any team can call Memory Bank directly and skip it, and we'd have no single place to show compliance or roll out a rule change.
+
+If the group prefers SDK plus policy for the MVP, I'm fine with that, as long as we agree how privacy and access will be enforced for a team that calls Memory Bank directly. Happy to walk through it with Giri and Rahul.
