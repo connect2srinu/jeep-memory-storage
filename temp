@@ -1,11 +1,68 @@
-Thanks Vyas, Pawan, fair points, and I agree with the MVP scope. Memory Bank owns the memory semantics (extraction, consolidation, retrieval, summarization), and we shouldn't rebuild any of that. My earlier note went too far; please set aside the read-optimization and summarization parts.
+Two of your mentions need a reply, and Giri's to-do is answered by the same message:
 
-The one thing I'd like to keep is a thin API between the agents and Memory Bank (diagram attached). It isn't a memory layer. It passes calls straight through to Memory Bank's native APIs and only enforces the few rules that must apply the same way for every team:
+Vyas, 12:15: "Check if Memory Bank's Gemini use allows prompt editing."
+Vyas, 12:28: "We need some data to drive the decision here convincingly", on the A/B/C options.
+Giri, 12:29: "Todo: prompt editing capability, A, B & C." This is the same question, asked for each option.
 
-Privacy: no health or sensitive data stored without consent. In our POC, Memory Bank's own extraction turned "my doctor said my cholesterol is high" into "prefers heart-healthy breakfast options".
-Access: IAM controls who can call Memory Bank, but not which customer's memories or which preferences an agent can read or write.
-Audit and deletion: one place to log every write and to handle customer deletion requests.
+Below are ready-to-paste replies, then the points in the thread that still need an answer.
 
-Without this, each agent team implements these rules on its own. An SDK helps, but it's opt-in: any team can call Memory Bank directly and skip it, and we'd have no single place to show compliance or roll out a rule change.
+Reply 1: prompt editing (to Vyas, 12:15, and Giri's to-do)
 
-If the group prefers SDK plus policy for the MVP, I'm fine with that, as long as we agree how privacy and access will be enforced for a team that calls Memory Bank directly. Happy to walk through it with Giri and Rahul.
+On prompt editing: Memory Bank doesn't expose or let us edit its extraction prompt. What we can configure on the bank instead:
+
+Memory topics: a label plus a description of what to extract for each. These act as the prompt. Built-in topics such as user preferences can also be turned on or off.
+Few-shot examples: sample conversations with the memories we expect from them.
+Extraction model: Gemini 2.5 is rejected; it requires gemini-3.5-flash, which our project can only reach at the global location.
+Other settings: third-person phrasing, a consolidation setting, structured schemas, and time-to-live.
+
+In the POC I put the "focus on durable shopping preferences, ignore one-off orders and medical conditions" instruction into the topic descriptions. It followed it well: no one-off details were kept. It still inferred "prefers heart-healthy breakfast options" from "my doctor said my cholesterol is high", though.
+
+Prompt control by option:
+
+A (custom batch): full control, since we own the prompt.
+B (Memory Bank managed): no prompt; topics, examples and model choice only.
+C (agent-level): full control, through the agent's instructions and the preference descriptions it's given.
+
+This fits Vyas's decision: topics and examples are bank configuration, so no control plane is needed in between for prompt customization.
+
+Reply 2: data for the decision (to Vyas, 12:28)
+
+I ran Option B, Memory Bank's managed extraction, on a dedicated instance in dev: one synthetic customer, with planted preferences, changes and noise.
+
+Single run (96 customer turns): 15 of 15 planted preferences captured, 0 of 5 one-off details kept, the milk-brand switch handled. Search p50 214 ms, p95 277 ms.
+
+Three-round test (204 customer turns so far; round 3 still to run):
+
+Explicit preferences: 9 of 9 captured. Implicit ones, shown only by repeated choices: 8 of 8.
+Both preference changes handled (Chobani → Oikos; vegetarian Fridays → Mediterranean), with the old value marked as previous.
+"Which yogurt should I recommend?" returned Oikos after the change.
+204 turns became 20 facts, about 14:1 compression.
+
+Cost (real token use from Cloud Monitoring): extraction reads about 21 tokens per conversation token, and its output is about 60% of its input, mostly reasoning. That's roughly $0.035 per session, or about $146 per 1M conversation tokens. Memory Bank's own read and write charges are negligible.
+
+Watch-outs:
+
+Extraction ran from 6 s to 16 minutes per session, with timeouts and throttling on 3.5 Flash, so it can only run in the background.
+Broad questions like "all preferred brands" miss stored facts, because search returns only the closest few; profile-wide reads need a list of every fact.
+Inferences can go beyond what the customer said; the health example is above.
+
+Options A and C aren't measured yet. I can run the same synthetic conversations through C (agent-level extraction) to compare quality and cost directly.
+
+Attach the two reports: docs/memory-bank-extraction-poc/report.md and docs/memory-bank-extraction-poc/rounds/rounds_report.md.
+
+Points in the thread that still need an answer
+Rahul, 12:35: "Can we enable Memory Bank in dev and do some POC…" You already have one: a dedicated POC instance in e2eml-222003, with the results above. Reply to that effect and offer to set up the platform project, since Rahul said he can't do it himself. Two setup gotchas to mention:
+Vyas's curl creates the bank with an empty config, which means default topics. If anyone sets an extraction model, Gemini 2.5 is rejected and 3.5 Flash must use the global path.
+Expect occasional timeouts and throttling; callers need retries.
+Privacy allow list (about 35 types, from Rahul's note via Joe). This maps directly onto Memory Bank topics: one topic per approved type, and Memory Bank extracts only into configured topics. That is governance by configuration, as Pawan suggested. Two caveats:
+Topics are set per bank (per scope keys), not per agent. A per-agent allow list needs separate scope-key configs or separate banks.
+The deny list and anything in between can only be described in topic text. It isn't guaranteed, as the "heart-healthy" inference shows.
+When a memory becomes available to another agent (Rahul: end of session; Vyas: a non-blocking call during the session). Our data supports end of session. Even a non-blocking call made during the session can take minutes to land: the median was about 2 minutes per session today, the worst 16.
+Vyas's "do both". Saving immediately on "save" or "remember", plus offline processing of the session: Memory Bank supports both. Write an explicit fact directly, and run session extraction afterwards; both are in the SDK.
+Cooklist's table of about 25 areas. That's the candidate topic list. Each area would need privacy approval (point 2), and areas such as "Dietary constraints" (allergies, medical restrictions) and "Household context" are the sensitive ones.
+Giri's dimensions:
+Implicit vs explicit: we now have data, both captured fully.
+Sensitive vs non-sensitive: managed extraction has no sensitivity setting; the only lever is topic wording.
+Text vs structured: the decision was "Text". Structured memory schemas also exist if attribute-level control is needed later.
+
+Before sending Reply 2: round 3 of the three-round test is still pending. It covers the budget change, the bread change made only through choices, low sugar, and the migraine statement as health noise. It takes about an hour, and I can resume it whenever you say. Having the full three rounds would make the decision data complete.
