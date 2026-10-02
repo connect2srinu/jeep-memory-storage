@@ -1,0 +1,878 @@
+[
+  {
+    "session": 1,
+    "plan": "Builds her weekly list: eggs, bananas, spinach, Organic Valley milk, Chobani Greek yogurt. Mentions she shops for a family of four.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Ready to start my weekly Kroger list."
+      },
+      {
+        "role": "model",
+        "text": "Hello Maya! I'm ready to help. What can I add for your family this week?"
+      },
+      {
+        "role": "user",
+        "text": "First, eggs, bananas, and spinach please. Enough for a family of four."
+      },
+      {
+        "role": "model",
+        "text": "Got it! Eggs, bananas, and spinach have been added to your list. I'll ensure we account for your family of four."
+      },
+      {
+        "role": "user",
+        "text": "Next, Organic Valley milk."
+      },
+      {
+        "role": "model",
+        "text": "Organic Valley milk is now on your list. What else?"
+      },
+      {
+        "role": "user",
+        "text": "And Chobani Greek yogurt."
+      },
+      {
+        "role": "model",
+        "text": "Chobani Greek yogurt has been added. Is there anything else for your list today?"
+      },
+      {
+        "role": "user",
+        "text": "That's everything for this week! I'll pick up on Sunday."
+      },
+      {
+        "role": "model",
+        "text": "Perfect! Your list is complete with eggs, bananas, spinach, Organic Valley milk, and Chobani Greek yogurt. I've noted your Sunday pickup. You can review your cart or proceed to checkout when you're ready!"
+      }
+    ]
+  },
+  {
+    "session": 2,
+    "plan": "Plans three vegetarian, high-protein weeknight dinners; asks for recipes without cilantro because she can't stand it.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Need some help planning dinners for the week."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your weekly meal planning. What kind of meals are you looking for today?"
+      },
+      {
+        "role": "user",
+        "text": "Looking for three vegetarian, high-protein weeknight dinners. And please, no cilantro in any recipes!"
+      },
+      {
+        "role": "model",
+        "text": "Got it, Maya! Three vegetarian, high-protein dinners, no cilantro, perfect for your family. How about a hearty Lentil Shepherd's Pie for your first meal? It's packed with protein."
+      },
+      {
+        "role": "user",
+        "text": "Sounds good! What's another option?"
+      },
+      {
+        "role": "model",
+        "text": "Great! For your second meal, a Black Bean and Corn Stuffed Bell Peppers recipe is a good choice. It's high in protein and easy to prepare without cilantro."
+      },
+      {
+        "role": "user",
+        "text": "Perfect. One more, please."
+      },
+      {
+        "role": "model",
+        "text": "Certainly! How about a Tofu Scramble with Roasted Sweet Potatoes and Spinach? It's quick, protein-rich, and works well for a weeknight dinner for your family."
+      },
+      {
+        "role": "user",
+        "text": "Awesome, thanks! I'll add these to my pickup order."
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Let me know if you need any adjustments or more ideas for your family's pickup order."
+      }
+    ]
+  },
+  {
+    "session": 3,
+    "plan": "Searches for pasta sauce; insists on Rao's even though it costs more; adds Dave's Killer Bread.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Need to start my weekly order. First, pasta sauce."
+      },
+      {
+        "role": "model",
+        "text": "Welcome back, Maya! Happy to help with your Sunday meal planning. What kind of pasta sauce are you looking for?"
+      },
+      {
+        "role": "user",
+        "text": "Just a good marinara. Something for the kids."
+      },
+      {
+        "role": "model",
+        "text": "Okay, I see several marinara options. Popular choices include Prego, Ragu, and Rao's Homemade. Do you have a preference?"
+      },
+      {
+        "role": "user",
+        "text": "Rao's. I know it's pricier but it's worth it for my family."
+      },
+      {
+        "role": "model",
+        "text": "Great choice! Rao's Homemade Marinara Sauce, 24 oz, is $7.99. Would you like to add one to your cart?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, please. And then I need some bread."
+      },
+      {
+        "role": "model",
+        "text": "One Rao's Marinara added. What kind of bread are you looking for today?"
+      },
+      {
+        "role": "user",
+        "text": "Dave's Killer Bread. The 21 Whole Grains and Seeds."
+      },
+      {
+        "role": "model",
+        "text": "Got it. Dave's Killer Bread 21 Whole Grains and Seeds, 27 oz, is $5.49. Shall I add it?"
+      },
+      {
+        "role": "user",
+        "text": "Yep, add that too. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You got it, Maya! One Dave's Killer Bread added to your cart. Anything else for your family's pickup order?"
+      }
+    ]
+  },
+  {
+    "session": 4,
+    "plan": "Asks for cheaper paper towels and dish soap; happy with the Kroger store brand for those.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Just checking my Sunday pickup order. Can you help me find some cheaper paper towels?"
+      },
+      {
+        "role": "model",
+        "text": "Hello Maya! Absolutely. For a more budget-friendly option, I recommend our Kroger brand paper towels. We have the Kroger Strong & Soft Paper Towels, 6 Giant Rolls, for $8.99. Would you like to add those?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, please add those. And I also need dish soap. Do you have a Kroger brand for that too that's a good value?"
+      },
+      {
+        "role": "model",
+        "text": "We certainly do! The Kroger brand Dish Soap, 24 fl oz, is a great value at $2.49. Is that what you're looking for?"
+      },
+      {
+        "role": "user",
+        "text": "Perfect, add that one please. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You got it! Both the Kroger brand paper towels and dish soap have been added to your cart. Is there anything else I can assist you with for your family's order today?"
+      },
+      {
+        "role": "user",
+        "text": "Nope, that's everything for now. Looks good!"
+      },
+      {
+        "role": "model",
+        "text": "Wonderful! Your order is all set for Sunday pickup. Have a great day, Maya!"
+      },
+      {
+        "role": "user",
+        "text": "You too!"
+      },
+      {
+        "role": "model",
+        "text": "Thank you!"
+      }
+    ]
+  },
+  {
+    "session": 5,
+    "plan": "Reorders staples (eggs, bananas, spinach, Organic Valley milk); asks for family-size packs of granola bars for the kids' lunches.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi, can I start my weekly order for pickup?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to help with your Sunday pickup. Would you like to reorder your usual staples?"
+      },
+      {
+        "role": "user",
+        "text": "Yes please. Add eggs, bananas, spinach, and Organic Valley milk."
+      },
+      {
+        "role": "model",
+        "text": "Done. Eggs, bananas, spinach, and Organic Valley milk added to your cart. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "Also need some family-size granola bars for the kids' lunches."
+      },
+      {
+        "role": "model",
+        "text": "Okay, searching for family-size granola bars. Any specific brand or type you prefer for the kids?"
+      },
+      {
+        "role": "user",
+        "text": "Just a popular one, like Nature Valley."
+      },
+      {
+        "role": "model",
+        "text": "Got it. A family-size box of Nature Valley Oats 'n Honey granola bars added. Anything else today?"
+      },
+      {
+        "role": "user",
+        "text": "No, that's it. Ready for Sunday pickup."
+      },
+      {
+        "role": "model",
+        "text": "Confirmed! Your order is placed for Sunday pickup. You'll get an email with details."
+      }
+    ]
+  },
+  {
+    "session": 6,
+    "plan": "One-off: orders 40 cupcakes for a coworker's retirement party on Friday.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Starting my weekly order for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Great, ready to help you plan your meals for the family."
+      },
+      {
+        "role": "user",
+        "text": "Need to add something special this week. A big cupcake order."
+      },
+      {
+        "role": "model",
+        "text": "No problem! For a special occasion? How many and for what day?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, retirement party. Need 40 cupcakes for Friday pickup."
+      },
+      {
+        "role": "model",
+        "text": "Got it, 40 cupcakes for Friday pickup. Any specific flavors or decorations in mind, or an assortment?"
+      },
+      {
+        "role": "user",
+        "text": "Assorted is fine, simple is best."
+      },
+      {
+        "role": "model",
+        "text": "Perfect. We can do a standard assorted dozen. So you'll need 3-4 dozen to reach 40. Should I add 4 assorted dozens to a separate order for Friday?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, separate order for the cupcakes. My usual weekly order is for Sunday."
+      },
+      {
+        "role": "model",
+        "text": "Understood. I'll set up a separate order for the 40 assorted cupcakes for Friday pickup. And we can proceed with your usual Sunday pickup for your family's weekly groceries."
+      },
+      {
+        "role": "user",
+        "text": "Sounds good. Ready for my Sunday list now."
+      },
+      {
+        "role": "model",
+        "text": "Excellent! Let's get your family's meals planned. What's first on your list today?"
+      }
+    ]
+  },
+  {
+    "session": 7,
+    "plan": "Kids want mac and cheese; she says no Kraft, get Annie's.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Ready to start my weekly order for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hello Maya! Happy to help with your Sunday pickup order. What can I add for you today?"
+      },
+      {
+        "role": "user",
+        "text": "Okay, first up, the kids are asking for mac and cheese. Please make sure it's not Kraft this time."
+      },
+      {
+        "role": "model",
+        "text": "Understood, mac and cheese for the kids, and I'll make sure to avoid Kraft. Do you have a specific brand you'd prefer instead?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, Annie's. And grab a gallon of 2% milk too."
+      },
+      {
+        "role": "model",
+        "text": "Annie's mac and cheese and one gallon of 2% milk have been added to your list. What's next?"
+      },
+      {
+        "role": "user",
+        "text": "Let's add some chicken breasts, about 2 lbs, and a big bag of navel oranges."
+      },
+      {
+        "role": "model",
+        "text": "Got it. 2 lbs of chicken breasts and a large bag of navel oranges are on your list. Anything else for your family's meals?"
+      },
+      {
+        "role": "user",
+        "text": "That's it for today. Thanks! When can I pick it up?"
+      },
+      {
+        "role": "model",
+        "text": "You're all set, Maya! Your order is confirmed. The earliest pickup time available today is 3:00 PM. Does that work for you?"
+      }
+    ]
+  },
+  {
+    "session": 8,
+    "plan": "Chobani is out of stock; she says Fage is fine as a substitute. Also adds Private Selection coffee.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi, starting my pickup order for Sunday."
+      },
+      {
+        "role": "model",
+        "text": "Hello Maya! I'm reviewing your list. Just a heads up, the Chobani Greek Yogurt you selected is currently out of stock."
+      },
+      {
+        "role": "user",
+        "text": "Okay, Fage plain is fine as a substitute then."
+      },
+      {
+        "role": "model",
+        "text": "Understood. I've updated your order with Fage Plain Greek Yogurt. Is there anything else you'd like to add or change?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, please add a bag of Private Selection Breakfast Blend coffee, ground."
+      },
+      {
+        "role": "model",
+        "text": "No problem, Private Selection Breakfast Blend Ground Coffee has been added to your cart. Anything else today?"
+      },
+      {
+        "role": "user",
+        "text": "That's everything for now. Can I get a pickup slot for Sunday morning?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly! The earliest available slot for Sunday morning is 9:00 AM. Would that time work for your pickup?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, 9 AM Sunday is great. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're all set, Maya! Your order is confirmed for pickup this Sunday at 9:00 AM. We'll text you when it's ready."
+      }
+    ]
+  },
+  {
+    "session": 9,
+    "plan": "Says she tries to keep the weekly order around $175 and asks for cheaper snack options.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Starting my weekly order for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help you with your weekly order. What can I assist you with today?"
+      },
+      {
+        "role": "user",
+        "text": "Trying to keep it around $175 this week. Any ideas for cheaper snacks for the kids?"
+      },
+      {
+        "role": "model",
+        "text": "Great goal! For budget-friendly snacks, consider our Kroger brand options like crackers, fruit snacks, or bulk pretzels. They're often a good value."
+      },
+      {
+        "role": "user",
+        "text": "Good idea. What about fruit? My 8 and 11 year olds eat a lot."
+      },
+      {
+        "role": "model",
+        "text": "Absolutely! In-season fruits like bananas, apples, and oranges are usually very affordable. You can also check our weekly produce deals for the best prices."
+      },
+      {
+        "role": "user",
+        "text": "Okay, I'll check those. Anything else for quick lunchbox fillers?"
+      },
+      {
+        "role": "model",
+        "text": "For lunchboxes, Kroger brand applesauce pouches or individual yogurt cups are popular and economical. Making a big batch of popcorn from kernels is also a very cheap and fun snack."
+      },
+      {
+        "role": "user",
+        "text": "Popcorn is smart! Thanks for the tips. Adding some of these now."
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Let me know if you need help finding anything specific or have more questions as you shop."
+      },
+      {
+        "role": "user",
+        "text": "All good for now! Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "Perfect! Your order is shaping up nicely. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 10,
+    "plan": "Complains the Main Street store was out of avocados last time; asks what time the store closes tonight.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Starting my pickup order for Sunday. Last time I ordered, the Main Street store was out of avocados. That was a bummer!"
+      },
+      {
+        "role": "model",
+        "text": "Oh no, I'm so sorry to hear that, Maya! We definitely want you to get everything on your list. I'll make a note of that feedback for the Main Street store."
+      },
+      {
+        "role": "user",
+        "text": "Thanks! Hope they have them this week. Also, what time does the Main Street Kroger close tonight?"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome! I'm showing the Main Street Kroger closes at 10 PM tonight."
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks!"
+      },
+      {
+        "role": "model",
+        "text": "Is there anything else I can help you with for your order or store information today?"
+      },
+      {
+        "role": "user",
+        "text": "Nope, that's all for now. Just getting my list together."
+      },
+      {
+        "role": "model",
+        "text": "Great! Have a wonderful time planning your meals for the family. Let me know if anything else comes up."
+      },
+      {
+        "role": "user",
+        "text": "Will do! Thanks again."
+      },
+      {
+        "role": "model",
+        "text": "You're most welcome, Maya! Happy shopping!"
+      }
+    ]
+  },
+  {
+    "session": 11,
+    "plan": "Asks for organic strawberries and organic baby spinach, but says conventional is fine for everything else; organic only matters for berries and leafy greens.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi Kroger! Starting my weekly pickup order for Sunday."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your weekly grocery order. What can I add to your cart today?"
+      },
+      {
+        "role": "user",
+        "text": "First, a big container of organic strawberries please."
+      },
+      {
+        "role": "model",
+        "text": "Got it, organic strawberries added. What else is on your list?"
+      },
+      {
+        "role": "user",
+        "text": "And a bag of organic baby spinach. For everything else, conventional is totally fine, just berries and leafy greens I prefer organic."
+      },
+      {
+        "role": "model",
+        "text": "Understood, Maya! Organic strawberries and organic baby spinach are in. We'll select conventional for all other items unless you specify. What's next?"
+      },
+      {
+        "role": "user",
+        "text": "Okay, need a gallon of 2% milk, a loaf of whole wheat bread, and a dozen large eggs."
+      },
+      {
+        "role": "model",
+        "text": "Adding 2% milk, whole wheat bread, and large eggs to your cart. Anything else for your family of four?"
+      },
+      {
+        "role": "user",
+        "text": "Just some boneless, skinless chicken breasts and a bag of Fuji apples. That should be it!"
+      },
+      {
+        "role": "model",
+        "text": "Alright, chicken breasts and Fuji apples are added. Your order includes organic strawberries, organic baby spinach, and conventional for the rest. I've scheduled your pickup for Sunday. Does that sound complete?"
+      }
+    ]
+  },
+  {
+    "session": 12,
+    "plan": "Buying gluten-free crackers for a friend who is visiting this weekend (not for herself).",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! I need to add some gluten-free crackers to my order for Sunday pickup."
+      },
+      {
+        "role": "model",
+        "text": "No problem, Maya! Do you have a specific brand or type in mind?"
+      },
+      {
+        "role": "user",
+        "text": "Just something plain, not too fancy. They're for a friend visiting this weekend."
+      },
+      {
+        "role": "model",
+        "text": "Got it. How about Simple Truth Gluten-Free Rice Crackers? They're a popular plain option."
+      },
+      {
+        "role": "user",
+        "text": "Sounds good. Are those usually in stock? I don't want to deal with substitutions."
+      },
+      {
+        "role": "model",
+        "text": "Yes, they are currently in stock for your Sunday pickup at your preferred store. I've added them to your cart."
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks! Just making sure I didn't miss anything else."
+      },
+      {
+        "role": "model",
+        "text": "You're welcome! Is there anything else I can help you find for your family's meals this week?"
+      },
+      {
+        "role": "user",
+        "text": "Nope, I think that's everything for now. My meal plan is all set."
+      },
+      {
+        "role": "model",
+        "text": "Great! Your order looks good for Sunday pickup. Let me know if anything changes."
+      },
+      {
+        "role": "user",
+        "text": "Will do! Thanks again for the help."
+      },
+      {
+        "role": "model",
+        "text": "Happy to help, Maya! Have a great weekend."
+      }
+    ]
+  },
+  {
+    "session": 13,
+    "plan": "Mentions her doctor said her cholesterol is high and asks for heart-healthy breakfast ideas.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Planning my pickup order for Sunday. Need some help with breakfast ideas."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your Sunday pickup order. What kind of breakfast ideas are you looking for today?"
+      },
+      {
+        "role": "user",
+        "text": "My doctor said my cholesterol is high, so I need some heart-healthy options. Something the kids (8 & 11) might actually eat too!"
+      },
+      {
+        "role": "model",
+        "text": "Oh, I understand! We can definitely find some great heart-healthy breakfast options that your family of four will enjoy. How about starting with oatmeal with berries and nuts, or whole-wheat toast with avocado?"
+      },
+      {
+        "role": "user",
+        "text": "Oatmeal sounds good. Any specific brands or toppings you recommend that are good for cholesterol?"
+      },
+      {
+        "role": "model",
+        "text": "For oatmeal, look for rolled oats or steel-cut oats, as they're high in soluble fiber. Toppings like fresh or frozen berries, a sprinkle of chia seeds or flax seeds, and a few walnuts are excellent for heart health."
+      },
+      {
+        "role": "user",
+        "text": "Okay, I'll add those. What about something quick for busy mornings?"
+      },
+      {
+        "role": "model",
+        "text": "For quick, heart-healthy options, you could try making a batch of overnight oats on Sunday, or grab some low-fat Greek yogurt to pair with fruit and a sprinkle of granola. Whole-wheat English muffins with a poached egg are also fast!"
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks! I'll add some of these to my list. Appreciate the help!"
+      },
+      {
+        "role": "model",
+        "text": "You're very welcome, Maya! Let me know if you need anything else for your Sunday pickup. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 14,
+    "plan": "Says Organic Valley got too expensive, switch her milk to Horizon organic from now on.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey Kroger, starting my weekly order for the family. Can you help me out?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your Sunday pickup order. What can I do for you today?"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, I need to change my milk. Organic Valley got too expensive lately."
+      },
+      {
+        "role": "model",
+        "text": "Understood. You'd like to switch from Organic Valley milk. Which brand would you prefer instead?"
+      },
+      {
+        "role": "user",
+        "text": "Let's go with Horizon organic from now on. The 1 gallon whole milk."
+      },
+      {
+        "role": "model",
+        "text": "Got it. I'll update your preferences to Horizon Organic Whole Milk (1 gallon) and add it to your current cart. Anything else for your family's pickup today?"
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks! That's all for now."
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is updated. Let me know if anything else comes up before your pickup."
+      },
+      {
+        "role": "user",
+        "text": "Will do. See ya!"
+      },
+      {
+        "role": "model",
+        "text": "Have a great day, Maya!"
+      }
+    ]
+  },
+  {
+    "session": 15,
+    "plan": "Weekly reorder: eggs, bananas, spinach, Horizon milk, Chobani yogurt, Dave's Killer Bread.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Ready for my weekly order."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Great, I can help with that. Are you looking to reorder your usual items?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, please. Eggs, bananas, spinach, Horizon milk, Chobani yogurt, and Dave's Killer Bread."
+      },
+      {
+        "role": "model",
+        "text": "Got it. So that's: eggs, bananas, spinach, Horizon milk, Chobani yogurt, and Dave's Killer Bread. Any specific quantities or sizes for these, or your usual?"
+      },
+      {
+        "role": "user",
+        "text": "My usual quantities are perfect, thanks."
+      },
+      {
+        "role": "model",
+        "text": "Okay, I've added those to your cart. When would you like to pick up your order today?"
+      },
+      {
+        "role": "user",
+        "text": "How about 3 PM?"
+      },
+      {
+        "role": "model",
+        "text": "3 PM pickup confirmed for today. I'll send a confirmation email shortly. Anything else I can help with?"
+      },
+      {
+        "role": "user",
+        "text": "Nope, that's all. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Have a great day. Your order will be ready at 3 PM."
+      },
+      {
+        "role": "user",
+        "text": "You too!"
+      },
+      {
+        "role": "model",
+        "text": "Enjoy your groceries!"
+      }
+    ]
+  },
+  {
+    "session": 16,
+    "plan": "The store substituted white bread for Dave's last time; she says never do that again.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi, starting my weekly order for pickup this Sunday."
+      },
+      {
+        "role": "model",
+        "text": "Hello Maya! I'm ready to help you with your Sunday pickup order. What can I add for you first?"
+      },
+      {
+        "role": "user",
+        "text": "Before I forget, last time you guys swapped my Dave's Killer Bread for white bread. Please never do that again."
+      },
+      {
+        "role": "model",
+        "text": "Understood, Maya. I've made a note on your account to avoid substituting Dave's Killer Bread. You can also set 'no substitutions' for specific items in your cart."
+      },
+      {
+        "role": "user",
+        "text": "Okay, thanks. Just make sure it's noted for my account. Can you add 2 gallons of 2% milk?"
+      },
+      {
+        "role": "model",
+        "text": "Absolutely, Maya. Your preference is noted. I've added 2 gallons of 2% milk to your cart."
+      },
+      {
+        "role": "user",
+        "text": "Great. And a family pack of chicken breasts and a large bag of Gala apples."
+      },
+      {
+        "role": "model",
+        "text": "Got it. A family pack of chicken breasts and a large bag of Gala apples have been added. Anything else for your family's meals this week?"
+      },
+      {
+        "role": "user",
+        "text": "That's it for now. I'll review and confirm pickup time later. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is saved. Feel free to add more items or adjust your pickup time before Sunday. Have a great week!"
+      }
+    ]
+  },
+  {
+    "session": 17,
+    "plan": "Plans next week's vegetarian high-protein dinners (lentil pasta with Rao's, tofu stir-fry).",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Planning my pickup order for next week. Need help with vegetarian high-protein dinners."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your vegetarian high-protein dinner planning for your family of four. What meals are you thinking of?"
+      },
+      {
+        "role": "user",
+        "text": "Lentil pasta with Rao's sauce and a tofu stir-fry."
+      },
+      {
+        "role": "model",
+        "text": "Excellent choices! For the lentil pasta, I can add a box of lentil pasta and a jar of Rao's Marinara. For the tofu stir-fry, how about firm tofu, a stir-fry veggie mix, and soy sauce?"
+      },
+      {
+        "role": "user",
+        "text": "Sounds good. Make sure it's firm tofu. And maybe some broccoli for the stir-fry too."
+      },
+      {
+        "role": "model",
+        "text": "Got it. I've added firm tofu, a stir-fry veggie mix, broccoli, and soy sauce to your list. These items are for your vegetarian high-protein dinners. Anything else for these meals?"
+      },
+      {
+        "role": "user",
+        "text": "No, that's enough for now. Just confirm these are added to my cart for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Confirmed! Lentil pasta, Rao's Marinara, firm tofu, stir-fry veggie mix, broccoli, and soy sauce are in your cart. Your pickup order is set for Sunday. Is there anything else I can assist with today?"
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks! That's all for now."
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is all set for Sunday pickup. Have a great week!"
+      }
+    ]
+  },
+  {
+    "session": 18,
+    "plan": "Quick reorder of Private Selection coffee and family-size snacks, staying near her budget.",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Need to quickly reorder some coffee and snacks for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help with your pickup order. Are you looking for your usual Private Selection coffee?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, the Private Selection coffee. And some family-size snacks, something the kids (8 & 11) would like."
+      },
+      {
+        "role": "model",
+        "text": "Got it! I've added the Private Selection coffee to your cart. For family-size snacks, how about a couple of large bags of chips or a variety pack? They're usually popular with kids and good for the family."
+      },
+      {
+        "role": "user",
+        "text": "Chips sound good. Let's do two large bags. Anything on sale for those? Trying to stay near budget."
+      },
+      {
+        "role": "model",
+        "text": "Perfect! I've added two large bags of Kroger brand chips. One is on a digital coupon this week, which will help keep you near your budget."
+      },
+      {
+        "role": "user",
+        "text": "Awesome, thanks! What's the total looking like now?"
+      },
+      {
+        "role": "model",
+        "text": "Your current total is $28.75. Does that work for your budget?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, that's good. Can I schedule pickup for Sunday afternoon?"
+      },
+      {
+        "role": "model",
+        "text": "Absolutely, I've scheduled your pickup for Sunday between 2-3 PM. Is there anything else I can help you with today?"
+      },
+      {
+        "role": "user",
+        "text": "No, that's it for now. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is all set. Have a great day!"
+      }
+    ]
+  }
+]

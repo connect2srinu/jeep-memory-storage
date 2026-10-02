@@ -1,0 +1,594 @@
+{
+  "run_at": "2026-10-02T12:18:25.593512+00:00",
+  "memory_bank": "projects/931930780809/locations/us-central1/reasoningEngines/4879033919988563968",
+  "extraction_model": "gemini-3.5-flash",
+  "scope": {
+    "user_id": "poc-maya-1790942653"
+  },
+  "sessions": 18,
+  "customer_turns": 96,
+  "generation_seconds": [
+    21.249222916027065,
+    14.201898661034647,
+    263.58391655399464,
+    14.957730775990058,
+    22.837741849012673,
+    14.218531358987093,
+    22.142233739956282,
+    14.483436850016005,
+    96.41063359304098,
+    6.403469373995904,
+    25.231620026985183,
+    9.756758305011317,
+    18.803968791966327,
+    11.987206815974787,
+    19.399461438006256,
+    13.781302504008636,
+    134.16768748301547,
+    120.12154847302008
+  ],
+  "facts_before_switch": [
+    "The user prefers heart-healthy breakfast options that are also appealing to children.",
+    "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+    "The user aims to keep her weekly grocery budget around $175.",
+    "The user prefers Private Selection Breakfast Blend ground coffee.",
+    "The user prefers Annie's brand for mac and cheese and refuses the Kraft brand.",
+    "The user prefers family-size packages of Nature Valley granola bars.",
+    "The user prefers purchasing budget-friendly store brands, specifically opting for the Kroger brand for household products like paper towels and dish soap.",
+    "The user prefers Dave's Killer Bread, specifically the 21 Whole Grains and Seeds variety.",
+    "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, and milk.",
+    "The user prefers Rao's Homemade Marinara Sauce, prioritizing its quality for their family despite the higher price.",
+    "The user prefers vegetarian, high-protein dinners and dislikes cilantro in recipes.",
+    "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock.",
+    "The user prefers Organic Valley brand milk.",
+    "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers."
+  ],
+  "facts": [
+    "The user prefers heart-healthy breakfast options that are also appealing to children.",
+    "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+    "The user aims to keep her weekly grocery budget around $175.",
+    "The user prefers and regularly purchases Private Selection Breakfast Blend ground coffee.",
+    "The user prefers Annie's brand for mac and cheese and refuses the Kraft brand.",
+    "The user prefers family-size packages of Nature Valley granola bars.",
+    "The user is budget-conscious, looks for sales, digital coupons, and prefers purchasing budget-friendly store brands like Kroger, especially for household products like paper towels and dish soap.",
+    "The user prefers Dave's Killer Bread, specifically the 21 Whole Grains and Seeds variety, and does not accept white bread as a substitution for it.",
+    "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+    "The user prefers Rao's Homemade Marinara Sauce, prioritizing its quality for their family despite the higher price.",
+    "The user prefers vegetarian, high-protein dinners (such as lentil pasta and tofu stir-fry with firm tofu) and dislikes cilantro in recipes.",
+    "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock.",
+    "The user prefers Horizon Organic 1-gallon whole milk, having switched from Organic Valley because it became too expensive.",
+    "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers."
+  ],
+  "fact_scores": [
+    {
+      "id": "milk_old",
+      "fact": "Bought Organic Valley milk (sessions 1-13)",
+      "any": [
+        "organic valley"
+      ],
+      "superseded": true,
+      "matched": [
+        "The user prefers Horizon Organic 1-gallon whole milk, having switched from Organic Valley because it became too expensive."
+      ]
+    },
+    {
+      "id": "milk_new",
+      "fact": "Switched to Horizon organic milk (session 14 on)",
+      "any": [
+        "horizon"
+      ],
+      "matched": [
+        "The user prefers Horizon Organic 1-gallon whole milk, having switched from Organic Valley because it became too expensive."
+      ]
+    },
+    {
+      "id": "yogurt",
+      "fact": "Prefers Chobani Greek yogurt",
+      "any": [
+        "chobani"
+      ],
+      "matched": [
+        "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock."
+      ]
+    },
+    {
+      "id": "pasta_sauce",
+      "fact": "Prefers Rao's pasta sauce",
+      "any": [
+        "rao"
+      ],
+      "matched": [
+        "The user prefers Rao's Homemade Marinara Sauce, prioritizing its quality for their family despite the higher price."
+      ]
+    },
+    {
+      "id": "bread",
+      "fact": "Prefers Dave's Killer Bread",
+      "any": [
+        "dave"
+      ],
+      "matched": [
+        "The user prefers Dave's Killer Bread, specifically the 21 Whole Grains and Seeds variety, and does not accept white bread as a substitution for it."
+      ]
+    },
+    {
+      "id": "coffee",
+      "fact": "Buys Private Selection coffee",
+      "any": [
+        "private selection"
+      ],
+      "matched": [
+        "The user prefers and regularly purchases Private Selection Breakfast Blend ground coffee."
+      ]
+    },
+    {
+      "id": "paper_goods",
+      "fact": "Store brand (Kroger) for paper towels and cleaning supplies",
+      "any": [
+        "store brand",
+        "kroger brand",
+        "kroger-brand",
+        "private label"
+      ],
+      "matched": [
+        "The user is budget-conscious, looks for sales, digital coupons, and prefers purchasing budget-friendly store brands like Kroger, especially for household products like paper towels and dish soap."
+      ]
+    },
+    {
+      "id": "mac_cheese",
+      "fact": "Avoids Kraft mac and cheese, buys Annie's",
+      "any": [
+        "annie",
+        "kraft"
+      ],
+      "matched": [
+        "The user prefers Annie's brand for mac and cheese and refuses the Kraft brand."
+      ]
+    },
+    {
+      "id": "meal_pattern",
+      "fact": "Vegetarian, high-protein weeknight dinners",
+      "any": [
+        "vegetarian",
+        "high-protein",
+        "high protein"
+      ],
+      "matched": [
+        "The user prefers vegetarian, high-protein dinners (such as lentil pasta and tofu stir-fry with firm tofu) and dislikes cilantro in recipes."
+      ]
+    },
+    {
+      "id": "household",
+      "fact": "Family of four with two kids",
+      "any": [
+        "family of four",
+        "four people",
+        "two kids",
+        "two children",
+        "family of 4"
+      ],
+      "matched": [
+        "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers."
+      ]
+    },
+    {
+      "id": "budget",
+      "fact": "Weekly budget around $175; asks for cheaper options on snacks",
+      "any": [
+        "175",
+        "budget"
+      ],
+      "matched": [
+        "The user aims to keep her weekly grocery budget around $175.",
+        "The user is budget-conscious, looks for sales, digital coupons, and prefers purchasing budget-friendly store brands like Kroger, especially for household products like paper towels and dish soap."
+      ]
+    },
+    {
+      "id": "pack_size",
+      "fact": "Family-size packs for snacks",
+      "any": [
+        "family-size",
+        "family size",
+        "bulk"
+      ],
+      "matched": [
+        "The user prefers family-size packages of Nature Valley granola bars."
+      ]
+    },
+    {
+      "id": "staples",
+      "fact": "Weekly staples: eggs, bananas, spinach",
+      "any": [
+        "banana",
+        "spinach",
+        "eggs"
+      ],
+      "matched": [
+        "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread."
+      ]
+    },
+    {
+      "id": "substitutions",
+      "fact": "Fage is fine if Chobani is out; never swap Dave's for white bread",
+      "any": [
+        "fage",
+        "white bread",
+        "substitut"
+      ],
+      "matched": [
+        "The user prefers Dave's Killer Bread, specifically the 21 Whole Grains and Seeds variety, and does not accept white bread as a substitution for it.",
+        "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock."
+      ]
+    },
+    {
+      "id": "organic_produce",
+      "fact": "Organic only for berries and leafy greens",
+      "any": [
+        "berries",
+        "leafy greens",
+        "organic produce"
+      ],
+      "matched": [
+        "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items."
+      ]
+    },
+    {
+      "id": "cilantro",
+      "fact": "Dislikes cilantro",
+      "any": [
+        "cilantro"
+      ],
+      "matched": [
+        "The user prefers vegetarian, high-protein dinners (such as lentil pasta and tofu stir-fry with firm tofu) and dislikes cilantro in recipes."
+      ]
+    }
+  ],
+  "noise_scores": [
+    {
+      "id": "party",
+      "said": "40 cupcakes for a coworker's retirement party",
+      "any": [
+        "cupcake",
+        "retirement"
+      ],
+      "matched": []
+    },
+    {
+      "id": "out_of_stock",
+      "said": "complained the Main Street store was out of avocados",
+      "any": [
+        "main street",
+        "out of avocado"
+      ],
+      "matched": []
+    },
+    {
+      "id": "guest",
+      "said": "gluten-free crackers for a visiting friend",
+      "any": [
+        "gluten-free",
+        "gluten free"
+      ],
+      "matched": []
+    },
+    {
+      "id": "health",
+      "said": "her doctor said her cholesterol is high (health data)",
+      "any": [
+        "cholesterol",
+        "doctor"
+      ],
+      "matched": []
+    },
+    {
+      "id": "store_hours",
+      "said": "asked what time the store closes",
+      "any": [
+        "closes",
+        "store hours"
+      ],
+      "matched": []
+    }
+  ],
+  "queries": [
+    {
+      "id": "brands",
+      "query": "What are this user's preferred grocery brands?",
+      "expect": [
+        "horizon",
+        "chobani",
+        "rao",
+        "dave",
+        "private selection",
+        "annie"
+      ],
+      "must_not": [],
+      "results": [
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.7424256595168688
+        },
+        {
+          "fact": "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock.",
+          "distance": 0.7793587872762179
+        },
+        {
+          "fact": "The user prefers family-size packages of Nature Valley granola bars.",
+          "distance": 0.7963248953336964
+        },
+        {
+          "fact": "The user prefers Horizon Organic 1-gallon whole milk, having switched from Organic Valley because it became too expensive.",
+          "distance": 0.8039127064140712
+        },
+        {
+          "fact": "The user prefers and regularly purchases Private Selection Breakfast Blend ground coffee.",
+          "distance": 0.80741878042011
+        }
+      ],
+      "expected_found": [
+        "horizon",
+        "chobani",
+        "private selection"
+      ],
+      "unwanted_found": [],
+      "latency_ms": [
+        224.89563800627366,
+        256.0652910033241,
+        241.099567967467,
+        256.84469303814694,
+        221.78624104708433
+      ]
+    },
+    {
+      "id": "milk",
+      "query": "Which milk brand does the user buy now?",
+      "expect": [
+        "horizon"
+      ],
+      "must_not": [],
+      "results": [
+        {
+          "fact": "The user prefers Horizon Organic 1-gallon whole milk, having switched from Organic Valley because it became too expensive.",
+          "distance": 0.7841759250498352
+        },
+        {
+          "fact": "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock.",
+          "distance": 0.8402153789761794
+        },
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.850819639910863
+        },
+        {
+          "fact": "The user prefers and regularly purchases Private Selection Breakfast Blend ground coffee.",
+          "distance": 0.854304597154278
+        },
+        {
+          "fact": "The user prefers heart-healthy breakfast options that are also appealing to children.",
+          "distance": 0.8561697400199864
+        }
+      ],
+      "expected_found": [
+        "horizon"
+      ],
+      "unwanted_found": [],
+      "latency_ms": [
+        266.35981700383127,
+        237.72067297250032,
+        224.58635200746357,
+        292.4487609998323,
+        210.92213899828494
+      ]
+    },
+    {
+      "id": "meals",
+      "query": "What kind of meals does the user plan?",
+      "expect": [
+        "vegetarian",
+        "protein"
+      ],
+      "must_not": [],
+      "results": [
+        {
+          "fact": "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+          "distance": 0.7821756220124108
+        },
+        {
+          "fact": "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers.",
+          "distance": 0.8208713625959025
+        },
+        {
+          "fact": "The user prefers vegetarian, high-protein dinners (such as lentil pasta and tofu stir-fry with firm tofu) and dislikes cilantro in recipes.",
+          "distance": 0.821347446611708
+        },
+        {
+          "fact": "The user prefers heart-healthy breakfast options that are also appealing to children.",
+          "distance": 0.8351001288860533
+        },
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.8397823577443152
+        }
+      ],
+      "expected_found": [
+        "vegetarian",
+        "protein"
+      ],
+      "unwanted_found": [],
+      "latency_ms": [
+        214.29384499788284,
+        277.4551460170187,
+        206.98913204250857,
+        222.87006699480116,
+        204.24403698416427
+      ]
+    },
+    {
+      "id": "budget",
+      "query": "How budget conscious is the user and where do they save money?",
+      "expect": [
+        "175",
+        "store brand",
+        "cheaper"
+      ],
+      "must_not": [],
+      "results": [
+        {
+          "fact": "The user is budget-conscious, looks for sales, digital coupons, and prefers purchasing budget-friendly store brands like Kroger, especially for household products like paper towels and dish soap.",
+          "distance": 0.7735404129148296
+        },
+        {
+          "fact": "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers.",
+          "distance": 0.8544800850147405
+        },
+        {
+          "fact": "The user aims to keep her weekly grocery budget around $175.",
+          "distance": 0.8598928798453065
+        },
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.8605933136602466
+        },
+        {
+          "fact": "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+          "distance": 0.9181851720340947
+        }
+      ],
+      "expected_found": [
+        "175",
+        "store brand"
+      ],
+      "unwanted_found": [],
+      "latency_ms": [
+        192.48051702743396,
+        173.3071850030683,
+        267.82714400906116,
+        186.87191500794142,
+        277.0408670185134
+      ]
+    },
+    {
+      "id": "avoid",
+      "query": "What should the assistant avoid or never substitute?",
+      "expect": [
+        "cilantro",
+        "kraft",
+        "white bread"
+      ],
+      "must_not": [],
+      "results": [
+        {
+          "fact": "The user prefers Chobani Greek yogurt and accepts Fage plain Greek yogurt as a substitute when Chobani is out of stock.",
+          "distance": 0.995116139300003
+        },
+        {
+          "fact": "The user prefers vegetarian, high-protein dinners (such as lentil pasta and tofu stir-fry with firm tofu) and dislikes cilantro in recipes.",
+          "distance": 0.9972770095575824
+        },
+        {
+          "fact": "The user prefers Dave's Killer Bread, specifically the 21 Whole Grains and Seeds variety, and does not accept white bread as a substitution for it.",
+          "distance": 1.0151299076851832
+        },
+        {
+          "fact": "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+          "distance": 1.0156886154205298
+        },
+        {
+          "fact": "The user prefers and regularly purchases Private Selection Breakfast Blend ground coffee.",
+          "distance": 1.0159085978184252
+        }
+      ],
+      "expected_found": [
+        "cilantro",
+        "white bread"
+      ],
+      "unwanted_found": [],
+      "latency_ms": [
+        206.62774902302772,
+        220.59947199886665,
+        250.92613097513095,
+        212.30236697010696,
+        161.7446790332906
+      ]
+    },
+    {
+      "id": "health",
+      "query": "Does the user have any health conditions?",
+      "expect": [],
+      "must_not": [
+        "cholesterol"
+      ],
+      "results": [
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.9179939428890085
+        },
+        {
+          "fact": "The user prefers heart-healthy breakfast options that are also appealing to children.",
+          "distance": 0.929571513145413
+        },
+        {
+          "fact": "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+          "distance": 0.9364422234891748
+        },
+        {
+          "fact": "The user prefers family-size packages of Nature Valley granola bars.",
+          "distance": 0.9371816094478269
+        },
+        {
+          "fact": "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers.",
+          "distance": 0.9431052171618061
+        }
+      ],
+      "expected_found": [],
+      "unwanted_found": [],
+      "latency_ms": [
+        180.71021197829396,
+        226.27229103818536,
+        192.32833897694945,
+        190.59603597270325,
+        190.07950596278533
+      ]
+    },
+    {
+      "id": "party",
+      "query": "Is the user planning a party?",
+      "expect": [],
+      "must_not": [
+        "cupcake",
+        "retirement"
+      ],
+      "results": [
+        {
+          "fact": "The user routinely does a weekly grocery order for Sunday pickup consisting of staples like eggs, bananas, spinach, milk, yogurt, and bread.",
+          "distance": 0.9822611440296799
+        },
+        {
+          "fact": "The user prefers family-size packages of Nature Valley granola bars.",
+          "distance": 0.9861600827129537
+        },
+        {
+          "fact": "The user shops for their family household of four people, which includes two children aged 8 and 11, and buys groceries for their school lunches, snacks, and lunchbox fillers.",
+          "distance": 0.9946315130500173
+        },
+        {
+          "fact": "The user aims to keep her weekly grocery budget around $175.",
+          "distance": 0.9948891630213061
+        },
+        {
+          "fact": "The user prefers organic options for berries and leafy greens, but generally prefers conventional options for other grocery items.",
+          "distance": 0.9957890063094038
+        }
+      ],
+      "expected_found": [],
+      "unwanted_found": [],
+      "latency_ms": [
+        290.3468000004068,
+        192.04659899696708,
+        174.7373880352825,
+        193.4972070157528,
+        179.9347929772921
+      ]
+    }
+  ]
+}

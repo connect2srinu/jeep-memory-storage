@@ -1,0 +1,1048 @@
+[
+  {
+    "session": 1,
+    "beats": [
+      [
+        "IMPLICIT",
+        "assistant offers milk options; she picks Organic Valley whole milk"
+      ],
+      [
+        "IMPLICIT",
+        "adds eggs, bananas and spinach"
+      ],
+      [
+        "IMPLICIT",
+        "mentions it's for the kids' breakfast"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi, can I start my pickup order for today?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Absolutely. What kind of milk are you looking for? We have Kroger brand, Organic Valley, or Fairlife whole milk."
+      },
+      {
+        "role": "user",
+        "text": "Organic Valley"
+      },
+      {
+        "role": "model",
+        "text": "Great, one half-gallon of Organic Valley Whole Milk added to your cart. What else can I help you find?"
+      },
+      {
+        "role": "user",
+        "text": "Eggs, bananas, and some spinach please"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Adding a dozen large eggs, one bunch of bananas, and a 10oz bag of fresh spinach. Anything else for those?"
+      },
+      {
+        "role": "user",
+        "text": "Just for the kids' breakfast. Can we do 2 bunches of bananas?"
+      },
+      {
+        "role": "model",
+        "text": "No problem, two bunches of bananas it is for the kids' breakfast! Anything else you need for their morning?"
+      },
+      {
+        "role": "user",
+        "text": "That's good for now. How much is the spinach?"
+      },
+      {
+        "role": "model",
+        "text": "The 10oz bag of fresh spinach is $2.99. Would you like to add anything else or are you ready to review your cart?"
+      },
+      {
+        "role": "user",
+        "text": "All good for now, thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're all set! Your cart includes Organic Valley Whole Milk, 1 dozen large eggs, 2 bunches of bananas, and a 10oz bag of spinach. I'll send you a link to review and confirm your pickup time."
+      }
+    ]
+  },
+  {
+    "session": 2,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says she prefers Rao's pasta sauce even though it costs more"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey can u add pasta sauce? i like rao's even if it's more expensive"
+      },
+      {
+        "role": "model",
+        "text": "No problem, Maya! I've added Rao's Homemade Marinara Sauce to your cart. Anything else for dinner?"
+      },
+      {
+        "role": "user",
+        "text": "and some milk. what kind do u have?"
+      },
+      {
+        "role": "model",
+        "text": "We have several options: Kroger brand 2% milk, Organic Valley whole milk, or Horizon Organic 1% milk. Which would you prefer?"
+      },
+      {
+        "role": "user",
+        "text": "the Organic Valley one"
+      },
+      {
+        "role": "model",
+        "text": "Got it! One half-gallon of Organic Valley Whole Milk has been added to your cart."
+      },
+      {
+        "role": "user",
+        "text": "oh did u see that new movie trailer for the kids?"
+      },
+      {
+        "role": "model",
+        "text": "I'm not able to browse movie trailers, but I can certainly help with your grocery list! Is there anything else I can add or adjust for you?"
+      },
+      {
+        "role": "user",
+        "text": "ok add 2 lbs of bananas please"
+      },
+      {
+        "role": "model",
+        "text": "Two pounds of fresh bananas are now in your cart. Is there anything else you need today?"
+      },
+      {
+        "role": "user",
+        "text": "that's all for now. can u send me the cart total?"
+      },
+      {
+        "role": "model",
+        "text": "Your current cart total is $48.75. Your pickup is scheduled for tomorrow at 3 PM. Let me know if you need anything else!"
+      }
+    ]
+  },
+  {
+    "session": 3,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says they're trying to eat high-protein meals on weekdays"
+      ],
+      [
+        "EXPLICIT",
+        "asks for no cilantro, she can't stand it"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, trying to do more high protein meals this week for dinners. Any ideas?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Great goal. For high-protein dinners, we have some good options. How about starting with some lean ground beef or chicken breasts?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, and no cilantro for anything please. I can't stand it."
+      },
+      {
+        "role": "model",
+        "text": "Understood, Maya! I've made a note: absolutely no cilantro in any of your selections. We'll make sure to avoid it."
+      },
+      {
+        "role": "user",
+        "text": "Ground turkey."
+      },
+      {
+        "role": "model",
+        "text": "Got it, organic ground turkey added to your cart. Anything else for your main ingredients?"
+      },
+      {
+        "role": "user",
+        "text": "Need some apples too. The red ones."
+      },
+      {
+        "role": "model",
+        "text": "Alright, I'll add some red apples. How many pounds would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Can you add 2 lbs of that?"
+      },
+      {
+        "role": "model",
+        "text": "Two pounds of red apples added to your cart. Is there anything else I can help you find today, or are you ready to review your order?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good for now. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is ready for review. Let me know if you need anything else before pickup."
+      }
+    ]
+  },
+  {
+    "session": 4,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says Fridays they normally do vegetarian dinners"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey can u start my order for friday pickup? we usually do vegetarian dinners on fridays"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Absolutely, starting your order for Friday pickup. What's the first item for your vegetarian night?"
+      },
+      {
+        "role": "user",
+        "text": "need some veggie burgers"
+      },
+      {
+        "role": "model",
+        "text": "Okay, we have the Kroger brand Black Bean Burgers or MorningStar Farms Veggie Burgers. Which one would you like?"
+      },
+      {
+        "role": "user",
+        "text": "morningstar farms"
+      },
+      {
+        "role": "model",
+        "text": "MorningStar Farms Veggie Burgers added. How many packs?"
+      },
+      {
+        "role": "user",
+        "text": "just 1 pack. oh and my son lost his lunchbox again lol"
+      },
+      {
+        "role": "model",
+        "text": "Got it, 1 pack of MorningStar Farms. Oh no, that's a bummer! Hope it turns up."
+      },
+      {
+        "role": "user",
+        "text": "add 2 gallons of 2% milk"
+      },
+      {
+        "role": "model",
+        "text": "Two gallons of 2% milk are in your cart."
+      },
+      {
+        "role": "user",
+        "text": "ok thanks. what else do i have in there?"
+      },
+      {
+        "role": "model",
+        "text": "You've got 1 pack of MorningStar Farms Veggie Burgers and 2 gallons of 2% milk. Anything else for your family today?"
+      }
+    ]
+  },
+  {
+    "session": 5,
+    "beats": [
+      [
+        "EXPLICIT",
+        "wants Chobani Greek yogurt, but never the strawberry flavor"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi, can you add Chobani Greek yogurt? Just make sure it's not strawberry, my kids don't like it."
+      },
+      {
+        "role": "model",
+        "text": "Got it, Chobani Greek yogurt, no strawberry. What flavors would you like?"
+      },
+      {
+        "role": "user",
+        "text": "What flavors are available today?"
+      },
+      {
+        "role": "model",
+        "text": "We have Chobani Greek in vanilla, plain, blueberry, and peach right now."
+      },
+      {
+        "role": "user",
+        "text": "Vanilla and blueberry."
+      },
+      {
+        "role": "model",
+        "text": "Adding Chobani Greek vanilla and blueberry. How many of each?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, and is there a sale on paper towels?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, Bounty paper towels are buy one get one 50% off this week. Would you like to add some?"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, add 2 of those."
+      },
+      {
+        "role": "model",
+        "text": "Okay, two Bounty paper towel 6-packs added to your cart. Anything else for your order?"
+      },
+      {
+        "role": "user",
+        "text": "No, that's all for today. Can you send me the total and confirm pickup for 4 PM?"
+      },
+      {
+        "role": "model",
+        "text": "Your current total is $124.50. Your pickup is confirmed for today at 4:00 PM. Thanks for shopping with Kroger!"
+      }
+    ]
+  },
+  {
+    "session": 6,
+    "beats": [
+      [
+        "IMPLICIT",
+        "assistant offers name-brand and Kroger brand paper towels and dish soap; she picks the Kroger brand both times"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? First, for paper towels, would you like Bounty 6-count for $16.99 or Kroger Home Sense 6-count for $10.49?"
+      },
+      {
+        "role": "user",
+        "text": "Kroger brand please"
+      },
+      {
+        "role": "model",
+        "text": "Got it. How about dish soap? Dawn Ultra 28oz for $4.99 or Kroger brand dish soap 28oz for $2.79?"
+      },
+      {
+        "role": "user",
+        "text": "The Kroger one"
+      },
+      {
+        "role": "model",
+        "text": "Okay, both Kroger brand items added. What's next on your list?"
+      },
+      {
+        "role": "user",
+        "text": "Need some good coffee for my husband, he's really particular about it."
+      },
+      {
+        "role": "model",
+        "text": "I understand! We have a few premium options. How about Peet's Major Dickason's Blend or Starbucks Pike Place? Or are you looking for something else?"
+      },
+      {
+        "role": "user",
+        "text": "Is the store super busy today btw?"
+      },
+      {
+        "role": "model",
+        "text": "It's a moderate day, not too bad! Now, back to your list. Anything else I can add?"
+      },
+      {
+        "role": "user",
+        "text": "Can you add 2 gallons of 2% milk?"
+      },
+      {
+        "role": "model",
+        "text": "Absolutely, 2 gallons of 2% milk added. Your current total is $55.23. Anything else or are we good to finalize for pickup?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good! Thanks!"
+      }
+    ]
+  },
+  {
+    "session": 7,
+    "beats": [
+      [
+        "IMPLICIT",
+        "assistant offers several breads; she picks Dave's Killer Bread"
+      ],
+      [
+        "IMPLICIT",
+        "reorders eggs, bananas and spinach"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your pickup order? We have some great bread options today: Kroger 100% Whole Wheat, Dave's Killer Bread 21 Whole Grains, or Pepperidge Farm Farmhouse Hearty White. Which one would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Dave's Killer Bread"
+      },
+      {
+        "role": "model",
+        "text": "Got it! Adding Dave's Killer Bread to your cart. I see you often buy large eggs, bananas, and a bag of spinach. Should I add those to your cart again?"
+      },
+      {
+        "role": "user",
+        "text": "yes to all"
+      },
+      {
+        "role": "model",
+        "text": "Great! How many dozen eggs would you like? And how many bunches of bananas and bags of spinach?"
+      },
+      {
+        "role": "user",
+        "text": "2 dozen eggs, 3 bananas, 1 spinach"
+      },
+      {
+        "role": "model",
+        "text": "Okay, that's 2 dozen large eggs, 3 bananas, and 1 bag of spinach added. Your cart now includes Dave's Killer Bread, 2 dozen eggs, 3 bananas, and 1 bag of spinach. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "milk"
+      },
+      {
+        "role": "model",
+        "text": "Sure, what kind of milk and what size? We have 2%, whole, skim, and almond milk."
+      },
+      {
+        "role": "user",
+        "text": "2% gallon"
+      },
+      {
+        "role": "model",
+        "text": "Adding one gallon of 2% milk to your cart. Your current total is estimated at $35.49. Would you like to review your cart or are you ready to checkout?"
+      },
+      {
+        "role": "user",
+        "text": "looks good thanks"
+      }
+    ]
+  },
+  {
+    "session": 8,
+    "beats": [
+      [
+        "NOISE",
+        "orders 40 cupcakes for a coworker's retirement on Friday"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, can I add 40 cupcakes for Friday? It's for a retirement party."
+      },
+      {
+        "role": "model",
+        "text": "Absolutely, Maya! We can definitely add 40 cupcakes for you. What flavor and frosting would you like, and what time on Friday would you prefer to pick them up?"
+      },
+      {
+        "role": "user",
+        "text": "Vanilla with chocolate frosting. Pickup around 2pm on Friday."
+      },
+      {
+        "role": "model",
+        "text": "Got it. 40 vanilla cupcakes with chocolate frosting added for Friday pickup at 2 PM. Anything else for your order today?"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, need some milk. Two gallons of 2%."
+      },
+      {
+        "role": "model",
+        "text": "Okay, two gallons of 2% milk added to your cart. What's next on your list?"
+      },
+      {
+        "role": "user",
+        "text": "And a big box of Frosted Flakes."
+      },
+      {
+        "role": "model",
+        "text": "Sure, one large box of Frosted Flakes added. Anything else for the family this week?"
+      },
+      {
+        "role": "user",
+        "text": "That's it for now. Can you confirm everything?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly! Your current order includes: 40 vanilla cupcakes (chocolate frosting, Friday 2 PM pickup), 2 gallons of 2% milk, and 1 large box of Frosted Flakes. Does that look correct?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good! Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is confirmed. We'll send a notification when it's ready for pickup. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 9,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says her son is allergic to tree nuts, so no almonds or cashews in snacks"
+      ],
+      [
+        "IMPLICIT",
+        "picks the family-size bags of pretzels and crackers"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Starting my order. Quick thing, my son has a tree nut allergy, so no almonds or cashews in any snacks please."
+      },
+      {
+        "role": "model",
+        "text": "Understood, Maya. I've made a note to avoid all snacks containing almonds or cashews for your order. Thanks for letting me know!"
+      },
+      {
+        "role": "model",
+        "text": "Great. How about some pretzels for the kids? We have the Kroger brand Family Size Pretzel Twists or the smaller bags."
+      },
+      {
+        "role": "user",
+        "text": "Family size pretzels, yes."
+      },
+      {
+        "role": "model",
+        "text": "Perfect. And for crackers, would you like the Keebler Club Crackers Family Pack or the regular box?"
+      },
+      {
+        "role": "user",
+        "text": "Family pack crackers too."
+      },
+      {
+        "role": "model",
+        "text": "Got it. I've added both to your cart. Anything else for snacks or lunchboxes?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, did you guys get those new berry yogurts in? My daughter asked me to check."
+      },
+      {
+        "role": "model",
+        "text": "Yes, we did! We have the Chobani Mixed Berry Greek Yogurt 4-pack. Shall I add one to your cart?"
+      },
+      {
+        "role": "user",
+        "text": "Yep, add that. And 2 gallons of 2% milk please."
+      },
+      {
+        "role": "model",
+        "text": "Consider it done. Your cart now includes the family size pretzels and crackers, the berry yogurt, and 2 gallons of 2% milk. Anything else for today, or are you ready to finalize?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good for now, thanks! I'll check out."
+      }
+    ]
+  },
+  {
+    "session": 10,
+    "beats": [
+      [
+        "TRANSACTION",
+        "reschedules today's pickup to 5 pm"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hi can i change my pickup time for today?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Yes, I can help with that. What time would you like to reschedule your pickup for today?"
+      },
+      {
+        "role": "user",
+        "text": "to 5 pm please"
+      },
+      {
+        "role": "model",
+        "text": "Okay, I've updated your pickup time to 5:00 PM today. Is there anything else I can assist you with?"
+      },
+      {
+        "role": "user",
+        "text": "can you add 2 gallons of milk?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly. Which type of milk would you prefer? We have Kroger brand 2% Reduced Fat Milk, Organic Valley Whole Milk, or Fairlife Skim Milk."
+      },
+      {
+        "role": "user",
+        "text": "the Organic Valley"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Two gallons of Organic Valley Whole Milk have been added to your cart. Your current total is $112.50."
+      },
+      {
+        "role": "user",
+        "text": "do you have those big bags of pretzels?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, we do! Are you looking for the Snyder's of Hanover Family Size Pretzels, or another brand?"
+      },
+      {
+        "role": "user",
+        "text": "Snyder's is good. can you just confirm my order total?"
+      },
+      {
+        "role": "model",
+        "text": "Okay, I've added one Snyder's of Hanover Family Size Pretzels to your cart. Your updated total is $116.99. Would you like me to send you a final summary of your cart?"
+      }
+    ]
+  },
+  {
+    "session": 11,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says she tries to keep the weekly order around $175"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hi! Starting my pickup order. Hoping to keep it around $175 this week for the family."
+      },
+      {
+        "role": "model",
+        "text": "Welcome back, Maya! I can definitely help you track your budget. What's the first item on your list?"
+      },
+      {
+        "role": "user",
+        "text": "Ok, need milk. Two gallons of 2%."
+      },
+      {
+        "role": "model",
+        "text": "Got it. Adding 2 gallons of Kroger brand 2% milk to your cart. Anything else for dairy?"
+      },
+      {
+        "role": "user",
+        "text": "The Organic Valley."
+      },
+      {
+        "role": "model",
+        "text": "Perfect. For eggs, would you like Kroger large white eggs for $2.99 or Organic Valley large brown eggs for $4.79?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, can you check if the fresh strawberries look good today? Sometimes they're kinda mushy."
+      },
+      {
+        "role": "model",
+        "text": "Organic Valley eggs added. And yes, I'll make a note for our shopper to pick the freshest strawberries for you. What's next?"
+      },
+      {
+        "role": "user",
+        "text": "Can you tell me my current total and what's in the cart so far?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly! Your current total is $48.50. So far you have 2 gallons of Kroger 2% milk, 1 dozen Organic Valley large brown eggs, and a request for fresh strawberries. Is there anything else I can add or adjust?"
+      }
+    ]
+  },
+  {
+    "session": 12,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says organic matters only for berries and leafy greens; conventional is fine otherwise"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, just a heads up for my order. Only organic for berries and leafy greens. Everything else is fine conventional."
+      },
+      {
+        "role": "model",
+        "text": "Got it, Maya! Organic for berries and leafy greens. I've made a note of that. What's first on your list today? For whole milk, we have Kroger brand, Organic Valley, and Fairlife. Which would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Organic Valley please."
+      },
+      {
+        "role": "model",
+        "text": "Adding Organic Valley Whole Milk to your cart. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, is that new cereal out yet? The cinnamon toast crunch with extra swirls?"
+      },
+      {
+        "role": "model",
+        "text": "Let me check... Yes, it looks like the Cinnamon Toast Crunch with Extra Swirls is in stock! Would you like to add a box?"
+      },
+      {
+        "role": "user",
+        "text": "Add 2 boxes of that cereal then."
+      },
+      {
+        "role": "model",
+        "text": "Two boxes of Cinnamon Toast Crunch with Extra Swirls added to your cart. Your current total is $45.20. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "Just need 3 lbs of bananas and that's it for now. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "Adding 3 lbs of bananas. So far, your cart includes Organic Valley Whole Milk, 2 boxes of Cinnamon Toast Crunch, and 3 lbs of bananas. Does that sound right, or anything else before I finalize this part of the order?"
+      }
+    ]
+  },
+  {
+    "session": 13,
+    "beats": [
+      [
+        "IMPLICIT",
+        "picks Organic Valley milk again"
+      ],
+      [
+        "IMPLICIT",
+        "picks Dave's Killer Bread again"
+      ],
+      [
+        "IMPLICIT",
+        "mentions 'the four of us' in passing"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey can you add some milk to my cart?"
+      },
+      {
+        "role": "model",
+        "text": "Sure! We have Kroger brand whole milk, Organic Valley 2% milk, and Lactaid fat-free milk. Which would you prefer?"
+      },
+      {
+        "role": "user",
+        "text": "the Organic Valley one please"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Organic Valley 2% milk added to your cart. What's next?"
+      },
+      {
+        "role": "user",
+        "text": "also need some bread"
+      },
+      {
+        "role": "model",
+        "text": "Okay, for bread we have Dave's Killer Bread 21 Whole Grains, Wonder Classic White, or Kroger 100% Whole Wheat. Which one?"
+      },
+      {
+        "role": "user",
+        "text": "Dave's Killer Bread"
+      },
+      {
+        "role": "model",
+        "text": "Dave's Killer Bread 21 Whole Grains added. Anything else for your family?"
+      },
+      {
+        "role": "user",
+        "text": "and some ground beef for tacos for the four of us tonight"
+      },
+      {
+        "role": "model",
+        "text": "Sounds delicious! How much ground beef would you like? A 1 lb package or a 2 lb package?"
+      },
+      {
+        "role": "user",
+        "text": "1.5 lbs if you have it, otherwise 2 lbs is fine"
+      },
+      {
+        "role": "model",
+        "text": "We'll add a 2 lb package of ground beef for you. It's the closest available. Is there anything else I can help with?"
+      },
+      {
+        "role": "user",
+        "text": "just some bananas and a big bag of tortilla chips"
+      },
+      {
+        "role": "model",
+        "text": "Okay, adding a bunch of bananas and a large bag of Kroger brand tortilla chips. Your cart total is now $48.75. Ready to check out?"
+      }
+    ]
+  },
+  {
+    "session": 14,
+    "beats": [
+      [
+        "NOISE",
+        "complains the Main Street store was out of avocados and asks when it closes"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, the Main Street store was out of avocados last time, super annoying. When do they close tonight?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! I'm sorry to hear about the avocados. The Main Street Kroger closes at 10 PM tonight. Is there anything I can help you add to your pickup order?"
+      },
+      {
+        "role": "user",
+        "text": "Ok thanks. Can you add 2 gallons of milk? Whole milk."
+      },
+      {
+        "role": "model",
+        "text": "Absolutely. I've added 2 gallons of Kroger Brand Whole Milk to your cart. Is there anything else you need today?"
+      },
+      {
+        "role": "user",
+        "text": "And 3 boxes of mac and cheese, the blue box kind."
+      },
+      {
+        "role": "model",
+        "text": "Got it. Three boxes of Kraft Macaroni & Cheese, Original Flavor, have been added. Your current subtotal is now $48.75. Would you like to review your cart?"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, just a quick look."
+      },
+      {
+        "role": "model",
+        "text": "Okay, your cart now contains: 2 Gallons Kroger Whole Milk, 3 Boxes Kraft Mac & Cheese, a dozen large eggs, and a family pack of chicken breasts. Does that all look correct?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good! Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is confirmed and ready for pickup. We'll send you a text when it's ready. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 15,
+    "beats": [
+      [
+        "IMPLICIT",
+        "assistant offers trash bags and cleaning spray; she picks the Kroger brand"
+      ],
+      [
+        "IMPLICIT",
+        "picks family-size granola bars"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your pickup order? Need any household basics? We have Kroger brand trash bags and all-purpose cleaner, or Clorox."
+      },
+      {
+        "role": "user",
+        "text": "Kroger brand for both pls"
+      },
+      {
+        "role": "model",
+        "text": "Got it! Kroger brand trash bags and cleaner added. For snacks, how about family-size granola bars? Nature Valley or Quaker?"
+      },
+      {
+        "role": "user",
+        "text": "Nature Valley family size"
+      },
+      {
+        "role": "model",
+        "text": "Perfect, Nature Valley added. What else is on your list? I can help find specific items."
+      },
+      {
+        "role": "user",
+        "text": "Yes, I need organic apples for the kids' lunches."
+      },
+      {
+        "role": "model",
+        "text": "Organic Gala or Honeycrisp apples? Also, just a heads up, the store is a bit busy today."
+      },
+      {
+        "role": "user",
+        "text": "Gala is fine. Oh, and can you add a bag of ice?"
+      },
+      {
+        "role": "model",
+        "text": "Got it, organic Gala apples and a bag of ice added. Your cart total is $78.50. Anything else before I finalize for pickup?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good, thanks!"
+      }
+    ]
+  },
+  {
+    "session": 16,
+    "beats": [
+      [
+        "TRANSACTION",
+        "asks the price of a rotisserie chicken and adds one"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "how much is the rotisserie chicken?"
+      },
+      {
+        "role": "model",
+        "text": "Our Kroger brand rotisserie chickens are $7.99 each. Would you like to add one to your cart?"
+      },
+      {
+        "role": "user",
+        "text": "yes please"
+      },
+      {
+        "role": "model",
+        "text": "One rotisserie chicken has been added to your cart. Is there anything else I can help you with?"
+      },
+      {
+        "role": "user",
+        "text": "and 2 bags of frozen peas"
+      },
+      {
+        "role": "model",
+        "text": "Okay, 2 bags of Kroger frozen peas have been added. Anything else for your order?"
+      },
+      {
+        "role": "user",
+        "text": "just checking if i have milk in my cart"
+      },
+      {
+        "role": "model",
+        "text": "Yes, you currently have one gallon of Kroger 2% milk in your cart."
+      },
+      {
+        "role": "user",
+        "text": "ok thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome! Your cart is ready for review when you are. Let me know if you need anything else."
+      }
+    ]
+  },
+  {
+    "session": 17,
+    "beats": [
+      [
+        "IMPLICIT",
+        "weekly reorder: eggs, bananas, spinach, Organic Valley milk, Dave's Killer Bread, Chobani yogurt"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hi can I start my pickup order for this week?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Yes, absolutely. I see you often reorder eggs, bananas, spinach, milk, bread, and yogurt. Would you like to add those to your cart?"
+      },
+      {
+        "role": "user",
+        "text": "yep those sound good"
+      },
+      {
+        "role": "model",
+        "text": "Great! I've added 1 dozen large eggs, 1 bunch of bananas, and 1 bag of spinach. For milk, bread, and yogurt, do you want the Organic Valley whole milk, Dave's Killer Bread 21 Whole Grains, and Chobani Greek yogurt?"
+      },
+      {
+        "role": "user",
+        "text": "the Organic Valley and Dave's. for yogurt can I get 4 of the vanilla chobani?"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Organic Valley whole milk and Dave's Killer Bread added. And 4 Chobani vanilla yogurts. Anything else for your family today?"
+      },
+      {
+        "role": "user",
+        "text": "oh yeah can you add some ground beef? for tacos"
+      },
+      {
+        "role": "model",
+        "text": "Sure! What kind of ground beef and how much? Like 80/20 or 90/10, and 1lb or 2lbs?"
+      },
+      {
+        "role": "user",
+        "text": "80/20 1lb please"
+      },
+      {
+        "role": "model",
+        "text": "Okay, 1lb of 80/20 ground beef added. Your cart total is now $48.75. Ready to review and schedule your pickup, or anything else?"
+      }
+    ]
+  },
+  {
+    "session": 18,
+    "beats": [
+      [
+        "TRANSACTION",
+        "asks for the status of last week's pickup order"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey what happened with my order from last week? the one for pickup"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Checking on your last week's pickup order now. Was that order #K123456 from October 26th?"
+      },
+      {
+        "role": "user",
+        "text": "yeah that one. and can you add 2 gallons of milk to my cart?"
+      },
+      {
+        "role": "model",
+        "text": "Okay, order #K123456 was successfully picked up on October 26th at 4:15 PM. Two gallons of Kroger brand 2% milk added to your current cart."
+      },
+      {
+        "role": "user",
+        "text": "thanks. also a big bag of apples"
+      },
+      {
+        "role": "model",
+        "text": "You got it. Adding one 3lb bag of Gala apples. Anything else for your cart?"
+      },
+      {
+        "role": "user",
+        "text": "my son wants those dinosaur chicken nuggets. the big box"
+      },
+      {
+        "role": "model",
+        "text": "Adding one 24oz box of Tyson Fun Nuggets. Your current cart total is $78.50."
+      },
+      {
+        "role": "user",
+        "text": "perfect thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your pickup order is all set for review. Have a great day!"
+      }
+    ]
+  }
+]

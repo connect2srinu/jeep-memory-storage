@@ -1,0 +1,1057 @@
+{
+  "memory_bank": "projects/931930780809/locations/us-central1/reasoningEngines/4879033919988563968",
+  "scope": {
+    "user_id": "poc-rounds-maya-1790949738"
+  },
+  "extraction_model": "gemini-3.5-flash",
+  "answer_model": "gemini-2.5-flash",
+  "top_k": 8,
+  "started_at": "2026-10-02T14:02:18Z",
+  "baseline": [],
+  "rounds": [
+    {
+      "round": 1,
+      "sessions": 18,
+      "customer_turns": 102,
+      "conversation_tokens": 4669,
+      "extraction_window": [
+        "2026-10-02T14:02:18Z",
+        "2026-10-02T14:40:15Z"
+      ],
+      "extraction_seconds": [
+        6.883298341999762,
+        534.8499932090053,
+        28.603928344033193,
+        37.47583529801341,
+        137.0838425999973,
+        47.19367330399109,
+        260.36999812797876,
+        135.70385717600584,
+        199.43712575396057,
+        89.50385938800173,
+        95.7649527680478,
+        12.855180885002483,
+        134.17139140696963,
+        47.41509990498889,
+        134.08709778398043,
+        246.6824113400071,
+        114.67312356102047,
+        13.732305703975726
+      ],
+      "extraction_retries": [
+        2
+      ],
+      "generate_calls": 18,
+      "facts": [
+        {
+          "fact": "The user prefers Kraft brand Macaroni & Cheese, specifically referring to it as \"the blue box kind\".",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+          "topics": [
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user aims to keep their weekly grocery budget around $175.",
+          "topics": [
+            "budget_and_value"
+          ]
+        },
+        {
+          "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+          "topics": [
+            "product_restrictions_and_dislikes",
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+          "topics": [
+            "product_restrictions_and_dislikes",
+            "household"
+          ]
+        },
+        {
+          "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Dave's Killer Bread 21 Whole Grains.",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+          "topics": [
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options.",
+          "topics": [
+            "organic_and_quality",
+            "household"
+          ]
+        },
+        {
+          "fact": "The user prefers Kroger store brand for household essentials like paper towels, dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+          "topics": [
+            "brand_preferences",
+            "budget_and_value"
+          ]
+        },
+        {
+          "fact": "The user prefers Chobani brand Greek yogurt, specifically vanilla, and typically purchases it in a quantity of four.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user's kids dislike strawberry-flavored yogurt.",
+          "topics": [
+            "product_restrictions_and_dislikes"
+          ]
+        },
+        {
+          "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user prefers high-protein meals for dinners, but usually prepares vegetarian dinners on Fridays.",
+          "topics": [
+            "diet_and_meal_patterns"
+          ]
+        },
+        {
+          "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+          "topics": [
+            "product_restrictions_and_dislikes"
+          ]
+        },
+        {
+          "fact": "The user prefers Rao's brand pasta sauce, even though it is more expensive.",
+          "topics": [
+            "brand_preferences",
+            "budget_and_value"
+          ]
+        },
+        {
+          "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+          "topics": [
+            "brand_preferences",
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user has a son and a daughter, shops for a household of four people, and shops for their children's lunches, preferring to buy her son the large 24oz box of Tyson Fun Nuggets (dinosaur chicken nuggets).",
+          "topics": [
+            "household",
+            "recurring_purchases",
+            "brand_preferences"
+          ]
+        }
+      ],
+      "memory_tokens": 448,
+      "queries": [
+        {
+          "id": "diet",
+          "query": "What do you know about this user's dietary preferences?",
+          "retrieved": [
+            {
+              "fact": "The user prefers high-protein meals for dinners, but usually prepares vegetarian dinners on Fridays.",
+              "distance": 0.755175692850441
+            },
+            {
+              "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+              "distance": 0.79318700333113
+            },
+            {
+              "fact": "The user prefers Chobani brand Greek yogurt, specifically vanilla, and typically purchases it in a quantity of four.",
+              "distance": 0.794213731724752
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.8147982591053301
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.8238498892877867
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+              "distance": 0.8360643736202408
+            },
+            {
+              "fact": "The user has a son and a daughter, shops for a household of four people, and shops for their children's lunches, preferring to buy her son the large 24oz box of Tyson Fun Nuggets (dinosaur chicken nuggets).",
+              "distance": 0.8547457771029593
+            },
+            {
+              "fact": "The user prefers Kraft brand Macaroni & Cheese, specifically referring to it as \"the blue box kind\".",
+              "distance": 0.8570701903239709
+            }
+          ],
+          "latency_ms": 272.347221034579,
+          "answer": "The user prefers high-protein meals for dinners, and vegetarian dinners on Fridays, including MorningStar Farms veggie burgers. They prefer organic for berries, leafy greens, and Gala apples, and conventional for other items. They consume dairy (Chobani vanilla Greek yogurt, Organic Valley whole milk and 2% milk) and eggs (Organic Valley). They also consume Kellogg's Frosted Flakes cereal and Kraft Macaroni & Cheese.",
+          "answer_input_tokens": 256,
+          "answer_output_tokens": 1585,
+          "expected": [
+            "protein",
+            "vegetarian"
+          ],
+          "expected_found": [
+            "protein",
+            "vegetarian"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "brands",
+          "query": "What are this user's preferred grocery brands?",
+          "retrieved": [
+            {
+              "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+              "distance": 0.7261942268530824
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.7529852978941601
+            },
+            {
+              "fact": "The user prefers Chobani brand Greek yogurt, specifically vanilla, and typically purchases it in a quantity of four.",
+              "distance": 0.768520524115118
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.7751501368639341
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.7797566828488739
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels, dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.7878935057814835
+            },
+            {
+              "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+              "distance": 0.7898412204479308
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+              "distance": 0.8094002944351917
+            }
+          ],
+          "latency_ms": 475.30931601068005,
+          "answer": "Organic Valley, Chobani, Kellogg's, Snyder's of Hanover, Nature Valley, Kroger store brand, MorningStar Farms.",
+          "answer_input_tokens": 275,
+          "answer_output_tokens": 296,
+          "expected": [
+            "rao",
+            "chobani",
+            "organic valley",
+            "dave"
+          ],
+          "expected_found": [
+            "chobani",
+            "organic valley"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "yogurt",
+          "query": "What yogurt brand should the shopping assistant recommend?",
+          "retrieved": [
+            {
+              "fact": "The user prefers Chobani brand Greek yogurt, specifically vanilla, and typically purchases it in a quantity of four.",
+              "distance": 0.7255470809697993
+            },
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.8451532421880155
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+              "distance": 0.8625669329006724
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+              "distance": 0.875924099272918
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.8887039011120499
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.895947097977054
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels, dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.9109694486744063
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.9113619435523169
+            }
+          ],
+          "latency_ms": 810.6280160136521,
+          "answer": "Chobani.",
+          "answer_input_tokens": 275,
+          "answer_output_tokens": 148,
+          "expected": [
+            "chobani"
+          ],
+          "expected_found": [
+            "chobani"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "meal_plan",
+          "query": "What should I consider when creating a weekly meal plan?",
+          "retrieved": [
+            {
+              "fact": "The user prefers high-protein meals for dinners, but usually prepares vegetarian dinners on Fridays.",
+              "distance": 0.899085532626955
+            },
+            {
+              "fact": "The user aims to keep their weekly grocery budget around $175.",
+              "distance": 0.9479664206110735
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+              "distance": 0.979977305986426
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 1.0152538501710646
+            },
+            {
+              "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+              "distance": 1.0244721286197715
+            },
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 1.052197661026467
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+              "distance": 1.0524766709195483
+            },
+            {
+              "fact": "The user prefers Dave's Killer Bread 21 Whole Grains.",
+              "distance": 1.0597801176571355
+            }
+          ],
+          "latency_ms": 268.4412379749119,
+          "answer": "Consider:\n*   High-protein dinners (vegetarian on Fridays).\n*   A weekly grocery budget around $175.\n*   Incorporating large eggs, bananas, spinach, milk, bread, and yogurt.\n*   Organic berries, leafy greens, and Gala apples; conventional for other produce.\n*   Avoiding cilantro.\n*   Avoiding almonds and cashews due to a tree nut allergy.\n*   Using Organic Valley brand for dairy (whole milk, 2% milk in two-gallon quantities) and eggs.\n*   Using Dave's Killer Bread 21 Whole Grains.",
+          "answer_input_tokens": 231,
+          "answer_output_tokens": 574,
+          "expected": [
+            "protein",
+            "cilantro",
+            "nut"
+          ],
+          "expected_found": [
+            "protein",
+            "cilantro",
+            "nut"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "avoid",
+          "query": "What products should I avoid recommending?",
+          "retrieved": [
+            {
+              "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options.",
+              "distance": 0.9464853120642545
+            },
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.9604533767028388
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for dairy products and eggs, particularly whole milk, 2% milk (regularly purchased in two-gallon quantities), and eggs.",
+              "distance": 0.9613484690101207
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.96873141855447
+            },
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 0.9703312858200442
+            },
+            {
+              "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+              "distance": 0.9708644187982252
+            },
+            {
+              "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+              "distance": 0.9774204910118508
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels, dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.9892617891162053
+            }
+          ],
+          "latency_ms": 448.08865198865533,
+          "answer": "Low-quality coffee, strawberry-flavored yogurt, non-Organic Valley dairy products and eggs, non-organic berries, non-organic leafy greens, non-organic Gala apples, organic items other than berries, leafy greens, and Gala apples, snacks containing almonds or cashews, cilantro, mushy strawberries, and non-Kroger brand household essentials.",
+          "answer_input_tokens": 249,
+          "answer_output_tokens": 908,
+          "expected": [
+            "nut",
+            "cilantro",
+            "strawberry"
+          ],
+          "expected_found": [
+            "cilantro",
+            "strawberry"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "changes",
+          "query": "What preferences have changed recently?",
+          "retrieved": [
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.9112470908831508
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.9403308725384582
+            },
+            {
+              "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+              "distance": 0.9477086869565704
+            },
+            {
+              "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options.",
+              "distance": 0.9544203663893644
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels, dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.9643508331573711
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+              "distance": 0.9673842986365212
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners, but usually prepares vegetarian dinners on Fridays.",
+              "distance": 0.9676095340637523
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.9705682119643227
+            }
+          ],
+          "latency_ms": 386.8988719768822,
+          "answer": "The facts do not say what preferences have changed recently.",
+          "answer_input_tokens": 262,
+          "answer_output_tokens": 425,
+          "expected": [],
+          "expected_found": [],
+          "unwanted_found": []
+        },
+        {
+          "id": "health",
+          "query": "Does the user have any health conditions?",
+          "retrieved": [
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 0.9104358751087794
+            },
+            {
+              "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+              "distance": 0.9189927902686037
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas, bags of spinach, milk, bread, and yogurt for their weekly grocery pickup.",
+              "distance": 0.9261856805294552
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.9340754906065928
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners, but usually prepares vegetarian dinners on Fridays.",
+              "distance": 0.9351477040192739
+            },
+            {
+              "fact": "The user prefers Chobani brand Greek yogurt, specifically vanilla, and typically purchases it in a quantity of four.",
+              "distance": 0.93678459845961
+            },
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.9537209383135314
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.960497747765144
+            }
+          ],
+          "latency_ms": 302.05363198183477,
+          "answer": "The facts do not state that the user has any health conditions.",
+          "answer_input_tokens": 216,
+          "answer_output_tokens": 189,
+          "expected": [],
+          "expected_found": [],
+          "unwanted_found": []
+        }
+      ],
+      "extraction_tokens": {
+        "input": 88837,
+        "output": 50494
+      }
+    },
+    {
+      "round": 2,
+      "sessions": 18,
+      "customer_turns": 102,
+      "conversation_tokens": 4095,
+      "extraction_window": [
+        "2026-10-02T14:42:07Z",
+        "2026-10-02T15:35:12Z"
+      ],
+      "extraction_seconds": [
+        113.59307923301822,
+        943.6643995060003,
+        288.6875368870096,
+        155.4337306599482,
+        252.28617378597846,
+        154.0731227209908,
+        273.5595323800226,
+        17.873002768028527,
+        150.04356532997917,
+        3.068610575981438,
+        123.588176655001,
+        18.90847079496598,
+        282.098466327996,
+        20.529066060029436,
+        253.0951422850485,
+        16.801984252000693,
+        112.24496802402427,
+        4.792164089041762
+      ],
+      "extraction_retries": [
+        2,
+        2
+      ],
+      "generate_calls": 18,
+      "facts": [
+        {
+          "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+          "topics": [
+            "diet_and_meal_patterns"
+          ]
+        },
+        {
+          "fact": "The user prefers Kraft brand Macaroni & Cheese, specifically referring to it as \"the blue box kind\".",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+          "topics": [
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user aims to keep their weekly grocery budget around $175.",
+          "topics": [
+            "budget_and_value"
+          ]
+        },
+        {
+          "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+          "topics": [
+            "product_restrictions_and_dislikes",
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+          "topics": [
+            "product_restrictions_and_dislikes",
+            "household"
+          ]
+        },
+        {
+          "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Dave's Killer Bread 21 Whole Grains and Kroger brand whole wheat bread.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user regularly orders large eggs, bananas (preferring them still a little green), bags of spinach, Organic Valley 2% milk, bread, and Oikos Greek yogurt for their weekly grocery pickup.",
+          "topics": [
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options, and regularly purchases Private Selection Breakfast Blend coffee.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Kroger store brand for household essentials like paper towels (specifically preferring the 12-roll big pack), dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+          "topics": [
+            "brand_preferences",
+            "budget_and_value",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user's kids dislike strawberry-flavored yogurt.",
+          "topics": [
+            "product_restrictions_and_dislikes"
+          ]
+        },
+        {
+          "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+          "topics": [
+            "brand_preferences"
+          ]
+        },
+        {
+          "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+          "topics": [
+            "diet_and_meal_patterns"
+          ]
+        },
+        {
+          "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+          "topics": [
+            "product_restrictions_and_dislikes"
+          ]
+        },
+        {
+          "fact": "The user prefers and regularly purchases Rao's brand pasta sauce (specifically Rao's Homemade Marinara), even though it is more expensive.",
+          "topics": [
+            "brand_preferences",
+            "recurring_purchases"
+          ]
+        },
+        {
+          "fact": "The user prefers Organic Valley brand for organic milk, specifically choosing it for organic whole milk, though they have also used Horizon brand in the past. They currently order Organic Valley 2% milk in a two-gallon quantity (previously purchasing three gallons because their kids drink a lot of milk), and prefer Organic Valley brand for other dairy products and eggs.",
+          "topics": [
+            "brand_preferences",
+            "organic_and_quality"
+          ]
+        },
+        {
+          "fact": "The user has a son who plays soccer and drinks whole milk, and a daughter, shops for a household of four people, and shops for her children, including for their lunches, preferring to buy her son the large 24oz box of Tyson Fun Nuggets (dinosaur chicken nuggets).",
+          "topics": [
+            "household"
+          ]
+        }
+      ],
+      "memory_tokens": 613,
+      "queries": [
+        {
+          "id": "diet",
+          "query": "What do you know about this user's dietary preferences?",
+          "retrieved": [
+            {
+              "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+              "distance": 0.7931869281853606
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+              "distance": 0.7957946709700114
+            },
+            {
+              "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+              "distance": 0.8146401243258968
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.8147982591053301
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.8238498892877867
+            },
+            {
+              "fact": "The user has a son who plays soccer and drinks whole milk, and a daughter, shops for a household of four people, and shops for her children, including for their lunches, preferring to buy her son the large 24oz box of Tyson Fun Nuggets (dinosaur chicken nuggets).",
+              "distance": 0.8350862107914611
+            },
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 0.8369476062368733
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas (preferring them still a little green), bags of spinach, Organic Valley 2% milk, bread, and Oikos Greek yogurt for their weekly grocery pickup.",
+              "distance": 0.8414852689653826
+            }
+          ],
+          "latency_ms": 261.9248509872705,
+          "answer": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, and stopped preparing vegetarian dinners on Fridays. They prefer low-sodium options for food and pantry items. They buy organic for berries, leafy greens, and Gala apples, and conventional for other items. They prefer MorningStar Farms brand veggie burgers, Kellogg's Frosted Flakes, Oikos brand yogurt (no substitutions), Organic Valley 2% milk, and bananas that are still a little green.",
+          "answer_input_tokens": 317,
+          "answer_output_tokens": 1167,
+          "expected": [
+            "protein",
+            "mediterranean",
+            "sodium"
+          ],
+          "expected_found": [
+            "protein",
+            "mediterranean",
+            "sodium"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "brands",
+          "query": "What are this user's preferred grocery brands?",
+          "retrieved": [
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.7529852978941601
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas (preferring them still a little green), bags of spinach, Organic Valley 2% milk, bread, and Oikos Greek yogurt for their weekly grocery pickup.",
+              "distance": 0.7572171733865449
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.7751501368639341
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for organic milk, specifically choosing it for organic whole milk, though they have also used Horizon brand in the past. They currently order Organic Valley 2% milk in a two-gallon quantity (previously purchasing three gallons because their kids drink a lot of milk), and prefer Organic Valley brand for other dairy products and eggs.",
+              "distance": 0.777223472299571
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.7797566828488739
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels (specifically preferring the 12-roll big pack), dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.7800572254512086
+            },
+            {
+              "fact": "The user prefers MorningStar Farms brand veggie burgers.",
+              "distance": 0.7898412204479308
+            },
+            {
+              "fact": "The user prefers Dave's Killer Bread 21 Whole Grains and Kroger brand whole wheat bread.",
+              "distance": 0.7942033374228249
+            }
+          ],
+          "latency_ms": 375.98550197435543,
+          "answer": "Organic Valley, Kellogg's, Snyder's of Hanover, Nature Valley, Kroger (store brand), MorningStar Farms, Dave's Killer Bread.",
+          "answer_input_tokens": 337,
+          "answer_output_tokens": 331,
+          "expected": [
+            "rao",
+            "oikos",
+            "organic valley",
+            "private selection"
+          ],
+          "expected_found": [
+            "organic valley"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "yogurt",
+          "query": "What yogurt brand should the shopping assistant recommend?",
+          "retrieved": [
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 0.7709763024890154
+            },
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.8451532421880155
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas (preferring them still a little green), bags of spinach, Organic Valley 2% milk, bread, and Oikos Greek yogurt for their weekly grocery pickup.",
+              "distance": 0.8476375454715547
+            },
+            {
+              "fact": "The user prefers Organic Valley brand for organic milk, specifically choosing it for organic whole milk, though they have also used Horizon brand in the past. They currently order Organic Valley 2% milk in a two-gallon quantity (previously purchasing three gallons because their kids drink a lot of milk), and prefer Organic Valley brand for other dairy products and eggs.",
+              "distance": 0.8842734005533113
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+              "distance": 0.8858007981529955
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.8887039011120499
+            },
+            {
+              "fact": "The user prefers Kellogg's Frosted Flakes brand cereal.",
+              "distance": 0.895947097977054
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.9113619435523169
+            }
+          ],
+          "latency_ms": 276.88437403412536,
+          "answer": "Oikos.",
+          "answer_input_tokens": 333,
+          "answer_output_tokens": 323,
+          "expected": [
+            "oikos"
+          ],
+          "expected_found": [
+            "oikos"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "meal_plan",
+          "query": "What should I consider when creating a weekly meal plan?",
+          "retrieved": [
+            {
+              "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+              "distance": 0.9189555606412487
+            },
+            {
+              "fact": "The user aims to keep their weekly grocery budget around $175.",
+              "distance": 0.9479664206110735
+            },
+            {
+              "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+              "distance": 0.9790056109710844
+            },
+            {
+              "fact": "The user regularly orders large eggs, bananas (preferring them still a little green), bags of spinach, Organic Valley 2% milk, bread, and Oikos Greek yogurt for their weekly grocery pickup.",
+              "distance": 1.0150352526401105
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 1.0152538501710646
+            },
+            {
+              "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+              "distance": 1.0244721286197715
+            },
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 1.0468804658206192
+            },
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 1.052197661026467
+            }
+          ],
+          "latency_ms": 182.31390899745747,
+          "answer": "Consider: high-protein dinners and weekday lunches, Mediterranean meals, no vegetarian dinners on Fridays, low-sodium options, avoiding cilantro, and avoiding almonds/cashews due to a tree nut allergy. They shop for their family and aim for a $175 weekly budget.",
+          "answer_input_tokens": 286,
+          "answer_output_tokens": 307,
+          "expected": [
+            "protein",
+            "mediterranean",
+            "nut"
+          ],
+          "expected_found": [
+            "protein",
+            "mediterranean",
+            "nut"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "avoid",
+          "query": "What products should I avoid recommending?",
+          "retrieved": [
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.9604533146439735
+            },
+            {
+              "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options, and regularly purchases Private Selection Breakfast Blend coffee.",
+              "distance": 0.9640990561010707
+            },
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 0.9674122710953847
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.9687314800830235
+            },
+            {
+              "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+              "distance": 0.969907776341806
+            },
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 0.9703312551064898
+            },
+            {
+              "fact": "The user dislikes cilantro and wants to avoid it in all dishes.",
+              "distance": 0.9708643574048468
+            },
+            {
+              "fact": "The user prefers and regularly purchases Rao's brand pasta sauce (specifically Rao's Homemade Marinara), even though it is more expensive.",
+              "distance": 0.9764980447479065
+            }
+          ],
+          "latency_ms": 242.76399402879179,
+          "answer": "You should avoid recommending:\n*   Strawberry-flavored yogurt.\n*   Chobani brand yogurt.\n*   Conventional berries, leafy greens, and Gala apples.\n*   High-sodium chicken broth, canned black beans, soy sauce, saltine crackers, and soup.\n*   Snacks containing almonds or cashews.\n*   Dishes or products containing cilantro.",
+          "answer_input_tokens": 264,
+          "answer_output_tokens": 599,
+          "expected": [
+            "nut",
+            "cilantro",
+            "strawberry"
+          ],
+          "expected_found": [
+            "cilantro",
+            "strawberry"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "changes",
+          "query": "What preferences have changed recently?",
+          "retrieved": [
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.9112470908831508
+            },
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 0.9230605115944637
+            },
+            {
+              "fact": "The user prefers family-sized or family pack packaging for snack items like crackers, specifically preferring Snyder's of Hanover pretzels and Nature Valley brand granola bars in large or family-size packaging.",
+              "distance": 0.9403308725384582
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+              "distance": 0.9452120514773368
+            },
+            {
+              "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+              "distance": 0.9477087184032822
+            },
+            {
+              "fact": "The user prefers Kroger store brand for household essentials like paper towels (specifically preferring the 12-roll big pack), dish soap, trash bags, and all-purpose cleaner, and seeks out sales and promotions like buy-one-get-one-half-off deals.",
+              "distance": 0.9532087945843755
+            },
+            {
+              "fact": "The user shops for her husband, who is very particular about coffee and prefers high-quality or premium options, and regularly purchases Private Selection Breakfast Blend coffee.",
+              "distance": 0.9562818434655369
+            },
+            {
+              "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+              "distance": 0.9620329033108027
+            }
+          ],
+          "latency_ms": 243.16984601318836,
+          "answer": "The user changed from preferring Chobani vanilla Greek yogurt to Oikos brand. They also stopped preparing vegetarian dinners on Fridays.",
+          "answer_input_tokens": 331,
+          "answer_output_tokens": 284,
+          "expected": [
+            "oikos",
+            "mediterranean"
+          ],
+          "expected_found": [
+            "oikos"
+          ],
+          "unwanted_found": []
+        },
+        {
+          "id": "health",
+          "query": "Does the user have any health conditions?",
+          "retrieved": [
+            {
+              "fact": "The user prefers low-sodium options for food and pantry items, such as chicken broth, canned black beans, soy sauce, saltine crackers, and soup.",
+              "distance": 0.8830447946291254
+            },
+            {
+              "fact": "The user's son has a tree nut allergy, so the household must avoid snacks containing almonds or cashews.",
+              "distance": 0.9104358751087794
+            },
+            {
+              "fact": "The user dislikes mushy strawberries and prefers that fresh strawberries are carefully inspected for quality.",
+              "distance": 0.9189927902686037
+            },
+            {
+              "fact": "The user prefers high-protein meals for dinners and weekday lunches, focuses on Mediterranean meals, having stopped preparing vegetarian dinners on Fridays, and shops for their family.",
+              "distance": 0.9248499632631674
+            },
+            {
+              "fact": "The user prefers to buy organic specifically for berries, leafy greens, and Gala apples, and conventional for other items.",
+              "distance": 0.9340754906065928
+            },
+            {
+              "fact": "The user has a son who plays soccer and drinks whole milk, and a daughter, shops for a household of four people, and shops for her children, including for their lunches, preferring to buy her son the large 24oz box of Tyson Fun Nuggets (dinosaur chicken nuggets).",
+              "distance": 0.9504497065996657
+            },
+            {
+              "fact": "The user's kids dislike strawberry-flavored yogurt.",
+              "distance": 0.9537209383135314
+            },
+            {
+              "fact": "The user prefers Oikos brand yogurt over Chobani and specifies that no substitutions should be made for Oikos. Previously, they preferred Chobani vanilla Greek yogurt, typically purchasing a quantity of four.",
+              "distance": 0.959522632335931
+            }
+          ],
+          "latency_ms": 245.267697959207,
+          "answer": "The facts do not say.",
+          "answer_input_tokens": 300,
+          "answer_output_tokens": 487,
+          "expected": [],
+          "expected_found": [],
+          "unwanted_found": []
+        }
+      ],
+      "extraction_tokens": {
+        "input": 97527,
+        "output": 60814
+      }
+    }
+  ]
+}

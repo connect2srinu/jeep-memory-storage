@@ -1,0 +1,1036 @@
+[
+  {
+    "session": 1,
+    "beats": [
+      [
+        "IMPLICIT",
+        "assistant suggests Dave's Killer Bread as usual; she says 'no, the Simple Truth whole wheat this time' without explaining"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? I've pre-filled your cart with your usual Dave's Killer Bread. Sound good?"
+      },
+      {
+        "role": "user",
+        "text": "No, the Simple Truth whole wheat this time."
+      },
+      {
+        "role": "model",
+        "text": "Got it. Simple Truth Whole Wheat Bread added. What else can I get for you today?"
+      },
+      {
+        "role": "user",
+        "text": "We need more cereal. The kids want Frosted Flakes."
+      },
+      {
+        "role": "model",
+        "text": "Frosted Flakes, got it. For eggs, would you prefer the large white or the large brown?"
+      },
+      {
+        "role": "user",
+        "text": "The large white."
+      },
+      {
+        "role": "model",
+        "text": "Large white eggs added. Anything else on your list?"
+      },
+      {
+        "role": "user",
+        "text": "Did I get paper towels last week? I can't remember."
+      },
+      {
+        "role": "model",
+        "text": "You did not have paper towels in your last order. Would you like to add some now?"
+      },
+      {
+        "role": "user",
+        "text": "Yes, a 6-pack of Bounty please."
+      },
+      {
+        "role": "model",
+        "text": "Bounty 6-pack added to your cart. Your current total is $85.25. Ready to finalize for pickup?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good. Thanks!"
+      }
+    ]
+  },
+  {
+    "session": 2,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says they upped the weekly grocery budget to $200"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey, just so u know we upped our weekly grocery budget to $200 now"
+      },
+      {
+        "role": "model",
+        "text": "Got it, Maya! I'll keep that in mind as we build your cart this week. What's the first item we can add?"
+      },
+      {
+        "role": "user",
+        "text": "need milk. 2 gallons"
+      },
+      {
+        "role": "model",
+        "text": "Okay, for milk, we have Kroger brand 2% milk for $3.29/gallon or Organic Valley 2% milk for $6.99/gallon. Which would you prefer?"
+      },
+      {
+        "role": "user",
+        "text": "the Kroger brand"
+      },
+      {
+        "role": "model",
+        "text": "Adding 2 gallons of Kroger 2% milk to your cart. Anything else for dairy?"
+      },
+      {
+        "role": "user",
+        "text": "oh and my husband said to remind u he hates cilantro"
+      },
+      {
+        "role": "model",
+        "text": "Thanks for the heads-up, Maya! I'll make a note to avoid cilantro in any suggested items. What's next on your list?"
+      },
+      {
+        "role": "user",
+        "text": "add 3 lbs bananas"
+      },
+      {
+        "role": "model",
+        "text": "Got it. 3 lbs of bananas have been added. Your current subtotal is $10.16. Ready to review your cart or add more items?"
+      },
+      {
+        "role": "user",
+        "text": "just add 2 boxes of cereal, the honey nut kind. then im good"
+      },
+      {
+        "role": "model",
+        "text": "Okay, adding 2 boxes of Honey Nut Cheerios. Your current subtotal is $18.94. Your order is ready for review and checkout when you are. Pickup time options are available from 3 PM today."
+      }
+    ]
+  },
+  {
+    "session": 3,
+    "beats": [
+      [
+        "EXPLICIT",
+        "says she's trying to cut down on added sugar; asks for low-sugar cereal options"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, trying to cut down on added sugar for the kids. What are some good low-sugar cereal options?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Great goal. For lower added sugar, we have options like Cheerios Original, Kashi GO Lean, and Nature's Path Organic Corn Flakes. Any of those sound good?"
+      },
+      {
+        "role": "user",
+        "text": "Cheerios Original."
+      },
+      {
+        "role": "model",
+        "text": "Got it! One box of Cheerios Original added to your cart. What's next on your list?"
+      },
+      {
+        "role": "user",
+        "text": "Is the store busy today?"
+      },
+      {
+        "role": "model",
+        "text": "It's a pretty standard Tuesday afternoon, not too busy! What else can I help you find?"
+      },
+      {
+        "role": "user",
+        "text": "Add 2 gallons of 2% milk please."
+      },
+      {
+        "role": "model",
+        "text": "Two gallons of Kroger 2% Milk have been added. Anything else for your cart?"
+      },
+      {
+        "role": "user",
+        "text": "And a big bag of apples, like 3lb."
+      },
+      {
+        "role": "model",
+        "text": "Okay, a 3lb bag of Gala apples is now in your cart. Are we all set for today?"
+      },
+      {
+        "role": "user",
+        "text": "Yep, that's everything. Thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is complete and ready for pickup at your scheduled time. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 4,
+    "beats": [
+      [
+        "IMPLICIT",
+        "adds a 12-pack of LaCroix sparkling water"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, ready to start my order for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Great, let's get your pickup order going. What's the first item on your list today?"
+      },
+      {
+        "role": "user",
+        "text": "Need some sparkling water."
+      },
+      {
+        "role": "model",
+        "text": "Okay, for sparkling water, we have LaCroix Pamplemousse 12-pack, Waterloo Grapefruit 12-pack, or Bubly Lime 12-pack. Which one would you like?"
+      },
+      {
+        "role": "user",
+        "text": "LaCroix"
+      },
+      {
+        "role": "model",
+        "text": "Adding one LaCroix Pamplemousse 12-pack to your cart. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "Also, do you have those mini cucumbers?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, we have Persian mini cucumbers, 1lb bag. Adding those for you. What's next?"
+      },
+      {
+        "role": "user",
+        "text": "I need some organic milk for the kids, the gallon size."
+      },
+      {
+        "role": "model",
+        "text": "Got it. We have Organic Valley Whole Milk Gallon or Horizon Organic 2% Milk Gallon. Which one works best?"
+      },
+      {
+        "role": "user",
+        "text": "Organic Valley"
+      },
+      {
+        "role": "model",
+        "text": "One Organic Valley Whole Milk Gallon added to your cart. What else can I get for you?"
+      },
+      {
+        "role": "user",
+        "text": "That's it for now, can you check my cart total?"
+      },
+      {
+        "role": "model",
+        "text": "Your current estimated total is $62.75. Would you like to proceed to checkout or review your cart?"
+      }
+    ]
+  },
+  {
+    "session": 5,
+    "beats": [
+      [
+        "IMPLICIT",
+        "again picks Simple Truth whole wheat over Dave's Killer Bread"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? For bread, are you looking for Simple Truth Organic 100% Whole Wheat or Dave's Killer Bread 21 Whole Grains?"
+      },
+      {
+        "role": "user",
+        "text": "Simple Truth whole wheat please"
+      },
+      {
+        "role": "model",
+        "text": "Got it, adding Simple Truth Organic 100% Whole Wheat Bread to your cart. What's next on your list?"
+      },
+      {
+        "role": "user",
+        "text": "Need some fresh salmon for dinner tonight"
+      },
+      {
+        "role": "model",
+        "text": "Okay, I see we have fresh Atlantic Salmon fillets available. How much would you like for your family?"
+      },
+      {
+        "role": "user",
+        "text": "Do you guys have any good deals on berries this week?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, we've got strawberries on sale for $2.99 a pound and blueberries 2 for $6. Anything else I can add?"
+      },
+      {
+        "role": "user",
+        "text": "Add 2 gallons of Kroger brand milk"
+      },
+      {
+        "role": "model",
+        "text": "Adding 2 gallons of Kroger 2% Milk. Is that the right kind for you?"
+      },
+      {
+        "role": "user",
+        "text": "Yep 2% is good"
+      },
+      {
+        "role": "model",
+        "text": "Perfect! Your cart now includes Simple Truth bread, Atlantic Salmon, and 2 gallons of Kroger milk. Ready to check out, or anything else?"
+      },
+      {
+        "role": "user",
+        "text": "No that's it for now thanks!"
+      }
+    ]
+  },
+  {
+    "session": 6,
+    "beats": [
+      [
+        "NOISE",
+        "mentions she's been getting migraines and asks for snack ideas"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey, i've been getting migraines lately, any good snack ideas for the kids that aren't too sugary?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! I'm sorry to hear about your migraines. For kid-friendly, less sugary snacks, how about some fruit cups, string cheese, or whole-grain crackers with peanut butter?"
+      },
+      {
+        "role": "user",
+        "text": "fruit cups sound good. can you add 2 packs of the Del Monte mixed fruit?"
+      },
+      {
+        "role": "model",
+        "text": "Okay, adding 2 packs of Del Monte Mixed Fruit to your cart. Anything else for snacks?"
+      },
+      {
+        "role": "user",
+        "text": "and the string cheese, how many come in a pack?"
+      },
+      {
+        "role": "model",
+        "text": "Most of our string cheese packs come with 12 sticks. Would you like to add one of those?"
+      },
+      {
+        "role": "user",
+        "text": "yes, one pack is good."
+      },
+      {
+        "role": "model",
+        "text": "Got it, one pack of string cheese added. Is there anything else you need today?"
+      },
+      {
+        "role": "user",
+        "text": "can you just tell me what's in my cart right now?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly! Your cart currently contains: 2 Del Monte Mixed Fruit cups (4-pack), and 1 pack of Kroger String Cheese (12-count). Is that all correct?"
+      },
+      {
+        "role": "user",
+        "text": "yep, looks good. thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is ready for review and checkout. Let me know if you need anything else!"
+      }
+    ]
+  },
+  {
+    "session": 7,
+    "beats": [
+      [
+        "IMPLICIT",
+        "reorders Oikos yogurt and Organic Valley milk"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? I see you often get Oikos Triple Zero Greek Yogurt. Want to add a 4-pack of vanilla?"
+      },
+      {
+        "role": "user",
+        "text": "yes"
+      },
+      {
+        "role": "model",
+        "text": "Great! And for milk, I see you usually buy Organic Valley 2% Reduced Fat Milk. Should I add a half-gallon?"
+      },
+      {
+        "role": "user",
+        "text": "that one"
+      },
+      {
+        "role": "model",
+        "text": "Got it. What else can I add for you today?"
+      },
+      {
+        "role": "user",
+        "text": "my daughter wants those little fruit pouches, the apple ones"
+      },
+      {
+        "role": "model",
+        "text": "Okay, adding a 12-pack of Mott's Applesauce Pouches. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "did u guys get the new ice cream flavors in yet? my husband asked"
+      },
+      {
+        "role": "model",
+        "text": "We have several new ice cream flavors! I can check for specific ones if you tell me what he's looking for. For now, would you like 3 lbs of Gala apples?"
+      },
+      {
+        "role": "user",
+        "text": "yeah 3 lbs is good"
+      },
+      {
+        "role": "model",
+        "text": "Perfect. Your cart now includes the Oikos yogurt, Organic Valley milk, fruit pouches, and Gala apples. Anything else, or ready to review?"
+      },
+      {
+        "role": "user",
+        "text": "all set for now. thanks!"
+      }
+    ]
+  },
+  {
+    "session": 8,
+    "beats": [
+      [
+        "EXPLICIT",
+        "asks for Mediterranean, high-protein dinners for the week"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey can u help me plan dinners for the week? looking for mediterranean and high protein stuff"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Absolutely. How about we start with grilled chicken and veggie skewers, or maybe a lentil soup?"
+      },
+      {
+        "role": "user",
+        "text": "skewers sound good"
+      },
+      {
+        "role": "model",
+        "text": "Great! I've added ingredients for chicken and veggie skewers to your cart. Should I plan for 4 servings?"
+      },
+      {
+        "role": "user",
+        "text": "oh and can u add some bananas too"
+      },
+      {
+        "role": "model",
+        "text": "Sure, how many bunches of bananas?"
+      },
+      {
+        "role": "user",
+        "text": "2 bunches pls"
+      },
+      {
+        "role": "model",
+        "text": "Got it, 2 bunches of bananas added. For another high-protein Mediterranean dinner, how about sheet pan salmon with roasted veggies?"
+      },
+      {
+        "role": "user",
+        "text": "yes that sounds perfect. for 4 again"
+      },
+      {
+        "role": "model",
+        "text": "Perfect! Ingredients for sheet pan salmon for 4 are in your cart. Your current total is $78.50. Anything else for dinner?"
+      },
+      {
+        "role": "user",
+        "text": "no thats all for now thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is ready for pickup. Let me know if you need anything else!"
+      }
+    ]
+  },
+  {
+    "session": 9,
+    "beats": [
+      [
+        "NOISE",
+        "orders a turkey for 12 Thanksgiving guests"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hi can i add a turkey for thanksgiving? we'll have like 12 people"
+      },
+      {
+        "role": "model",
+        "text": "Certainly, Maya! For 12 guests, a turkey between 12-16 lbs is usually recommended. Do you have a preference for fresh or frozen, or a specific brand?"
+      },
+      {
+        "role": "user",
+        "text": "i need organic milk for the kids, whole milk please"
+      },
+      {
+        "role": "model",
+        "text": "Got it. We have Organic Valley, Horizon Organic, and Kroger brand organic whole milk. Which one would you like?"
+      },
+      {
+        "role": "user",
+        "text": "the Organic Valley"
+      },
+      {
+        "role": "model",
+        "text": "Adding one half-gallon of Organic Valley Organic Whole Milk to your cart. Is that correct?"
+      },
+      {
+        "role": "user",
+        "text": "oh and we're out of paper towels"
+      },
+      {
+        "role": "model",
+        "text": "No problem! How many rolls of paper towels would you like to add? Any specific brand or type?"
+      },
+      {
+        "role": "user",
+        "text": "add 2 boxes of cheerios"
+      },
+      {
+        "role": "model",
+        "text": "Adding 2 boxes of Original Cheerios, 12 oz each. Is that right?"
+      },
+      {
+        "role": "user",
+        "text": "ok that's everything for pickup tomorrow morning"
+      },
+      {
+        "role": "model",
+        "text": "Alright, your order is complete and scheduled for pickup tomorrow morning. I'll send a confirmation email shortly. Is there anything else I can help with?"
+      }
+    ]
+  },
+  {
+    "session": 10,
+    "beats": [
+      [
+        "IMPLICIT",
+        "adds LaCroix again"
+      ],
+      [
+        "IMPLICIT",
+        "picks family-size snack packs"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, starting my order for pickup."
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Happy to help. What can I add to your cart first?"
+      },
+      {
+        "role": "model",
+        "text": "I see you often buy LaCroix sparkling water. Would you like to add a 12-pack of assorted flavors to your cart today?"
+      },
+      {
+        "role": "user",
+        "text": "yes please"
+      },
+      {
+        "role": "user",
+        "text": "Do you have those mini cucumbers?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, we do! Adding a 1lb bag of mini cucumbers for you."
+      },
+      {
+        "role": "model",
+        "text": "For kids' snacks, we have individual fruit cups or a family-size variety pack of chips. Which would you prefer?"
+      },
+      {
+        "role": "user",
+        "text": "the family size variety pack"
+      },
+      {
+        "role": "user",
+        "text": "How many yogurts are in the 4-pack?"
+      },
+      {
+        "role": "model",
+        "text": "The 4-pack of yogurt contains four individual cups. Would you like to add it?"
+      },
+      {
+        "role": "user",
+        "text": "Ok I think that's everything. Can you check my cart total?"
+      },
+      {
+        "role": "model",
+        "text": "Your current cart total is $112.50. Shall I finalize your order for pickup?"
+      }
+    ]
+  },
+  {
+    "session": 11,
+    "beats": [
+      [
+        "IMPLICIT",
+        "picks low-sodium broth again"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? I see you usually get chicken broth. Do you want the regular or the low-sodium one this time?"
+      },
+      {
+        "role": "user",
+        "text": "low sodium pls"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Adding the low-sodium chicken broth to your cart. Anything else for dinner tonight?"
+      },
+      {
+        "role": "user",
+        "text": "yeah I need some ground beef for tacos, but it has to be lean"
+      },
+      {
+        "role": "model",
+        "text": "Okay, I'll look for 90/10 lean ground beef. How much do you need, 1 lb or 2?"
+      },
+      {
+        "role": "user",
+        "text": "just 1 lb. Oh and can you check if they have those mini cupcakes? My daughter loves them."
+      },
+      {
+        "role": "model",
+        "text": "Checking on the mini cupcakes now... Yes, they have the Kroger brand mini chocolate cupcakes in stock. Adding 1 pack to your cart. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "ok great. can you add 2 gallons of 2% milk?"
+      },
+      {
+        "role": "model",
+        "text": "Two gallons of 2% milk added. Your cart now has low-sodium chicken broth, 1lb lean ground beef, mini chocolate cupcakes, and two gallons of 2% milk. Anything else or are you ready to checkout?"
+      },
+      {
+        "role": "user",
+        "text": "looks good thanks!"
+      }
+    ]
+  },
+  {
+    "session": 12,
+    "beats": [
+      [
+        "EXPLICIT",
+        "reminds the assistant her son is allergic to tree nuts when choosing granola"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, can you add some granola to my cart? The kids like it."
+      },
+      {
+        "role": "model",
+        "text": "Sure! Do you have a favorite kind? We have several options."
+      },
+      {
+        "role": "user",
+        "text": "Oh yeah, important! My son is allergic to tree nuts so needs to be nut-free please."
+      },
+      {
+        "role": "model",
+        "text": "Got it, absolutely. Safety first! How about MadeGood Granola Minis (certified nut-free) or Nature Valley Oats 'n Honey?"
+      },
+      {
+        "role": "user",
+        "text": "MadeGood please."
+      },
+      {
+        "role": "model",
+        "text": "Great, adding one bag of MadeGood Granola Minis. How many bags would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Just one for now. Oh, and can you check if the organic milk is on sale?"
+      },
+      {
+        "role": "model",
+        "text": "Checking on the organic milk now... Yes, Organic Valley whole milk is 2 for $7 this week. Anything else for the cart?"
+      },
+      {
+        "role": "user",
+        "text": "Ok, add two of those milks. And a dozen large eggs."
+      },
+      {
+        "role": "model",
+        "text": "Got it, two Organic Valley whole milks and one dozen large eggs added. Your cart is updated. Anything else or are we ready to check out?"
+      }
+    ]
+  },
+  {
+    "session": 13,
+    "beats": [
+      [
+        "NOISE",
+        "complains Oikos was out of stock last week"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, last week the Oikos yogurt was out again. So annoying."
+      },
+      {
+        "role": "model",
+        "text": "Oh no, I'm sorry to hear that, Maya. I can check current stock for Oikos Triple Zero if you'd like, or suggest some alternatives."
+      },
+      {
+        "role": "user",
+        "text": "Can you add some milk?"
+      },
+      {
+        "role": "model",
+        "text": "Sure! What kind of milk would you like? We have whole, 2%, 1%, skim, and several organic options."
+      },
+      {
+        "role": "user",
+        "text": "The Organic Valley."
+      },
+      {
+        "role": "model",
+        "text": "Got it. Adding one half-gallon of Organic Valley 2% Milk to your cart. Is that the right size and type?"
+      },
+      {
+        "role": "user",
+        "text": "Yep. And 2 boxes of Cheerios."
+      },
+      {
+        "role": "model",
+        "text": "Okay, two boxes of Cheerios added. Anything else for your cereal aisle?"
+      },
+      {
+        "role": "user",
+        "text": "That's it for now. What's the total?"
+      },
+      {
+        "role": "model",
+        "text": "Your current cart total is $78.50. Your pickup is scheduled for tomorrow between 3-4 PM. Would you like to confirm your order?"
+      }
+    ]
+  },
+  {
+    "session": 14,
+    "beats": [
+      [
+        "TRANSACTION",
+        "reschedules pickup to 6 pm"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "hey can i change my pickup time to 6pm today?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Yes, I can definitely do that for you. Your pickup is now scheduled for 6:00 PM today. Is there anything else I can help with?"
+      },
+      {
+        "role": "user",
+        "text": "great. also can you add 2 more gallons of 2% milk?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly! I've added two additional gallons of 2% milk to your order. Your cart now has a total of three gallons of 2% milk. Anything else?"
+      },
+      {
+        "role": "user",
+        "text": "ok thanks. can you just confirm the bananas are in there?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, I can confirm that 3 lbs of bananas are in your cart. Is there a specific quantity you were looking for?"
+      },
+      {
+        "role": "user",
+        "text": "no thats fine. just making sure. my kids eat so many"
+      },
+      {
+        "role": "model",
+        "text": "Understood! Happy to make sure you're stocked up. Is there anything else you'd like to add or adjust before I finalize your order?"
+      },
+      {
+        "role": "user",
+        "text": "nope thats all for now. thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is all set for pickup at 6:00 PM. We'll send you a notification when it's ready. Have a great day!"
+      }
+    ]
+  },
+  {
+    "session": 15,
+    "beats": [
+      [
+        "IMPLICIT",
+        "picks Simple Truth whole wheat bread a third time"
+      ],
+      [
+        "IMPLICIT",
+        "reorders eggs, bananas and spinach"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! Ready to start your order? I see you often get bread. Should we add some today?"
+      },
+      {
+        "role": "user",
+        "text": "yeah bread"
+      },
+      {
+        "role": "model",
+        "text": "Great! We have Simple Truth 100% Whole Wheat, Oroweat Country White, or Sara Lee Classic 100% Whole Wheat. Which one works?"
+      },
+      {
+        "role": "user",
+        "text": "Simple Truth"
+      },
+      {
+        "role": "model",
+        "text": "Got it. Also, based on your last few orders, would you like to add a dozen large eggs, 3 lbs of bananas, and a bag of fresh spinach?"
+      },
+      {
+        "role": "user",
+        "text": "yes to all"
+      },
+      {
+        "role": "model",
+        "text": "Perfect! Anything else for the main list?"
+      },
+      {
+        "role": "user",
+        "text": "oh wait did I remember to grab my reusable bags from the car earlier?"
+      },
+      {
+        "role": "model",
+        "text": "I can't check your car, but I've added the bread, eggs, bananas, and spinach to your cart. How many gallons of milk do you need this week?"
+      },
+      {
+        "role": "user",
+        "text": "2 gallons whole milk"
+      },
+      {
+        "role": "model",
+        "text": "Okay, 2 gallons of whole milk added. Your cart now has bread, eggs, bananas, spinach, and milk. Anything else before I finalize?"
+      },
+      {
+        "role": "user",
+        "text": "looks good thanks!"
+      }
+    ]
+  },
+  {
+    "session": 16,
+    "beats": [
+      [
+        "IMPLICIT",
+        "picks the Kroger brand cleaning supplies"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Need some cleaning stuff"
+      },
+      {
+        "role": "model",
+        "text": "Okay! How about some Kroger brand all-purpose cleaner? It's on sale this week."
+      },
+      {
+        "role": "user",
+        "text": "Yeah that works"
+      },
+      {
+        "role": "model",
+        "text": "Great, adding one to your cart. What else can I help you with?"
+      },
+      {
+        "role": "user",
+        "text": "Also need milk. My kids only drink whole milk."
+      },
+      {
+        "role": "model",
+        "text": "Got it, whole milk. How many gallons would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Just one gallon for now. Oh, did you guys get those new cookies in yet?"
+      },
+      {
+        "role": "model",
+        "text": "We did! The new chocolate chip cookies are in stock. Would you like to add a pack to your order?"
+      },
+      {
+        "role": "user",
+        "text": "No thanks on the cookies. Can you check my cart total?"
+      },
+      {
+        "role": "model",
+        "text": "Certainly. Your current subtotal is $78.50. Anything else I can help you find?"
+      },
+      {
+        "role": "user",
+        "text": "Looks good. Just need some bananas, like 5 of them."
+      },
+      {
+        "role": "model",
+        "text": "Adding 5 bananas to your cart. Your new subtotal is $81.25. Ready to checkout, or anything else?"
+      }
+    ]
+  },
+  {
+    "session": 17,
+    "beats": [
+      [
+        "IMPLICIT",
+        "adds LaCroix and Private Selection coffee"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "model",
+        "text": "Hi Maya! I see you're starting your order. For sparkling water, would you prefer LaCroix or Bubly? And for coffee, Private Selection or Starbucks?"
+      },
+      {
+        "role": "user",
+        "text": "LaCroix and Private Selection please"
+      },
+      {
+        "role": "model",
+        "text": "Got it, LaCroix and Private Selection coffee added. What else is on your list today?"
+      },
+      {
+        "role": "user",
+        "text": "Need some quick dinner ideas for busy weeknights, something easy with chicken."
+      },
+      {
+        "role": "model",
+        "text": "Absolutely! How about a rotisserie chicken, a bag of salad, and some dinner rolls? Or we have some great frozen chicken stir-fry kits."
+      },
+      {
+        "role": "user",
+        "text": "Hmm, rotisserie sounds good. Oh, and did you guys get those new chocolate chip cookies in the bakery?"
+      },
+      {
+        "role": "model",
+        "text": "Yes, we just got a fresh batch of chocolate chip cookies in the bakery today! Would you like to add a pack? What else can I get for you?"
+      },
+      {
+        "role": "user",
+        "text": "Add 3 pounds of bananas."
+      },
+      {
+        "role": "model",
+        "text": "Okay, 3 lbs of bananas added to your cart. Anything else for your order today, or would you like to review your cart?"
+      },
+      {
+        "role": "user",
+        "text": "Just confirm my pickup time is still 4pm."
+      },
+      {
+        "role": "model",
+        "text": "Yes, your pickup time is confirmed for 4 PM today. Your total is currently $87.50. Let me know if you need anything else!"
+      }
+    ]
+  },
+  {
+    "session": 18,
+    "beats": [
+      [
+        "TRANSACTION",
+        "asks the price of avocados"
+      ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hey, how much are avocados right now?"
+      },
+      {
+        "role": "model",
+        "text": "Hi Maya! Hass Avocados are $1.29 each. We also have Organic Hass Avocados for $1.99 each."
+      },
+      {
+        "role": "user",
+        "text": "The organic ones then."
+      },
+      {
+        "role": "model",
+        "text": "Got it! Adding one Organic Hass Avocado to your cart. How many would you like?"
+      },
+      {
+        "role": "user",
+        "text": "Oh, and can you add a bag of those mini bell peppers too?"
+      },
+      {
+        "role": "model",
+        "text": "Sure thing! Adding Kroger Mini Sweet Peppers, 16 oz, to your cart. Anything else for those?"
+      },
+      {
+        "role": "user",
+        "text": "Just one bag of peppers. And can you double check I have 2 gallons of milk?"
+      },
+      {
+        "role": "model",
+        "text": "One bag of mini peppers added. And yes, your cart shows 2 gallons of Kroger 2% Reduced Fat Milk. Is that correct?"
+      },
+      {
+        "role": "user",
+        "text": "Perfect, thanks!"
+      },
+      {
+        "role": "model",
+        "text": "You're welcome, Maya! Your order is looking good for pickup. Let me know if you need anything else."
+      }
+    ]
+  }
+]
