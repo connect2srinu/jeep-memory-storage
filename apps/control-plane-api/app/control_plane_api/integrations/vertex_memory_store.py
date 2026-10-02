@@ -14,6 +14,7 @@ from control_plane_api.domain.memory import (
     MemoryProfileSchema,
     MemoryScope,
     NaturalMemory,
+    apply_list_op,
 )
 
 
@@ -213,6 +214,7 @@ class VertexMemoryBankStore:
         schema_id: str,
         attribute: str,
         value: object,
+        list_op: str | None = None,
     ) -> MemoryProfile:
         schema = self._require_schema_for_scope(schema_id, scope)
         if attribute not in schema.fields:
@@ -221,6 +223,9 @@ class VertexMemoryBankStore:
             memories = await asyncio.to_thread(self._client.retrieve, scope=self._scope(scope))
             overlays = self._explicit_overlays(scope, memories, (schema_id,))
             current = next((item for item in overlays if item.schema_id == schema_id), None)
+            if list_op:
+                existing = current.values.get(attribute) if current else None
+                value = apply_list_op(existing, str(value), list_op)
             version = (current.version if current else 0) + 1
             now = datetime.now(UTC)
             fact = json.dumps(

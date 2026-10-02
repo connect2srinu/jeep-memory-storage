@@ -257,7 +257,8 @@ class GuidedCustomPreference(AdminModel):
     attribute_id: str = Field(alias="attributeId", min_length=3)
     display_name: str = Field(alias="displayName", min_length=1)
     description: str = Field(min_length=1)
-    data_type: Literal["string", "boolean", "integer", "number"] = Field(alias="dataType")
+    # "list": a list of strings; each save adds (or removes) one item.
+    data_type: Literal["string", "boolean", "integer", "number", "list"] = Field(alias="dataType")
     allowed_values: list[Any] = Field(default_factory=list, alias="allowedValues")
     sensitivity: Literal["normal", "sensitive", "restricted"] = "normal"
     # For the HOUSEHOLD_MEMBERS scope, which tier this preference belongs to: shared by the whole

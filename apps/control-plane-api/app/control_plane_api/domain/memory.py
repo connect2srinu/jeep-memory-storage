@@ -102,3 +102,20 @@ class DynamicMemory:
     expires_at: datetime | None = None
     sensitivity: str | None = None
     source: str | None = None
+
+
+def apply_list_op(current: object, item: str, op: str) -> list[str]:
+    """Add or remove one item of a "list" attribute, ignoring case and duplicates.
+
+    Runs inside the store's write lock, so concurrent saves to the same list never drop an item.
+    """
+    items = [str(value) for value in current] if isinstance(current, list) else (
+        [str(current)] if current not in (None, "") else []
+    )
+    item = item.strip()
+    present = any(value.casefold() == item.casefold() for value in items)
+    if op == "add":
+        return items if present else [*items, item]
+    if op == "remove":
+        return [value for value in items if value.casefold() != item.casefold()]
+    raise ValueError(f"unknown list operation {op!r}")

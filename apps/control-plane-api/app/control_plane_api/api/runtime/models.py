@@ -59,6 +59,8 @@ class WritablePreference(ApiModel):
     description: str | None = None
     # Health data: stricter matching, a confirmation turn, and a consent record.
     health: bool = False
+    # "list" attributes hold several values; each save adds (or, with remove, removes) one.
+    data_type: str | None = Field(default=None, alias="dataType")
 
 
 class HouseholdMemberModel(ApiModel):
@@ -134,6 +136,8 @@ class ExplicitPreferenceUpdate(ApiModel):
     relationship: str | None = Field(default=None, min_length=1)
     # True only after the user answered yes to the platform's confirmationPrompt.
     confirmed: bool = False
+    # For a "list" attribute: remove the value from the list instead of adding it.
+    remove: bool = False
 
 
 class HouseholdMemberAddRequest(ApiModel):

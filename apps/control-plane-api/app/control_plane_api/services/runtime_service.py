@@ -150,6 +150,32 @@ def _screen_memory_write(
     return tier
 
 
+_BOOLEANS = {"true": True, "yes": True, "false": False, "no": False}
+
+
+def _coerce_value(value: object, data_type: str | None, label: str) -> object:
+    """Store boolean, integer and number attributes as JSON types, not the text an agent sends."""
+    if data_type == "boolean":
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in _BOOLEANS:
+            return _BOOLEANS[value.strip().lower()]
+        raise ValueError(f"{label} must be true or false")
+    if data_type in ("integer", "number"):
+        if isinstance(value, str):
+            try:
+                value = float(value.strip().lstrip("$").replace(",", ""))
+            except ValueError:
+                raise ValueError(f"{label} must be a {data_type}") from None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{label} must be a {data_type}")
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        if data_type == "integer" and isinstance(value, float):
+            raise ValueError(f"{label} must be a whole number")
+    return value
+
+
 def _log_flow_step(step: str, **fields: object) -> None:
     logger.info(
         json.dumps(
@@ -447,6 +473,7 @@ class RuntimeMemoryService:
                         level=level,
                         description=grant.attribute_descriptions.get(attribute),
                         health=attribute in grant.health_attributes,
+                        data_type=grant.attribute_data_types.get(attribute),
                     )
                 )
         household_members: tuple[HouseholdMemberModel, ...] = ()
@@ -853,6 +880,18 @@ class RuntimeMemoryService:
             delegated=grant.domain_id != agent.domain_id,
         )
         self._require_delegated_write_rules(agent, grant, canonical, request.source)
+        list_op: str | None = None
+        value = _coerce_value(
+            request.value, grant.attribute_data_types.get(canonical), f"attribute {attribute!r}"
+        )
+        if grant.attribute_data_types.get(canonical) == "list":
+            if not isinstance(request.value, str) or not request.value.strip():
+                raise ValueError(f"attribute {attribute!r} is a list; save one value at a time")
+            list_op = "remove" if request.remove else "add"
+        elif request.remove:
+            raise ValueError(
+                f"attribute {attribute!r} is not a list; use forget to delete its value"
+            )
         sensitivity = _screen_memory_write(
             request.value,
             declared=grant.attribute_sensitivity.get(canonical),
@@ -896,7 +935,8 @@ class RuntimeMemoryService:
             write_scope,
             schema_id=grant.schema_id,
             attribute=profile_field,
-            value=request.value,
+            value=value,
+            list_op=list_op,
         )
         _log_memory_write(
             tier="canonical",

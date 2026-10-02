@@ -240,11 +240,14 @@ class ControlPlaneApiClient:
         relationship: str | None = None,
         confirmed: bool = False,
         correlation_id: str | None = None,
+        remove: bool = False,
     ) -> RuntimeMutation:
         body: dict[str, Any] = {
             "scope": self._scope(user_id, app_name, consumer_domain, member_id),
             "value": value,
         }
+        if remove:
+            body["remove"] = True
         if schema_id is not None:
             body["schemaId"] = schema_id
         if member_name:

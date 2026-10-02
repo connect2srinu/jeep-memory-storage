@@ -13,6 +13,7 @@ from control_plane_api.domain.memory import (
     MemoryProfileSchema,
     MemoryScope,
     NaturalMemory,
+    apply_list_op,
 )
 
 
@@ -89,8 +90,13 @@ class MockMemoryStore:
         schema_id: str,
         attribute: str,
         value: object,
+        list_op: str | None = None,
     ) -> MemoryProfile:
         async with self._lock:
+            if list_op:
+                current = self._profiles.get((scope.identity, schema_id))
+                existing = current.values.get(attribute) if current else None
+                value = apply_list_op(existing, str(value), list_op)
             return self._write_unlocked(
                 scope,
                 schema_id=schema_id,

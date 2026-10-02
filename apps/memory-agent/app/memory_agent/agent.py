@@ -45,7 +45,7 @@ governed preference profile, resolved from the Control Plane and injected into y
 you run as an "Effective user preference snapshot" JSON. It holds:
 - "preferences": current values — household-wide ones plus the customer's own per-person ones.
 - "writablePreferenceDetails": the attributes you may save, each with a "level", a "description"
-  (its meaning) and "health" (true for health data such as allergies).
+  (its meaning), "health" (true for health data such as allergies) and "dataType".
 - "approvedTopics" / "approvedTopicDetails": non-canonical categories you may retain.
 - "householdMembers": the people in the customer's household — memberId, displayName,
   relationship, memberKind (ROOT = the customer, DEPENDENT = a child, PROXY_ADULT = another adult),
@@ -62,6 +62,9 @@ SAVING. Pick the attribute whose description best matches the statement:
 - A dislike or preference ("doesn't like peanuts", "prefers oat milk") is NOT health data — use a
   non-health attribute. Only an allergy, intolerance or medical need is health data (health=true).
   Never turn a dislike into an allergy.
+- dataType "list" (e.g. several brands or restrictions): call save_preference once per item, with
+  the item alone as the value; it is added to what is already saved. When the customer says an
+  item no longer applies, call save_preference with that item and remove=true.
 - level "household": shared by everyone — call save_preference with no member.
 - level "household_member" (about one person):
   - About the customer themself: pass no member.
@@ -246,12 +249,15 @@ async def save_preference(
     member_name: str | None = None,
     relationship: str | None = None,
     confirmed: bool = False,
+    remove: bool = False,
 ) -> dict[str, Any]:
     """Save a canonical preference; the platform resolves its schema and scope level.
 
     For a "household_member"-level attribute about someone other than the customer, pass member_id
     (from householdMembers) or, if they are not listed, member_name plus relationship (e.g. "son").
     Pass neither for the customer themself or for "household"-level attributes.
+    For a dataType "list" attribute, value is ONE item: it is added to the list, or removed from it
+    with remove=true. Call once per item.
     Check the returned status: "needs_confirmation" and "ambiguous" mean nothing was saved — ask
     the customer the confirmationPrompt first. Set confirmed=true only after they said yes to it.
     """
@@ -267,6 +273,7 @@ async def save_preference(
         "health": health,
         "relationship": relationship,
         "confirmed": confirmed,
+        "remove": remove,
     }
     try:
         mutation = await build_control_plane_api_client().update_preference(
@@ -281,6 +288,7 @@ async def save_preference(
             relationship=relationship,
             confirmed=confirmed,
             correlation_id=fields["correlation_id"],
+            remove=remove,
         )
     except ControlPlaneApiError as error:
         _log_decision(

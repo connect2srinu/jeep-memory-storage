@@ -621,11 +621,22 @@ class GuidedMemorySetupService:
         schema_id = tier["schema_id"]
         owned_preferences = tier["specs"]
         properties = {
-            item["attributeId"].rsplit(".", 1)[-1]: {
-                "type": self._json_type(item["dataType"]),
-                "description": item["description"],
-                **({"enum": item["allowedValues"]} if item["allowedValues"] else {}),
-            }
+            item["attributeId"].rsplit(".", 1)[-1]: (
+                {
+                    "type": "array",
+                    "description": item["description"],
+                    "items": {
+                        "type": "string",
+                        **({"enum": item["allowedValues"]} if item["allowedValues"] else {}),
+                    },
+                }
+                if item["dataType"] == "list"
+                else {
+                    "type": self._json_type(item["dataType"]),
+                    "description": item["description"],
+                    **({"enum": item["allowedValues"]} if item["allowedValues"] else {}),
+                }
+            )
             for item in owned_preferences
         }
         schema_fields = set(properties)

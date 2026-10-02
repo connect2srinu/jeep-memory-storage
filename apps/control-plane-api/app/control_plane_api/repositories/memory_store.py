@@ -34,7 +34,10 @@ class MemoryStore(Protocol):
         schema_id: str,
         attribute: str,
         value: object,
-    ) -> MemoryProfile: ...
+        list_op: str | None = None,
+    ) -> MemoryProfile:
+        """Set the value, or with list_op ("add"/"remove") change one item of a list value."""
+        ...
 
     async def write_dynamic_memory(
         self,
